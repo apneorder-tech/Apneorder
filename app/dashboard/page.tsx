@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { jsPDF } from "jspdf";
 import {
   BarChart3,
   LayoutDashboard,
@@ -24,8 +25,8 @@ import {
   Check,
   AlertTriangle,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -97,6 +98,12 @@ interface ManageCategory {
   menuItems: ManageMenuItem[];
 }
 
+interface ManageTable {
+  id: string;
+  tableNumber: string;
+  qrCodeUrl: string;
+}
+
 // ─── Constants ───
 const ORDER_STATUS_CONFIG = {
   pending: {
@@ -139,6 +146,7 @@ const ORDER_STATUS_CONFIG = {
 const NAV_ITEMS = [
   { id: "orders" as const, icon: LayoutDashboard, label: "Orders" },
   { id: "menu" as const, icon: UtensilsCrossed, label: "Menu" },
+  { id: "tables" as const, icon: QrCode, label: "Tables & QR" },
   { id: "analytics" as const, icon: BarChart3, label: "Analytics" },
   { id: "settings" as const, icon: Settings, label: "Settings" },
 ];
@@ -454,7 +462,7 @@ function SidebarContent({
   restaurantName,
 }: {
   activeView: string;
-  setActiveView: (v: "orders" | "menu") => void;
+  setActiveView: (v: "orders" | "menu" | "tables") => void;
   restaurantName: string;
 }) {
   return (
@@ -475,7 +483,7 @@ function SidebarContent({
           <button
             key={item.id}
             onClick={() =>
-              (item.id === "orders" || item.id === "menu") &&
+              (item.id === "orders" || item.id === "menu" || item.id === "tables") &&
               setActiveView(item.id)
             }
             className={cn(
@@ -521,8 +529,10 @@ export default function DashboardPage() {
     tablesFilled: "0/0",
     activeOrdersCount: 0,
   });
-  const [activeView, setActiveView] = useState<"orders" | "menu">("orders");
+  const [activeView, setActiveView] = useState<"orders" | "menu" | "tables">("orders");
   const [menuCategories, setMenuCategories] = useState<ManageCategory[]>([]);
+  const [tables, setTables] = useState<ManageTable[]>([]);
+  const [isAddingTable, setIsAddingTable] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -596,6 +606,7 @@ export default function DashboardPage() {
       const data = await res.json();
 
       if (data.success) {
+        if (data.tables) setTables(data.tables);
         const statusRes = await fetch(`/api/onboarding/status?managerId=${uid}`);
         const statusData = await statusRes.json();
 
@@ -860,7 +871,7 @@ export default function DashboardPage() {
             );
             const itemData = await itemRes.json();
             if (itemData.success) finalCategory.menuItems = [itemData.item];
-          } catch {}
+          } catch { }
         }
         setMenuCategories((prev) => [...prev, finalCategory]);
         setNewCategoryName("");
@@ -933,6 +944,104 @@ export default function DashboardPage() {
     );
 
   // ─── Render ───
+  const handleAddTable = async () => {
+    if (!restaurantId || isAddingTable) return;
+    setIsAddingTable(true);
+    try {
+      const res = await fetch("/api/tables/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTables([...tables, data.table]);
+        // Update stats
+        const [active, total] = dashboardStats.tablesFilled.split("/").map(Number);
+        setDashboardStats({
+          ...dashboardStats,
+          tablesFilled: `${active}/${total + 1}`
+        });
+        toast.success(`Table ${data.table.tableNumber} added!`);
+      }
+    } catch (error) {
+      console.error("Add Table Error:", error);
+      toast.error("Failed to add table");
+    } finally {
+      setIsAddingTable(false);
+    }
+  };
+
+  const downloadQR = (table: ManageTable) => {
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    // Add Branding
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.text(restaurantName.toUpperCase(), 105, 40, { align: "center" });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(100);
+    doc.text("SCAN TO ORDER", 105, 55, { align: "center" });
+
+    // Add QR Code
+    import('qrcode').then(QRCode => {
+      QRCode.toDataURL(table.qrCodeUrl, { margin: 1, width: 1000 }).then(url => {
+        doc.addImage(url, "PNG", 55, 70, 100, 100);
+        
+        doc.setFontSize(24);
+        doc.setTextColor(0);
+        doc.text(`TABLE ${table.tableNumber}`, 105, 185, { align: "center" });
+
+        doc.setFontSize(10);
+        doc.setTextColor(150);
+        doc.text("Powered by Apneorder", 105, 280, { align: "center" });
+        
+        doc.save(`${restaurantName.replace(/\s+/g, '_')}_Table_${table.tableNumber}.pdf`);
+      });
+    });
+  };
+
+  const downloadAllQRs = async () => {
+      const doc = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4",
+      });
+
+      const QRCode = await import('qrcode');
+
+      for (let i = 0; i < tables.length; i++) {
+          const table = tables[i];
+          if (i > 0) doc.addPage();
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(28);
+          doc.text(restaurantName.toUpperCase(), 105, 40, { align: "center" });
+          
+          doc.setFontSize(16);
+          doc.setTextColor(100);
+          doc.text("SCAN TO ORDER", 105, 55, { align: "center" });
+
+          const url = await QRCode.toDataURL(table.qrCodeUrl, { margin: 1, width: 1000 });
+          doc.addImage(url, "PNG", 55, 70, 100, 100);
+          
+          doc.setFontSize(24);
+          doc.setTextColor(0);
+          doc.text(`TABLE ${table.tableNumber}`, 105, 185, { align: "center" });
+
+          doc.setFontSize(10);
+          doc.setTextColor(150);
+          doc.text("Powered by Apneorder", 105, 280, { align: "center" });
+      }
+
+      doc.save(`${restaurantName.replace(/\s+/g, '_')}_All_Tables.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] flex font-sans">
       {/* ─── Desktop Sidebar ─── */}
@@ -975,18 +1084,30 @@ export default function DashboardPage() {
               </Button>
               <div className="min-w-0">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-zinc-900 tracking-tight truncate">
-                  {activeView === "orders" ? "Orders" : "Menu"}
+                  {activeView === "orders" ? "Orders" : activeView === "menu" ? "Menu" : "Tables"}
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 font-medium hidden sm:block">
                   {activeView === "orders"
                     ? "Manage orders in real-time"
-                    : "Update your digital menu"}
+                    : activeView === "menu"
+                    ? "Update your digital menu"
+                    : "Manage your restaurant tables"}
                 </p>
               </div>
             </div>
 
             {/* Right actions */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {activeView === "tables" && (
+                <Button
+                  onClick={downloadAllQRs}
+                  variant="outline"
+                  className="hidden md:flex gap-2"
+                >
+                  <QrCode size={16} />
+                  Download All PDFs
+                </Button>
+              )}
               {activeView === "menu" ? (
                 <>
                   <Button
@@ -1230,21 +1351,109 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+
+          {/* ─── TABLES VIEW ─── */}
+          {activeView === "tables" && (
+            <div className="space-y-6 lg:space-y-8 pb-10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-black text-zinc-900 tracking-tight uppercase">Tables & QR Codes</h2>
+                  <p className="text-sm text-zinc-400 font-medium">Manage your physical layout and generate digital menus</p>
+                </div>
+                <Button 
+                    onClick={handleAddTable} 
+                    disabled={isAddingTable}
+                    className="bg-zinc-900 rounded-xl h-12 px-6 font-bold"
+                >
+                  {isAddingTable ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>
+                      <Plus size={18} className="mr-2" />
+                      Add New Table
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {tables.map((table) => (
+                  <Card key={table.id} className="overflow-hidden border-zinc-100 shadow-sm hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-300 group">
+                    <CardContent className="p-6 flex flex-col items-center gap-6">
+                      <div className="w-full flex justify-between items-center">
+                        <div className="px-3 py-1 bg-zinc-100 rounded-full text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                          Table {table.tableNumber}
+                        </div>
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                      </div>
+                      
+                      <div className="relative group/qr">
+                        <div className="w-32 h-32 bg-white flex items-center justify-center border border-zinc-100 rounded-2xl overflow-hidden group-hover/qr:scale-105 transition-transform duration-500 shadow-sm">
+                           <img 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(table.qrCodeUrl)}`} 
+                            alt={`QR for Table ${table.tableNumber}`} 
+                           />
+                        </div>
+                        <div className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover/qr:opacity-100 flex items-center justify-center transition-opacity duration-300 backdrop-blur-[2px]">
+                            <p className="text-white text-[10px] font-black uppercase tracking-widest">Digital Menu</p>
+                        </div>
+                      </div>
+
+                      <div className="w-full grid grid-cols-2 gap-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-10 rounded-xl font-bold text-[10px] uppercase tracking-wider"
+                            onClick={() => window.open(table.qrCodeUrl, '_blank')}
+                        >
+                          Visit
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-10 rounded-xl font-bold text-[10px] uppercase tracking-wider bg-zinc-50 border-zinc-100 hover:bg-zinc-900 hover:text-white group"
+                            onClick={() => downloadQR(table)}
+                        >
+                          PDF
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {tables.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-zinc-200 text-center">
+                  <div className="w-16 h-16 bg-zinc-50 rounded-2xl flex items-center justify-center mb-4">
+                    <LayoutDashboard size={24} className="text-zinc-200" />
+                  </div>
+                  <p className="text-zinc-400 font-bold text-sm">No tables set up yet</p>
+                  <Button 
+                    onClick={handleAddTable} 
+                    variant="link" 
+                    className="text-zinc-900 font-bold mt-2"
+                  >
+                    Add your first table
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
       {/* ─── Mobile Bottom Nav ─── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-100 px-2 pb-safe z-40">
         <div className="flex items-center justify-around py-2">
-          {NAV_ITEMS.slice(0, 4).map((item) => (
+          {NAV_ITEMS.slice(0, 3).map((item) => (
             <button
               key={item.id}
               onClick={() =>
-                (item.id === "orders" || item.id === "menu") &&
+                (item.id === "orders" || item.id === "menu" || item.id === "tables") &&
                 setActiveView(item.id)
               }
               className={cn(
-                "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px]",
+                "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] relative",
                 activeView === item.id
                   ? "text-zinc-900"
                   : "text-zinc-400"
@@ -1258,7 +1467,7 @@ export default function DashboardPage() {
               {activeView === item.id && (
                 <motion.div
                   layoutId="bottomNav"
-                  className="absolute bottom-0 w-8 h-0.5 bg-zinc-900 rounded-full"
+                  className="absolute bottom-[-8px] w-8 h-1 bg-zinc-900 rounded-full"
                 />
               )}
             </button>
@@ -1500,119 +1709,149 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ─── Preview Modal ─── */}
-      <Dialog open={isShowingPreview} onOpenChange={setIsShowingPreview}>
-        <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden">
-          <div className="flex flex-col lg:flex-row h-full">
-            {/* Info Panel */}
-            <div className="lg:w-2/5 bg-zinc-900 p-6 sm:p-8 lg:p-10 flex flex-col justify-between text-white">
-              <div className="space-y-6">
-                <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-zinc-900">
-                  <QrCode size={24} />
-                </div>
-                <div className="space-y-3">
-                  <h2 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight">
-                    Live Preview
-                  </h2>
-                  <p className="text-zinc-400 text-sm leading-relaxed">
-                    This is exactly what your customers see when they scan your
-                    QR code. Changes reflect instantly.
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-4 mt-6 lg:mt-0">
-                <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="font-bold text-sm">Live & Syncing</span>
-                </div>
-                <DialogClose asChild>
-                  <Button className="w-full h-11 rounded-xl bg-white text-zinc-900 font-bold hover:bg-zinc-100">
-                    Close Preview
-                  </Button>
-                </DialogClose>
-              </div>
+      {/* ─── Minimal Mobile-First Preview ─── */}
+      <AnimatePresence>
+        {isShowingPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-white/80 backdrop-blur-xl flex items-center justify-center p-0 lg:p-10"
+          >
+            {/* Desktop Background elements - subtle and light */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none hidden lg:block">
+              <div className="absolute top-[10%] left-[10%] w-[30%] h-[30%] bg-zinc-100 rounded-full blur-[120px]" />
+              <div className="absolute bottom-[10%] right-[10%] w-[25%] h-[25%] bg-zinc-50 rounded-full blur-[100px]" />
             </div>
 
-            {/* Phone Mockup */}
-            <div className="flex-1 flex items-center justify-center bg-zinc-100 p-6 sm:p-10 overflow-auto">
-              <div className="w-full max-w-[340px] bg-black rounded-[40px] p-2.5 shadow-2xl">
-                <div className="w-full bg-white rounded-[32px] overflow-auto max-h-[600px]">
-                  {/* Status Bar */}
-                  <div className="sticky top-0 bg-white z-10 h-8 flex justify-between items-center px-6">
-                    <span className="text-[10px] font-bold">9:41</span>
-                    <div className="flex gap-1">
-                      <div className="w-2.5 h-2.5 rounded-full border border-black/20" />
-                      <div className="w-2.5 h-2.5 rounded-full border border-black/20" />
-                    </div>
-                  </div>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-[420px] h-full lg:h-[820px] bg-black rounded-none lg:rounded-[60px] shadow-[0_40px_100px_rgba(0,0,0,0.15)] flex flex-col p-2 lg:p-4 border-0 lg:border-[12px] border-zinc-900 overflow-hidden"
+            >
+              {/* Phone "Notch" detail for desktop */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-7 bg-zinc-900 rounded-b-2xl hidden lg:block z-50 overflow-hidden">
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-zinc-800 rounded-full" />
+              </div>
 
-                  {/* Menu Content */}
-                  <div className="p-5 space-y-6">
-                    <div>
-                      <h3 className="text-xl font-black tracking-tight">
-                        Menu
-                      </h3>
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
-                        {restaurantName}
-                      </p>
-                    </div>
+              {/* Header with "Live" status */}
+              <div className="absolute top-[44px] lg:top-[50px] left-0 w-full px-8 flex justify-between items-center z-50">
+                <div className="flex items-center gap-2 px-3 py-1 bg-white/80 backdrop-blur-md rounded-full border border-zinc-100 shadow-sm">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Live Preview</span>
+                </div>
+                
+                {/* Close for mobile - integrated in header */}
+                <button 
+                  onClick={() => setIsShowingPreview(false)}
+                  className="lg:hidden w-8 h-8 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-900"
+                >
+                  <X size={16} />
+                </button>
+              </div>
 
+              <div className="w-full h-full bg-white rounded-none lg:rounded-[44px] overflow-auto hide-scrollbar relative pt-16">
+                {/* Menu Content */}
+                <div className="p-8 space-y-12 pb-24">
+                  <header className="space-y-4">
+                    <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center text-white shadow-xl">
+                      <QrCode size={28} />
+                    </div>
+                    <div className="space-y-1">
+                      <h3 className="text-4xl font-black tracking-tighter uppercase leading-none">{restaurantName}</h3>
+                      <p className="text-xs font-bold text-zinc-400 uppercase tracking-[0.3em]">Menu Selection</p>
+                    </div>
+                  </header>
+
+                  <div className="space-y-12">
                     {menuCategories.map((cat) => (
-                      <div key={cat.id} className="space-y-3">
-                        <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                          {cat.name}
-                        </h4>
-                        <div className="space-y-2">
+                      <section key={cat.id} className="space-y-8">
+                        <div className="flex items-center gap-4">
+                          <h4 className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.25em] whitespace-nowrap">
+                            {cat.name}
+                          </h4>
+                          <div className="h-[1px] w-full bg-zinc-100" />
+                        </div>
+                        
+                        <div className="grid gap-6">
                           {cat.menuItems.map((item) => (
                             <div
                               key={item.id}
-                              className="p-3 bg-zinc-50 rounded-xl flex justify-between items-center border border-zinc-100"
+                              className="group relative flex flex-col gap-2 p-0 transition-all"
                             >
-                              <div className="space-y-0.5 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <div
-                                    className={cn(
-                                      "w-1.5 h-1.5 rounded-full shrink-0",
-                                      item.type === "veg"
-                                        ? "bg-green-500"
-                                        : "bg-red-500"
-                                    )}
-                                  />
-                                  <p
-                                    className={cn(
-                                      "text-xs font-bold truncate",
-                                      !item.isAvailable &&
-                                        "text-zinc-400 line-through"
-                                    )}
-                                  >
-                                    {item.name}
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="space-y-1.5 flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={cn(
+                                        "w-2 h-2 rounded-full shrink-0 shadow-sm",
+                                        item.type === "veg"
+                                          ? "bg-green-500"
+                                          : "bg-red-500"
+                                      )}
+                                    />
+                                    <h5
+                                      className={cn(
+                                        "text-lg font-bold tracking-tight text-zinc-900",
+                                        !item.isAvailable &&
+                                        "text-zinc-400 line-through opacity-50"
+                                      )}
+                                    >
+                                      {item.name}
+                                    </h5>
+                                  </div>
+                                  <p className="text-sm font-black text-zinc-950">
+                                    ₹{item.price}
                                   </p>
                                 </div>
-                                <p className="text-[10px] font-bold text-zinc-400">
-                                  ₹{item.price}
-                                </p>
+                                {!item.isAvailable ? (
+                                  <span className="px-3 py-1 bg-zinc-100 rounded-full text-[9px] font-black text-zinc-500 uppercase tracking-tighter">Sold Out</span>
+                                ) : (
+                                  <button className="w-11 h-11 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center text-zinc-900 shadow-sm hover:bg-zinc-900 hover:text-white transition-all active:scale-95">
+                                    <Plus size={18} />
+                                  </button>
+                                )}
                               </div>
-                              {!item.isAvailable ? (
-                                <span className="px-2 py-0.5 bg-zinc-200 rounded text-[8px] font-bold text-zinc-500 uppercase shrink-0">
-                                  Sold Out
-                                </span>
-                              ) : (
-                                <div className="w-7 h-7 rounded-full bg-white border border-zinc-200 flex items-center justify-center shadow-sm shrink-0">
-                                  <Plus size={12} />
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </section>
                     ))}
                   </div>
                 </div>
+
+                {/* Fixed "Customer View" footer */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[80%] p-4 bg-zinc-900 text-white rounded-[24px] flex items-center justify-between shadow-2xl z-20">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Cart Total</span>
+                    <span className="text-sm font-black italic tracking-tighter">₹0.00</span>
+                  </div>
+                  <Button className="h-10 bg-white text-zinc-900 rounded-xl px-6 font-black text-[10px] uppercase tracking-widest hover:bg-zinc-100 transition-all">
+                    View Cart
+                  </Button>
+                </div>
               </div>
+            </motion.div>
+
+            {/* Desktop "Close" floating button */}
+            <button 
+              onClick={() => setIsShowingPreview(false)}
+              className="absolute top-10 right-10 hidden lg:flex w-16 h-16 bg-white rounded-3xl items-center justify-center text-zinc-900 border border-zinc-200 shadow-2xl hover:bg-zinc-50 hover:scale-110 active:scale-95 transition-all z-50 group"
+            >
+              <X size={24} className="group-hover:rotate-90 transition-transform duration-300" />
+            </button>
+
+            {/* Hint for the user */}
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 hidden lg:flex flex-col items-center gap-3">
+              <div className="px-6 py-3 bg-zinc-900 text-white rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl">
+                Mockup Preview
+              </div>
+              <p className="text-zinc-400 text-xs font-medium">Scroll inside to see more items</p>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

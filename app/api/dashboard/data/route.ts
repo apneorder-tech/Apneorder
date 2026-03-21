@@ -83,7 +83,12 @@ export async function GET(request: Request) {
         preparedTodayCount,
         tablesFilled: `${activeTablesCount}/${totalTables}`,
         activeOrdersCount: activeOrders.length
-      }
+      },
+      tables: restaurant.tables.map(t => ({
+          id: t.id,
+          tableNumber: t.tableNumber,
+          qrCodeUrl: t.qrCodeUrl
+      }))
     });
 
   } catch (error: any) {

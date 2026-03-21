@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { ArrowRight, QrCode, Utensils, Zap, ShieldCheck, BarChart3, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";

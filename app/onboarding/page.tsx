@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/Card";
-import { 
-  QrCode, CreditCard, Palette, LayoutGrid, CheckCircle2, 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  QrCode, CreditCard, Palette, LayoutGrid, CheckCircle2,
   ArrowRight, ArrowLeft, Phone, Smartphone, Building2,
   Trash2, Plus, Download, Check, Loader2
 } from "lucide-react";
@@ -17,14 +17,14 @@ import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, onAuthSta
 import { generateQR } from "@/lib/qr";
 import { jsPDF } from "jspdf";
 
-type Step = 
-  | 'phone' 
-  | 'otp' 
-  | 'restaurant' 
-  | 'payment' 
-  | 'theme' 
-  | 'menu' 
-  | 'tables' 
+type Step =
+  | 'phone'
+  | 'otp'
+  | 'restaurant'
+  | 'payment'
+  | 'theme'
+  | 'menu'
+  | 'tables'
   | 'complete';
 
 export default function OnboardingPage() {
@@ -55,62 +55,62 @@ export default function OnboardingPage() {
         // Ensure manager is synced in DB
         let internalManagerId = user.uid; // Default to UID
         try {
-            const idToken = await user.getIdToken();
-            const syncRes = await fetch('/api/auth/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken }),
-            });
-            const syncData = await syncRes.json();
-            if (syncData.success) {
-                internalManagerId = syncData.managerId; // Get the actual ID from DB (could be CUID or UID)
-                setData(prev => ({ ...prev, managerId: internalManagerId, phone: user.phoneNumber || "" }));
-            }
+          const idToken = await user.getIdToken();
+          const syncRes = await fetch('/api/auth/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+          });
+          const syncData = await syncRes.json();
+          if (syncData.success) {
+            internalManagerId = syncData.managerId; // Get the actual ID from DB (could be CUID or UID)
+            setData(prev => ({ ...prev, managerId: internalManagerId, phone: user.phoneNumber || "" }));
+          }
         } catch (e) {
-            console.error("Auth sync error:", e);
+          console.error("Auth sync error:", e);
         }
 
         // Check if restaurant already exists
         setIsSyncing(true);
         try {
-            const res = await fetch(`/api/onboarding/status?managerId=${internalManagerId}`);
-            const status = await res.json();
-            if (status.exists && status.restaurant) {
-                const r = status.restaurant;
-                setData({
-                    managerId: user.uid,
-                    phone: user.phoneNumber || "",
-                    restaurantName: r.name,
-                    ownerName: r.ownerName,
-                    city: r.city,
-                    address: r.address,
-                    upiId: r.upiId,
-                    themeColor: r.themeColor,
-                    menuCategories: r.categories.map((c: any) => ({
-                        name: c.name,
-                        items: c.menuItems.map((i: any) => ({
-                            name: i.name,
-                            price: i.price.toString(),
-                            type: i.type
-                        }))
-                    })),
-                    tableCount: r.tables.length.toString()
-                });
-                
-                // Determine missing steps
-                if (!r.name || !r.ownerName) setStep('restaurant');
-                else if (!r.upiId) setStep('payment');
-                else if (r.categories.length === 0) setStep('menu');
-                else if (r.tables.length === 0) setStep('tables');
-                else window.location.href = "/dashboard"; // Truly finished
-            } else {
-                setStep('restaurant');
-            }
-        } catch (err) {
-            console.error("Status Check Error:", err);
+          const res = await fetch(`/api/onboarding/status?managerId=${internalManagerId}`);
+          const status = await res.json();
+          if (status.exists && status.restaurant) {
+            const r = status.restaurant;
+            setData({
+              managerId: user.uid,
+              phone: user.phoneNumber || "",
+              restaurantName: r.name,
+              ownerName: r.ownerName,
+              city: r.city,
+              address: r.address,
+              upiId: r.upiId,
+              themeColor: r.themeColor,
+              menuCategories: r.categories.map((c: any) => ({
+                name: c.name,
+                items: c.menuItems.map((i: any) => ({
+                  name: i.name,
+                  price: i.price.toString(),
+                  type: i.type
+                }))
+              })),
+              tableCount: r.tables.length.toString()
+            });
+
+            // Determine missing steps
+            if (!r.name || !r.ownerName) setStep('restaurant');
+            else if (!r.upiId) setStep('payment');
+            else if (r.categories.length === 0) setStep('menu');
+            else if (r.tables.length === 0) setStep('tables');
+            else window.location.href = "/dashboard"; // Truly finished
+          } else {
             setStep('restaurant');
+          }
+        } catch (err) {
+          console.error("Status Check Error:", err);
+          setStep('restaurant');
         } finally {
-            setIsSyncing(false);
+          setIsSyncing(false);
         }
       } else {
         setStep('phone');
@@ -154,28 +154,28 @@ export default function OnboardingPage() {
   const handleDownloadPDF = async () => {
     const doc = new jsPDF();
     const count = parseInt(data.tableCount) || 1;
-    
-    for (let i = 1; i <= count; i++) {
-        if (i > 1) doc.addPage();
-        
-        // Use restaurantId if we have it from the managerId logic or just the managerId for now
-        const qrData = `${window.location.origin}/menu/${data.managerId}?table=${i}`;
-        const qrImage = await generateQR(qrData);
 
-        doc.setFontSize(28);
-        doc.text(data.restaurantName || "Our Restaurant", 105, 40, { align: 'center' });
-        
-        doc.setFontSize(18);
-        doc.text(`Table No: ${i}`, 105, 60, { align: 'center' });
-        
-        doc.addImage(qrImage, 'PNG', 45, 80, 120, 120);
-        
-        doc.setFontSize(10);
-        doc.setTextColor(150);
-        doc.text("Scan to Menu • Tap to Pay", 105, 210, { align: 'center' });
-        doc.text("Powered by Apne Order", 105, 220, { align: 'center' });
+    for (let i = 1; i <= count; i++) {
+      if (i > 1) doc.addPage();
+
+      // Use restaurantId if we have it from the managerId logic or just the managerId for now
+      const qrData = `${window.location.origin}/menu/${data.managerId}?table=${i}`;
+      const qrImage = await generateQR(qrData);
+
+      doc.setFontSize(28);
+      doc.text(data.restaurantName || "Our Restaurant", 105, 40, { align: 'center' });
+
+      doc.setFontSize(18);
+      doc.text(`Table No: ${i}`, 105, 60, { align: 'center' });
+
+      doc.addImage(qrImage, 'PNG', 45, 80, 120, 120);
+
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text("Scan to Menu • Tap to Pay", 105, 210, { align: 'center' });
+      doc.text("Powered by Apne Order", 105, 220, { align: 'center' });
     }
-    
+
     doc.save(`${data.restaurantName || "Restaurant"}-QR-Codes.pdf`);
   };
 
@@ -254,11 +254,11 @@ export default function OnboardingPage() {
           <label className="text-sm font-medium">Mobile Number</label>
           <div className="relative">
             <span className="absolute left-3 top-3 text-zinc-400 text-sm font-medium">+91</span>
-            <Input 
-              className="pl-12" 
-              placeholder="9876543210" 
+            <Input
+              className="pl-12"
+              placeholder="9876543210"
               value={data.phone}
-              onChange={(e) => setData({...data, phone: e.target.value})}
+              onChange={(e) => setData({ ...data, phone: e.target.value })}
               disabled={isLoading}
             />
           </div>
@@ -285,9 +285,9 @@ export default function OnboardingPage() {
       <CardContent className="space-y-4">
         <div className="flex justify-between gap-2">
           {otp.map((digit, i) => (
-            <input 
+            <input
               key={i}
-              type="text" 
+              type="text"
               value={digit}
               onChange={(e) => {
                 const newOtp = [...otp];
@@ -328,34 +328,34 @@ export default function OnboardingPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2 col-span-2">
             <label className="text-sm font-medium">Restaurant/Café Name</label>
-            <Input 
-              placeholder="e.g. The Green Bean" 
+            <Input
+              placeholder="e.g. The Green Bean"
               value={data.restaurantName}
-              onChange={(e) => setData({...data, restaurantName: e.target.value})}
+              onChange={(e) => setData({ ...data, restaurantName: e.target.value })}
             />
           </div>
           <div className="space-y-2 col-span-2">
             <label className="text-sm font-medium">Owner/Manager Name</label>
-            <Input 
-              placeholder="Full Name" 
+            <Input
+              placeholder="Full Name"
               value={data.ownerName}
-              onChange={(e) => setData({...data, ownerName: e.target.value})}
+              onChange={(e) => setData({ ...data, ownerName: e.target.value })}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">City</label>
-            <Input 
-              placeholder="Select City" 
+            <Input
+              placeholder="Select City"
               value={data.city}
-              onChange={(e) => setData({...data, city: e.target.value})}
+              onChange={(e) => setData({ ...data, city: e.target.value })}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Address / Landmark</label>
-            <Input 
-              placeholder="Detailed Address" 
+            <Input
+              placeholder="Detailed Address"
               value={data.address}
-              onChange={(e) => setData({...data, address: e.target.value})}
+              onChange={(e) => setData({ ...data, address: e.target.value })}
             />
           </div>
         </div>
@@ -378,13 +378,13 @@ export default function OnboardingPage() {
       </CardHeader>
       <CardContent className="space-y-6 text-center">
         <div className="py-8 bg-zinc-50 rounded-2xl border-2 border-dashed border-zinc-200">
-           <Input 
-             className="w-64 mx-auto text-lg text-center" 
-             placeholder="username@upi"
-             value={data.upiId}
-             onChange={(e) => setData({...data, upiId: e.target.value})}
-           />
-           <p className="mt-4 text-xs text-zinc-400">This will be used for all customer payments</p>
+          <Input
+            className="w-64 mx-auto text-lg text-center"
+            placeholder="username@upi"
+            value={data.upiId}
+            onChange={(e) => setData({ ...data, upiId: e.target.value })}
+          />
+          <p className="mt-4 text-xs text-zinc-400">This will be used for all customer payments</p>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
@@ -412,7 +412,7 @@ export default function OnboardingPage() {
               data.themeColor === color ? "border-zinc-900 scale-105" : "border-transparent"
             )}
             style={{ backgroundColor: color }}
-            onClick={() => setData({...data, themeColor: color})}
+            onClick={() => setData({ ...data, themeColor: color })}
           >
             {data.themeColor === color && <Check className="text-white mx-auto shadow-sm" />}
           </button>
@@ -445,8 +445,8 @@ export default function OnboardingPage() {
               {cat.items.map((item, iIdx) => (
                 <div key={iIdx} className="bg-white p-3 rounded-lg flex items-center justify-between shadow-sm border border-zinc-100">
                   <div className="flex items-center gap-3">
-                     <div className={cn("w-3 h-3 rounded-full", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} title={item.type}></div>
-                     <span className="font-medium">{item.name}</span>
+                    <div className={cn("w-3 h-3 rounded-full", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} title={item.type}></div>
+                    <span className="font-medium">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-6">
                     <span className="font-bold text-zinc-600">₹{item.price}</span>
@@ -479,18 +479,18 @@ export default function OnboardingPage() {
       </CardHeader>
       <CardContent className="space-y-6 text-center">
         <div className="flex items-center justify-center gap-6">
-          <Button 
-            variant="outline" 
-            className="w-14 h-14 text-2xl" 
-            onClick={() => setData({...data, tableCount: Math.max(1, parseInt(data.tableCount) - 1).toString()})}
+          <Button
+            variant="outline"
+            className="w-14 h-14 text-2xl"
+            onClick={() => setData({ ...data, tableCount: Math.max(1, parseInt(data.tableCount) - 1).toString() })}
           >
             -
           </Button>
           <span className="text-4xl font-extrabold w-20">{data.tableCount}</span>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-14 h-14 text-2xl"
-            onClick={() => setData({...data, tableCount: (parseInt(data.tableCount) + 1).toString()})}
+            onClick={() => setData({ ...data, tableCount: (parseInt(data.tableCount) + 1).toString() })}
           >
             +
           </Button>
@@ -517,18 +517,18 @@ export default function OnboardingPage() {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="p-6 bg-zinc-50 rounded-2xl border border-zinc-100 space-y-4">
-           <div className="w-32 h-32 bg-white p-2 mx-auto rounded-xl shadow-sm flex items-center justify-center">
-             {qrCodeUrl ? (
-               <img src={qrCodeUrl} alt="QR Code" className="w-full h-full" />
-             ) : (
-               <QrCode size={100} strokeWidth={1.5} />
-             )}
-           </div>
-           <p className="font-semibold">{data.restaurantName}</p>
-           <p className="text-sm text-zinc-500">{data.tableCount} QR Codes Generated</p>
+          <div className="w-32 h-32 bg-white p-2 mx-auto rounded-xl shadow-sm flex items-center justify-center">
+            {qrCodeUrl ? (
+              <img src={qrCodeUrl} alt="QR Code" className="w-full h-full" />
+            ) : (
+              <QrCode size={100} strokeWidth={1.5} />
+            )}
+          </div>
+          <p className="font-semibold">{data.restaurantName}</p>
+          <p className="text-sm text-zinc-500">{data.tableCount} QR Codes Generated</p>
         </div>
-        <Button 
-          className="w-full h-14 text-lg rounded-xl" 
+        <Button
+          className="w-full h-14 text-lg rounded-xl"
           variant="outline"
           onClick={handleDownloadPDF}
         >
@@ -566,8 +566,8 @@ export default function OnboardingPage() {
           } of 8</span>
         </div>
         <div className="h-1.5 bg-zinc-200 rounded-full w-full overflow-hidden">
-          <motion.div 
-            className="h-full bg-zinc-900" 
+          <motion.div
+            className="h-full bg-zinc-900"
             initial={{ width: 0 }}
             animate={{ width: `${((['phone', 'otp', 'restaurant', 'payment', 'theme', 'menu', 'tables', 'complete'].indexOf(step) + 1) / 8) * 100}%` }}
           />
