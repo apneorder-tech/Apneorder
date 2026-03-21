@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
-    const { restaurantId, tableNumber, items } = await request.json();
+    const { restaurantId, tableNumber, items, transactionId } = await request.json();
 
     // 1. Find the table record
     const table = await prisma.table.findFirst({
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
       data: {
         tableId: table.id,
         totalAmount,
-        status: "pending", // Schema uses lowercase or exact case, I will stick to "pending"
+        status: "payment_pending",
+        transactionId: transactionId || null,
         orderItems: {
           create: orderItemsData,
         },

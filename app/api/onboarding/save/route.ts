@@ -17,6 +17,8 @@ export async function POST(request: Request) {
       tableCount 
     } = data;
 
+    const trimmedUpiId = upiId ? upiId.trim() : "";
+
     if (!managerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
          ownerName,
          city,
          address,
-         upiId,
+         upiId: trimmedUpiId,
          themeColor,
        },
        create: {
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
          ownerName,
          city,
          address,
-         upiId,
+         upiId: trimmedUpiId,
          themeColor,
        },
     });

@@ -5,25 +5,33 @@ import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import {
   BarChart3,
-  LayoutDashboard,
-  UtensilsCrossed,
-  Settings,
-  Bell,
-  Search,
-  MoreVertical,
+  Check,
+  ChevronRight,
   Clock,
-  XCircle,
-  ChefHat,
+  Info,
+  LayoutDashboard,
   Loader2,
-  QrCode,
   Menu,
   X,
   Plus,
   Pencil,
   Trash2,
   Eye,
-  Check,
   AlertTriangle,
+  QrCode,
+  UtensilsCrossed,
+  Settings,
+  MapPin,
+  Star,
+  ShoppingBag,
+  Minus,
+  ChefHat,
+  XCircle,
+  Bell,
+  RefreshCw,
+  Search,
+  MoreVertical,
+  Store
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +87,8 @@ interface Order {
   id: string;
   table: { tableNumber: string };
   totalAmount: number;
-  status: "pending" | "preparing" | "ready" | "completed" | "cancelled";
+  status: "payment_pending" | "pending" | "preparing" | "ready" | "completed" | "cancelled";
+  transactionId: string | null;
   createdAt: string;
   orderItems: OrderItem[];
 }
@@ -106,8 +115,15 @@ interface ManageTable {
 
 // ─── Constants ───
 const ORDER_STATUS_CONFIG = {
+  payment_pending: {
+    label: "Awaiting Payment",
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    border: "border-purple-200",
+    dot: "bg-purple-500",
+  },
   pending: {
-    label: "Pending",
+    label: "New Order",
     bg: "bg-amber-50",
     text: "text-amber-700",
     border: "border-amber-200",
@@ -249,24 +265,38 @@ function OrderCard({
         <StatusBadge status={order.status} />
       </div>
 
-      {/* Items */}
-      <div className="p-4 space-y-2">
-        {order.orderItems.map((item, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span
-              className={cn(
-                "w-2 h-2 rounded-full shrink-0",
-                item.menuItem.type === "veg" ? "bg-green-500" : "bg-red-500"
-              )}
-            />
-            <span className="text-sm text-zinc-700 truncate">
-              {item.menuItem.name}
-            </span>
-            <span className="text-xs text-zinc-400 shrink-0">
-              ×{item.quantity}
-            </span>
-          </div>
-        ))}
+      {/* Body */}
+      <div className="p-4 space-y-4">
+        {order.status === "payment_pending" && order.transactionId && (
+            <div className="bg-purple-50/50 border border-purple-100 p-3 rounded-xl flex items-center justify-between">
+                <div>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-purple-400 mb-0.5">Customer Transaction ID</p>
+                   <p className="text-sm font-black text-purple-700 font-mono">{order.transactionId}</p>
+                </div>
+                <div className="p-2 bg-purple-100 rounded-lg text-purple-700">
+                   <QrCode size={16} />
+                </div>
+            </div>
+        )}
+
+        <div className="space-y-3">
+          {order.orderItems.map((item, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full shrink-0",
+                  item.menuItem.type === "veg" ? "bg-green-500" : "bg-red-500"
+                )}
+              />
+              <span className="text-sm text-zinc-700 truncate">
+                {item.menuItem.name}
+              </span>
+              <span className="text-xs text-zinc-400 shrink-0">
+                ×{item.quantity}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Footer */}
@@ -281,10 +311,20 @@ function OrderCard({
         </div>
 
         <div className="flex gap-2">
+          {order.status === "payment_pending" && (
+            <Button
+              onClick={() => onStatusUpdate(order.id, "pending")}
+              className="flex-1 h-11 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-purple-200"
+              size="sm"
+            >
+              <Check size={14} className="mr-1.5" />
+              Approve Payment
+            </Button>
+          )}
           {order.status === "pending" && (
             <Button
               onClick={() => onStatusUpdate(order.id, "preparing")}
-              className="flex-1 h-9 text-xs font-bold rounded-lg bg-zinc-900 hover:bg-zinc-800"
+              className="flex-1 h-11 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-zinc-200"
               size="sm"
             >
               <ChefHat size={14} className="mr-1.5" />
@@ -294,7 +334,7 @@ function OrderCard({
           {order.status === "preparing" && (
             <Button
               onClick={() => onStatusUpdate(order.id, "ready")}
-              className="flex-1 h-9 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700"
+              className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-200"
               size="sm"
             >
               <Check size={14} className="mr-1.5" />
@@ -304,18 +344,18 @@ function OrderCard({
           {order.status === "ready" && (
             <Button
               onClick={() => onStatusUpdate(order.id, "completed")}
-              className="flex-1 h-9 text-xs font-bold rounded-lg bg-green-600 hover:bg-green-700"
+              className="flex-1 h-11 bg-green-600 hover:bg-green-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-green-200"
               size="sm"
             >
               <Check size={14} className="mr-1.5" />
-              Complete
+              Complete Order
             </Button>
           )}
           {order.status !== "completed" && order.status !== "cancelled" && (
             <Button
               variant="outline"
               size="sm"
-              className="w-9 h-9 p-0 shrink-0 text-zinc-400 hover:text-red-500 hover:border-red-200"
+              className="w-11 h-11 p-0 shrink-0 text-zinc-400 hover:text-red-500 hover:border-red-200 rounded-xl"
               onClick={() => onStatusUpdate(order.id, "cancelled")}
             >
               <XCircle size={16} />
@@ -462,7 +502,7 @@ function SidebarContent({
   restaurantName,
 }: {
   activeView: string;
-  setActiveView: (v: "orders" | "menu" | "tables") => void;
+  setActiveView: (v: "orders" | "menu" | "tables" | "analytics" | "settings") => void;
   restaurantName: string;
 }) {
   return (
@@ -482,10 +522,7 @@ function SidebarContent({
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
-            onClick={() =>
-              (item.id === "orders" || item.id === "menu" || item.id === "tables") &&
-              setActiveView(item.id)
-            }
+            onClick={() => setActiveView(item.id)}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all",
               activeView === item.id
@@ -520,7 +557,7 @@ export default function DashboardPage() {
   // State
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
+  const [activeTab, setActiveTab] = useState<"verifying" | "active" | "completed">("active");
   const [restaurantName, setRestaurantName] = useState("Your Restaurant");
   const [managerId, setManagerId] = useState<string | null>(null);
   const [dashboardStats, setDashboardStats] = useState({
@@ -529,11 +566,14 @@ export default function DashboardPage() {
     tablesFilled: "0/0",
     activeOrdersCount: 0,
   });
-  const [activeView, setActiveView] = useState<"orders" | "menu" | "tables">("orders");
+  const [activeView, setActiveView] = useState<"orders" | "menu" | "tables" | "analytics" | "settings">("orders");
   const [menuCategories, setMenuCategories] = useState<ManageCategory[]>([]);
   const [tables, setTables] = useState<ManageTable[]>([]);
   const [isAddingTable, setIsAddingTable] = useState(false);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [upiId, setUpiId] = useState("");
+  const [tempUpiId, setTempUpiId] = useState("");
+  const [isUpdatingUpi, setIsUpdatingUpi] = useState(false);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -564,15 +604,22 @@ export default function DashboardPage() {
   const [isShowingPreview, setIsShowingPreview] = useState(false);
 
   // Derived state
+  const verifyingOrders = useMemo(
+    () => orders.filter((o) => o.status === "payment_pending"),
+    [orders]
+  );
   const activeOrders = useMemo(
-    () => orders.filter((o) => o.status !== "completed" && o.status !== "cancelled"),
+    () => orders.filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "payment_pending"),
     [orders]
   );
   const completedOrders = useMemo(
     () => orders.filter((o) => o.status === "completed"),
     [orders]
   );
-  const displayedOrders = activeTab === "active" ? activeOrders : completedOrders;
+  const displayedOrders = 
+    activeTab === "verifying" ? verifyingOrders :
+    activeTab === "active" ? activeOrders : 
+    completedOrders;
 
   // ─── Auth & Data ───
   useEffect(() => {
@@ -604,36 +651,35 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/dashboard/data?managerId=${uid}`);
       const data = await res.json();
+      if (!data.success) throw new Error(data.error);
 
-      if (data.success) {
-        if (data.tables) setTables(data.tables);
-        const statusRes = await fetch(`/api/onboarding/status?managerId=${uid}`);
-        const statusData = await statusRes.json();
+      const statusRes = await fetch(`/api/onboarding/status?managerId=${uid}`);
+      const statusData = await statusRes.json();
 
-        if (
-          !statusData.exists ||
-          !statusData.restaurant ||
-          statusData.restaurant.categories.length === 0
-        ) {
-          window.location.href = "/onboarding";
-          return;
-        }
-
-        setOrders(data.orders);
-        setRestaurantName(data.restaurantName);
-        if (data.stats) setDashboardStats(data.stats);
-
-        if (data.restaurantId) {
-          setRestaurantId(data.restaurantId);
-          setupRealtimeListener(data.restaurantId);
-
-          const menuRes = await fetch(`/api/menu/${data.restaurantId}`);
-          const menuData = await menuRes.json();
-          if (menuData.success)
-            setMenuCategories(menuData.restaurant.categories);
-        }
-      } else {
+      if (
+        !statusData.exists ||
+        !statusData.restaurant ||
+        statusData.restaurant.categories.length === 0
+      ) {
         window.location.href = "/onboarding";
+        return;
+      }
+
+      if (data.tables) setTables(data.tables);
+      setOrders(data.orders);
+      setRestaurantName(data.restaurantName);
+      if (data.stats) setDashboardStats(data.stats);
+
+      if (data.restaurantId) {
+        setRestaurantId(data.restaurantId);
+        setUpiId(statusData.restaurant.upiId || "");
+        setTempUpiId(statusData.restaurant.upiId || "");
+        setupRealtimeListener(data.restaurantId);
+
+        const menuRes = await fetch(`/api/menu/${data.restaurantId}`);
+        const menuData = await menuRes.json();
+        if (menuData.success)
+          setMenuCategories(menuData.restaurant.categories);
       }
     } catch (err) {
       console.error("Fetch Error:", err);
@@ -972,6 +1018,35 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUpdateUpi = async () => {
+    if (!restaurantId || !tempUpiId.trim()) return;
+    if (!tempUpiId.includes("@")) {
+      toast.error("Invalid UPI ID format");
+      return;
+    }
+
+    setIsUpdatingUpi(true);
+    try {
+      const res = await fetch("/api/restaurant/update-upi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, upiId: tempUpiId.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUpiId(data.upiId);
+        toast.success("UPI ID updated successfully!");
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      console.error("Update UPI Error:", error);
+      toast.error("Failed to update UPI ID");
+    } finally {
+      setIsUpdatingUpi(false);
+    }
+  };
+
   const downloadQR = (table: ManageTable) => {
     const doc = new jsPDF({
       orientation: "portrait",
@@ -989,8 +1064,9 @@ export default function DashboardPage() {
     doc.text("SCAN TO ORDER", 105, 55, { align: "center" });
 
     // Add QR Code
+    const dynamicUrl = `${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`;
     import('qrcode').then(QRCode => {
-      QRCode.toDataURL(table.qrCodeUrl, { margin: 1, width: 1000 }).then(url => {
+      QRCode.toDataURL(dynamicUrl, { margin: 1, width: 1000 }).then(url => {
         doc.addImage(url, "PNG", 55, 70, 100, 100);
         
         doc.setFontSize(24);
@@ -1019,6 +1095,8 @@ export default function DashboardPage() {
           const table = tables[i];
           if (i > 0) doc.addPage();
 
+          const dynamicUrl = `${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`;
+
           doc.setFont("helvetica", "bold");
           doc.setFontSize(28);
           doc.text(restaurantName.toUpperCase(), 105, 40, { align: "center" });
@@ -1027,7 +1105,7 @@ export default function DashboardPage() {
           doc.setTextColor(100);
           doc.text("SCAN TO ORDER", 105, 55, { align: "center" });
 
-          const url = await QRCode.toDataURL(table.qrCodeUrl, { margin: 1, width: 1000 });
+          const url = await QRCode.toDataURL(dynamicUrl, { margin: 1, width: 1000 });
           doc.addImage(url, "PNG", 55, 70, 100, 100);
           
           doc.setFontSize(24);
@@ -1390,7 +1468,7 @@ export default function DashboardPage() {
                       <div className="relative group/qr">
                         <div className="w-32 h-32 bg-white flex items-center justify-center border border-zinc-100 rounded-2xl overflow-hidden group-hover/qr:scale-105 transition-transform duration-500 shadow-sm">
                            <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(table.qrCodeUrl)}`} 
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`)}`} 
                             alt={`QR for Table ${table.tableNumber}`} 
                            />
                         </div>
@@ -1404,7 +1482,7 @@ export default function DashboardPage() {
                             variant="outline" 
                             size="sm" 
                             className="h-10 rounded-xl font-bold text-[10px] uppercase tracking-wider"
-                            onClick={() => window.open(table.qrCodeUrl, '_blank')}
+                            onClick={() => window.open(`${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`, '_blank')}
                         >
                           Visit
                         </Button>
@@ -1439,19 +1517,100 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {activeView === "settings" && (
+            <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+               <div className="flex flex-col gap-2">
+                 <h2 className="text-3xl font-black tracking-tight uppercase italic">Dashboard Settings</h2>
+                 <p className="text-zinc-500 font-medium">Manage your restaurant business and payment details.</p>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                 {/* UPI Management Card */}
+                 <Card className="border-none shadow-2xl shadow-zinc-200/50 rounded-[32px] overflow-hidden">
+                    <div className="bg-zinc-900 p-8 text-white">
+                       <div className="flex items-center gap-4 mb-6">
+                         <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                           <QrCode size={24} className="text-white" />
+                         </div>
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">Payment Settings</p>
+                            <h3 className="text-xl font-black uppercase italic tracking-tight">Merchant UPI</h3>
+                         </div>
+                       </div>
+                       
+                       <div className="space-y-4">
+                         <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase tracking-widest opacity-60 ml-1">Your UPI ID</Label>
+                           <Input 
+                             value={tempUpiId}
+                             onChange={(e) => setTempUpiId(e.target.value)}
+                             placeholder="e.g. restaurant@okicici"
+                             className="bg-white/10 border-white/20 text-white placeholder:text-white/30 h-14 rounded-2xl font-bold text-lg focus:ring-white/20"
+                           />
+                         </div>
+                         <Button 
+                           onClick={handleUpdateUpi}
+                           disabled={isUpdatingUpi || tempUpiId === upiId}
+                           className="w-full h-14 bg-white text-black hover:bg-zinc-100 rounded-2xl font-black uppercase tracking-widest text-xs transition-all active:scale-95"
+                         >
+                           {isUpdatingUpi ? <Loader2 size={18} className="animate-spin" /> : "Save New UPI ID"}
+                         </Button>
+                       </div>
+                    </div>
+                    <CardContent className="p-8 bg-zinc-50">
+                       <div className="flex items-start gap-4">
+                         <Info size={18} className="text-zinc-400 mt-1" />
+                         <p className="text-xs text-zinc-500 font-medium leading-relaxed italic">
+                           This UPI ID is used to generate the scan-to-order QR codes for your customers. Make sure it's active and connected to your bank account to receive payments instantly.
+                         </p>
+                       </div>
+                    </CardContent>
+                 </Card>
+
+                 {/* Display Profile Card */}
+                 <Card className="border-zinc-100 shadow-sm rounded-[32px] p-8 flex flex-col justify-between">
+                    <div className="space-y-6">
+                       <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center">
+                           <UtensilsCrossed size={24} className="text-zinc-400" />
+                         </div>
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Store Profile</p>
+                            <h3 className="text-xl font-black uppercase italic tracking-tight">{restaurantName}</h3>
+                         </div>
+                       </div>
+                       <Separator className="bg-zinc-100" />
+                       <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Categories</span>
+                            <span className="text-sm font-black italic">{menuCategories.length} Sections</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Tables</span>
+                            <span className="text-sm font-black italic">{tables.length} Active</span>
+                          </div>
+                       </div>
+                    </div>
+                    <div className="pt-8">
+                       <Button variant="outline" className="w-full h-12 rounded-2xl border-zinc-100 font-bold text-zinc-500 hover:text-black hover:bg-zinc-50" disabled>
+                         Edit Profile (Coming Soon)
+                       </Button>
+                    </div>
+                 </Card>
+               </div>
+            </div>
+          )}
         </div>
       </main>
 
       {/* ─── Mobile Bottom Nav ─── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-zinc-100 px-2 pb-safe z-40">
         <div className="flex items-center justify-around py-2">
-          {NAV_ITEMS.slice(0, 3).map((item) => (
+          {NAV_ITEMS.map((item) => (
             <button
               key={item.id}
-              onClick={() =>
-                (item.id === "orders" || item.id === "menu" || item.id === "tables") &&
-                setActiveView(item.id)
-              }
+              onClick={() => setActiveView(item.id)}
               className={cn(
                 "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] relative",
                 activeView === item.id

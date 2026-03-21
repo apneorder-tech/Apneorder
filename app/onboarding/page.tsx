@@ -382,7 +382,7 @@ export default function OnboardingPage() {
             className="w-64 mx-auto text-lg text-center"
             placeholder="username@upi"
             value={data.upiId}
-            onChange={(e) => setData({ ...data, upiId: e.target.value })}
+            onChange={(e) => setData({ ...data, upiId: e.target.value.trim() })}
           />
           <p className="mt-4 text-xs text-zinc-400">This will be used for all customer payments</p>
         </div>

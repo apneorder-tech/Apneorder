@@ -5,9 +5,10 @@ import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShoppingBag, ChevronRight, Star, Clock, 
-  MapPin, Phone, Info, X, Plus, Minus, Check 
+  MapPin, Phone, Info, X, Plus, Minus, Check, Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ interface Restaurant {
   id: string;
   name: string;
   address: string;
+  upiId: string;
   themeColor: string;
   categories: Category[];
 }
@@ -45,6 +47,33 @@ export default function CustomerMenuPage() {
   const [cart, setCart] = useState<{ [key: string]: number }>({});
   const [isBagOpen, setIsBagOpen] = useState(false);
 
+  const [isOrderSuccess, setIsOrderSuccess] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>("");
+  const [showPayment, setShowPayment] = useState(false);
+  const [isOrdering, setIsOrdering] = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!placedOrderId || isOrderSuccess) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${placedOrderId}/status`);
+        const data = await res.json();
+        // If status is no longer payment_pending, it means manager approved or it's moving
+        if (data.success && data.order.status !== "payment_pending") {
+          setIsOrderSuccess(true);
+          setPlacedOrderId(null);
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error("Polling error:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
+  }, [placedOrderId, isOrderSuccess]);
+
   useEffect(() => {
     async function fetchMenu() {
       try {
@@ -52,6 +81,9 @@ export default function CustomerMenuPage() {
         const data = await res.json();
         if (data.success) {
           setRestaurant(data.restaurant);
+          if (data.restaurant.categories.length > 0) {
+            setActiveCategory(data.restaurant.categories[0].id);
+          }
         }
       } catch (err) {
         console.error("Fetch Menu Error:", err);
@@ -61,6 +93,40 @@ export default function CustomerMenuPage() {
     }
     fetchMenu();
   }, [restaurantId]);
+
+  // Handle intersection observer for active category
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveCategory(entry.target.id);
+          }
+        });
+      },
+      { threshold: 0.5, rootMargin: "-10% 0px -70% 0px" }
+    );
+
+    const categoryElements = document.querySelectorAll("[data-category-id]");
+    categoryElements.forEach((el) => observer.observe(el));
+
+    return () => categoryElements.forEach((el) => observer.unobserve(el));
+  }, [restaurant]);
+
+  const scrollToCategory = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = 140;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+      setActiveCategory(id);
+    }
+  };
 
   const addToCart = (id: string) => {
     setCart(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
@@ -86,7 +152,7 @@ export default function CustomerMenuPage() {
 
   const handlePlaceOrder = async () => {
     if (getTotalItems() === 0) return;
-    setLoading(true);
+    setIsOrdering(true);
     try {
       const orderItems = Object.entries(cart).map(([id, qty]) => {
         const item = restaurant!.categories.flatMap(c => c.menuItems).find(i => i.id === id);
@@ -109,126 +175,187 @@ export default function CustomerMenuPage() {
 
       const data = await res.json();
       if (data.success) {
-        setCart({});
-        setIsBagOpen(false);
-        alert("Order placed successfully! Please wait while we prepare your meal.");
+        setPlacedOrderId(data.orderId);
       } else {
         throw new Error(data.error);
       }
     } catch (err) {
       console.error("Place Order Error:", err);
-      alert("Failed to place order. Please try again.");
     } finally {
-      setLoading(false);
+      setIsOrdering(false);
     }
   };
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white font-sans">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-zinc-100 border-t-zinc-900 rounded-full animate-spin" />
-        <p className="text-zinc-500 font-medium animate-pulse">Loading Menu...</p>
+        <div className="w-12 h-12 border-4 border-zinc-100 border-t-black rounded-full animate-spin" />
+        <p className="text-black font-black uppercase text-[10px] tracking-widest animate-pulse">Initializing Menu</p>
       </div>
     </div>
   );
 
   if (!restaurant) return (
     <div className="min-h-screen flex items-center justify-center px-6 text-center bg-white font-sans">
-      <div>
-        <h1 className="text-4xl font-bold mb-4">Restaurant Not Found</h1>
-        <p className="text-zinc-500 mb-8">The menu you're looking for doesn't exist or has been moved.</p>
-        <Button onClick={() => window.location.reload()}>Try Again</Button>
+      <div className="space-y-6">
+        <div className="w-20 h-20 bg-zinc-100 rounded-3xl flex items-center justify-center mx-auto">
+          <Info size={32} className="text-zinc-400" />
+        </div>
+        <div>
+           <h1 className="text-3xl font-black tracking-tight uppercase">Menu Not Found</h1>
+           <p className="text-zinc-500 font-medium mt-2">The QR code might be invalid or outdated.</p>
+        </div>
+        <Button 
+            className="bg-black text-white h-12 px-10 rounded-xl font-bold"
+            onClick={() => window.location.reload()}
+        >
+          Try Again
+        </Button>
       </div>
     </div>
   );
 
+  const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${getTotalPrice().toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
+
   return (
-    <div className="min-h-screen bg-zinc-50 font-sans pb-32">
+    <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen bg-zinc-50 font-sans pb-32"
+    >
+      {/* ─── Success Overlay ─── */}
+      <AnimatePresence>
+        {isOrderSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="w-full max-w-sm bg-white rounded-[40px] p-8 text-center space-y-8"
+            >
+              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(34,197,94,0.4)]">
+                <Check size={40} className="text-white" strokeWidth={3} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black tracking-tight uppercase italic leading-none">Order Sent!</h2>
+                <p className="text-zinc-500 font-medium italic">Your meal is being prepared with love.</p>
+              </div>
+              <Button 
+                onClick={() => setIsOrderSuccess(false)}
+                className="w-full h-14 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest"
+              >
+                Continue Browsing
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
-      <div 
-        className="h-64 relative flex items-end p-6"
-        style={{ backgroundColor: restaurant.themeColor }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="relative text-white z-10 w-full">
-          <div className="flex justify-between items-start mb-2">
-            <h1 className="text-3xl font-bold leading-tight">{restaurant.name}</h1>
-            <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-              Table {tableNumber}
+      <div className="relative">
+        <div 
+            className="h-72 relative flex items-end p-8"
+            style={{ backgroundColor: restaurant.themeColor }}
+        >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div className="relative text-white z-10 w-full">
+            <div className="flex justify-between items-start mb-4">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Welcome to</p>
+                    <h1 className="text-4xl font-black leading-none tracking-tighter uppercase italic">{restaurant.name}</h1>
+                </div>
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl">
+                Table {tableNumber}
+                </div>
             </div>
-          </div>
-          <div className="flex items-center gap-4 text-sm opacity-90">
-            <span className="flex items-center gap-1"><MapPin size={14} /> {restaurant.address.split(',')[0]}</span>
-            <span className="flex items-center gap-1"><Star size={14} className="fill-yellow-400 text-yellow-400" /> 4.8</span>
-            <span className="flex items-center gap-1"><Clock size={14} /> 20-30m</span>
-          </div>
+            <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full"><MapPin size={12} /> {restaurant.address.split(',')[0]}</span>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 text-black rounded-full"><Star size={12} strokeWidth={3} /> 4.9</span>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 rounded-full"><Clock size={12} /> 15-20m</span>
+            </div>
+            </div>
         </div>
       </div>
 
-      {/* Categories & Menu */}
-      <div className="max-w-2xl mx-auto px-4 -mt-6 relative z-20">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
-          <div className="flex p-2 gap-2 overflow-x-auto no-scrollbar scroll-smooth">
+      {/* Categories Bar - Sticky */}
+      <div className="sticky top-0 z-40 bg-zinc-50/80 backdrop-blur-xl border-b border-zinc-100 py-4">
+        <div className="max-w-2xl mx-auto px-4 overflow-x-auto no-scrollbar scroll-smooth flex gap-3">
             {restaurant.categories.map((cat) => (
-              <button 
-                key={cat.id}
-                className="whitespace-nowrap px-6 py-3 rounded-xl font-bold text-sm transition-all hover:bg-zinc-100 active:scale-95"
-              >
-                {cat.name}
-              </button>
+                <button 
+                    key={cat.id}
+                    onClick={() => scrollToCategory(cat.id)}
+                    className={cn(
+                        "whitespace-nowrap px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all border shrink-0",
+                        activeCategory === cat.id
+                            ? "bg-black text-white border-black shadow-lg"
+                            : "bg-white text-zinc-400 border-zinc-100 hover:border-zinc-300"
+                    )}
+                >
+                    {cat.name}
+                </button>
             ))}
-          </div>
         </div>
+      </div>
 
-        <div className="space-y-8">
+      <div className="max-w-2xl mx-auto px-4 pt-8">
+        <div className="space-y-16">
           {restaurant.categories.map((cat) => (
-            <div key={cat.id} className="space-y-4">
-              <h2 className="text-2xl font-bold px-2">{cat.name}</h2>
-              <div className="grid gap-4">
+            <div key={cat.id} id={cat.id} data-category-id={cat.id} className="space-y-8 scroll-mt-24">
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-black uppercase tracking-[0.25em] whitespace-nowrap">{cat.name}</h2>
+                <div className="h-[1px] w-full bg-zinc-200" />
+              </div>
+
+              <div className="grid gap-8">
                 {cat.menuItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className={cn("flex-1 space-y-1", !item.isAvailable && "opacity-50")}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-3 h-3 rounded-full", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} title={item.type === 'veg' ? 'Veg' : 'Non-Veg'} />
-                          <h3 className="font-bold text-lg">{item.name}</h3>
+                  <div key={item.id} className="relative group">
+                    <div className="flex justify-between items-start gap-6">
+                      <div className={cn("flex-1 space-y-2", !item.isAvailable && "opacity-40")}>
+                        <div className="flex items-center gap-2.5">
+                          <div className={cn("w-2 h-2 rounded-full ring-4 ring-zinc-50 shadow-sm", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} />
+                          <h3 className="font-black text-xl tracking-tight leading-none uppercase italic">{item.name}</h3>
                         </div>
-                        <p className="text-zinc-500 text-sm line-clamp-2">{item.description || "A delicious must-try dish from our kitchen."}</p>
-                        <p className="text-xl font-black pt-2">₹{item.price}</p>
+                        <p className="text-zinc-400 text-sm font-medium leading-relaxed italic">{item.description || "Crafted with the finest ingredients and authentic family recipes."}</p>
+                        <p className="text-2xl font-black tracking-tighter">₹{item.price}</p>
                       </div>
                       
-                      <div className="shrink-0">
+                      <div className="shrink-0 pt-1">
                         {!item.isAvailable ? (
-                           <div className="bg-zinc-100 text-zinc-400 px-4 py-2 rounded-full text-[10px] font-black uppercase border border-zinc-200">
+                           <div className="px-4 py-2 bg-zinc-100 rounded-2xl text-[9px] font-black uppercase tracking-widest text-zinc-400 border border-zinc-200">
                              Sold Out
                            </div>
                         ) : cart[item.id] ? (
-                          <div className="flex items-center bg-zinc-900 text-white rounded-full p-1 gap-4 shadow-lg">
-                            <button 
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <span className="font-bold min-w-[1ch] text-center">{cart[item.id]}</span>
+                          <div className="flex flex-col items-center bg-zinc-950 text-white rounded-3xl p-1 gap-1 shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-300">
                             <button 
                               onClick={() => addToCart(item.id)}
-                              className="w-8 h-8 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
+                              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-2xl mb-1"
                             >
                               <Plus size={16} />
                             </button>
+                            <span className="font-black text-lg h-6 flex items-center justify-center">{cart[item.id]}</span>
+                            <button 
+                              onClick={() => removeFromCart(item.id)}
+                              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-2xl mt-1"
+                            >
+                              <Minus size={16} />
+                            </button>
                           </div>
                         ) : (
-                          <Button 
+                          <button 
                             onClick={() => addToCart(item.id)}
-                            className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-8 font-bold h-11"
+                            className="bg-zinc-900 hover:bg-black text-white rounded-2xl flex flex-col items-center justify-center w-12 h-16 shadow-xl hover:scale-110 active:scale-90 transition-all duration-300 group"
                           >
-                            ADD
-                          </Button>
+                            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+                            <span className="text-[9px] font-black uppercase mt-1">Add</span>
+                          </button>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -240,30 +367,35 @@ export default function CustomerMenuPage() {
       <AnimatePresence>
         {getTotalItems() > 0 && !isBagOpen && (
           <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
             className="fixed bottom-8 left-4 right-4 z-50 max-w-lg mx-auto"
           >
             <button 
               onClick={() => setIsBagOpen(true)}
-              className="w-full h-16 bg-zinc-900 text-white rounded-2xl flex items-center justify-between px-6 shadow-2xl active:scale-95 transition-transform"
+              className="w-full h-20 bg-black text-white rounded-[28px] flex items-center justify-between px-8 shadow-[0_30px_60px_rgba(0,0,0,0.4)] active:scale-95 transition-all overflow-hidden relative group"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center relative">
-                   <ShoppingBag size={18} />
-                   <span className="absolute -top-2 -right-2 bg-white text-zinc-900 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+              {/* Shine effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shine" />
+              
+              <div className="flex items-center gap-5 relative z-10">
+                <div className="w-10 h-10 bg-white/10 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/10">
+                   <ShoppingBag size={20} />
+                   <span className="absolute -top-3 -right-3 bg-white text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-black">
                      {getTotalItems()}
                    </span>
                 </div>
-                <div>
-                   <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">Your Order Bag</p>
-                   <p className="font-bold text-lg leading-none">View Cart</p>
+                <div className="text-left">
+                   <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40">Ready to Order</p>
+                   <p className="font-black text-xl italic tracking-tighter uppercase leading-none">View Bag</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xl font-black">₹{getTotalPrice()}</span>
-                <ChevronRight size={20} />
+              <div className="flex items-center gap-4 relative z-10">
+                <span className="text-2xl font-black italic tracking-tighter">₹{getTotalPrice()}</span>
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                    <ChevronRight size={18} />
+                </div>
               </div>
             </button>
           </motion.div>
@@ -279,80 +411,194 @@ export default function CustomerMenuPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsBagOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60]"
             />
             <motion.div 
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-[70] max-h-[85vh] overflow-y-auto"
+              transition={{ type: "spring", damping: 30, stiffness: 300, mass: 0.8 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] z-[70] max-h-[90vh] flex flex-col"
             >
-              <div className="sticky top-0 bg-white px-6 pt-8 pb-4 flex items-center justify-between border-b border-zinc-50 z-10">
-                <div>
-                  <h2 className="text-2xl font-black">Review Order</h2>
-                  <p className="text-zinc-400 text-sm font-medium">Table {tableNumber} • {getTotalItems()} items</p>
+              <div className="px-8 pt-10 pb-6 flex items-center justify-between z-10">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black uppercase tracking-tight leading-none italic">Bag Summary</h2>
+                  <p className="text-zinc-400 text-xs font-black uppercase tracking-widest">Table {tableNumber} • {getTotalItems()} Items</p>
                 </div>
                 <button 
                   onClick={() => setIsBagOpen(false)}
-                  className="w-10 h-10 bg-zinc-100 rounded-full flex items-center justify-center hover:bg-zinc-200 transition-colors"
+                  className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center hover:bg-zinc-200 transition-all hover:scale-110 active:scale-90"
                 >
-                  <X size={20} />
+                  <X size={24} />
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
-                {Object.entries(cart).map(([id, qty]) => {
-                  const item = restaurant.categories.flatMap(c => c.menuItems).find(i => i.id === id);
-                  if (!item) return null;
-                  return (
-                    <div key={id} className="flex items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                           <div className={cn("w-2 h-2 rounded-full", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} />
-                           <p className="font-bold">{item.name}</p>
+              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8 no-scrollbar">
+                <div className="space-y-6">
+                    {Object.entries(cart).map(([id, qty]) => {
+                    const item = restaurant.categories.flatMap(c => c.menuItems).find(i => i.id === id);
+                    if (!item) return null;
+                    return (
+                        <div key={id} className="flex items-center justify-between gap-6 group">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                <div className={cn("w-2 h-2 rounded-full", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} />
+                                <p className="font-black text-lg tracking-tight uppercase italic leading-none truncate">{item.name}</p>
+                                </div>
+                                <p className="text-zinc-400 text-xs font-bold uppercase italic tracking-wider">₹{item.price} x {qty}</p>
+                            </div>
+                            <div className="flex items-center bg-zinc-50 border border-zinc-100 rounded-2xl p-1 gap-4">
+                                <button onClick={() => removeFromCart(id)} className="w-9 h-9 flex items-center justify-center hover:bg-zinc-200 rounded-xl transition-all"><Minus size={14} /></button>
+                                <span className="font-black text-sm w-4 text-center">{qty}</span>
+                                <button onClick={() => addToCart(id)} className="w-9 h-9 flex items-center justify-center hover:bg-zinc-200 rounded-xl transition-all"><Plus size={14} /></button>
+                            </div>
+                            <p className="text-right font-black text-lg italic tracking-tighter w-20">₹{item.price * qty}</p>
                         </div>
-                        <p className="text-zinc-400 text-xs font-medium">₹{item.price} x {qty}</p>
-                      </div>
-                      <div className="flex items-center bg-zinc-100 rounded-full p-1 gap-4">
-                        <button onClick={() => removeFromCart(id)} className="w-8 h-8 flex items-center justify-center hover:bg-zinc-200 rounded-full transition-colors leading-none"><Minus size={14} /></button>
-                        <span className="font-bold text-sm">{qty}</span>
-                        <button onClick={() => addToCart(id)} className="w-8 h-8 flex items-center justify-center hover:bg-zinc-200 rounded-full transition-colors leading-none"><Plus size={14} /></button>
-                      </div>
-                      <p className="text-right font-bold w-16">₹{item.price * qty}</p>
-                    </div>
-                  );
-                })}
-
-                <div className="space-y-3 pt-6 border-t border-zinc-100">
-                  <div className="flex justify-between text-zinc-500 font-medium">
-                    <span>Subtotal</span>
-                    <span>₹{getTotalPrice()}</span>
-                  </div>
-                  <div className="flex justify-between text-zinc-500 font-medium">
-                    <span>Restaurant Charges</span>
-                    <span className="text-green-600">FREE</span>
-                  </div>
-                  <div className="flex justify-between text-2xl font-black pt-2">
-                    <span>Total Amount</span>
-                    <span>₹{getTotalPrice()}</span>
-                  </div>
+                    );
+                    })}
                 </div>
 
+                <div className="space-y-4 pt-8 border-t border-zinc-100">
+                  <div className="flex justify-between text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                    <span>Menu Subtotal</span>
+                    <span>₹{getTotalPrice()}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                    <span>Taxes & Charges</span>
+                    <span className="text-green-500">Included</span>
+                  </div>
+                  <div className="flex justify-between items-end pt-4">
+                    <span className="text-sm font-black uppercase tracking-[0.2em]">Grand Total</span>
+                    <span className="text-4xl font-black italic tracking-tighter text-black leading-none">₹{getTotalPrice()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 pb-12 bg-white border-t border-zinc-50">
                 <Button 
-                   onClick={handlePlaceOrder}
-                   className="w-full h-16 text-lg font-black rounded-2xl bg-zinc-900 text-white shadow-xl mt-4"
+                   onClick={() => setShowPayment(true)}
+                   className="w-full h-16 text-lg font-black rounded-3xl bg-black text-white shadow-2xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
                 >
-                  Place Order <Check size={20} className="ml-2" />
+                  Pay & Place Order <ChevronRight size={24} className="ml-2" strokeWidth={3} />
                 </Button>
-                <p className="text-[10px] text-zinc-400 text-center font-medium uppercase tracking-widest pb-4">
-                  By placing order you agree to restaurant terms
-                </p>
+                <div className="flex items-center justify-center gap-2 mt-6">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <p className="text-[10px] text-zinc-400 text-center font-black uppercase tracking-[0.2em]">
+                        Safe & Secure Kitchen Sync
+                    </p>
+                </div>
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
-    </div>
+
+      {/* UPI Payment Drawer */}
+      <AnimatePresence>
+        {showPayment && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPayment(false)}
+              className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[80]"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] z-[90] p-8 space-y-8 flex flex-col items-center"
+            >
+              <div className="w-12 h-1.5 bg-zinc-200 rounded-full mb-2" />
+              
+              <div className="text-center space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Complete Payment</p>
+                <h2 className="text-3xl font-black italic tracking-tighter uppercase">Scan to Pay</h2>
+                <div className="flex items-center justify-center gap-2 py-2">
+                   <span className="text-4xl font-black italic tracking-tighter">₹{getTotalPrice()}</span>
+                </div>
+              </div>
+
+              <div className="relative group">
+                <div className="absolute -inset-4 bg-gradient-to-tr from-zinc-100 to-zinc-50 rounded-[40px] -z-10" />
+                <div className="w-64 h-64 bg-white p-4 rounded-3xl shadow-2xl border border-zinc-100 flex items-center justify-center">
+                   <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`} 
+                    alt="UPI QR Code" 
+                    className="w-full h-full"
+                    onClick={() => !placedOrderId && handlePlaceOrder()}
+                   />
+                </div>
+                <div className="absolute -top-3 -right-3 bg-zinc-900 text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl">
+                   UPI Secure
+                </div>
+              </div>
+
+              <div className="w-full space-y-6">
+                <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 text-center">
+                  {placedOrderId ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="animate-spin text-zinc-900" size={16} />
+                        <span className="text-zinc-900 font-black uppercase tracking-widest text-[10px]">Verifying Payment...</span>
+                      </div>
+                      <p className="text-zinc-500 text-[10px] font-bold leading-relaxed px-4">
+                        We're waiting for the restaurant to confirm your payment. Please stay on this screen.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-zinc-500 text-xs font-bold leading-relaxed">
+                      Scan the QR code to pay. Your order will be placed automatically after you pay!
+                    </p>
+                  )}
+                </div>
+
+                {!placedOrderId ? (
+                  <Button 
+                    onClick={handlePlaceOrder}
+                    disabled={isOrdering}
+                    className="w-full h-16 bg-zinc-900 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-zinc-200 active:scale-95 transition-all outline-none"
+                  >
+                    {isOrdering ? (
+                      <Loader2 className="animate-spin" size={20} />
+                    ) : (
+                      <div className="flex items-center justify-center gap-3">
+                        <span>Place Order & Pay</span>
+                        <ChevronRight size={18} />
+                      </div>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 animate-pulse">
+                      Do not close this window
+                    </p>
+                  </div>
+                )}
+
+                {!isOrdering && (
+                  <button 
+                    onClick={() => {
+                      if (placedOrderId) {
+                        if (confirm("Are you sure you want to go back? Your order is currently being verified.")) {
+                          setShowPayment(false);
+                        }
+                      } else {
+                        setShowPayment(false);
+                      }
+                    }}
+                    className="w-full text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-black transition-colors py-2 outline-none"
+                  >
+                    {placedOrderId ? "Cancel & Go Back" : "Go Back to Menu"}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
