@@ -172,6 +172,10 @@ export default function CustomerMenuPage() {
 
       const data = await res.json();
       if (data.success) {
+        // Trigger UPI App deep link
+        if (upiUrl) {
+          window.location.href = upiUrl;
+        }
         setPlacedOrderId(data.orderId);
       } else {
         throw new Error(data.error);
