@@ -25,8 +25,8 @@ export async function GET(
 
     return NextResponse.json({ success: true, restaurant });
 
-  } catch (error: any) {
-    console.error("Fetch Menu API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Menu Fetch Error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

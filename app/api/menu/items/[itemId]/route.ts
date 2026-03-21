@@ -20,9 +20,9 @@ export async function PATCH(
         });
 
         return NextResponse.json({ success: true, item: updatedItem });
-    } catch (error: any) {
-        console.error("Update Menu Item Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("Update Item Error:", error);
+        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -37,8 +37,8 @@ export async function DELETE(
             where: { id: itemId }
         });
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error("Delete Menu Item Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("Delete Item Error:", error);
+        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
     }
 }

@@ -16,9 +16,9 @@ export async function PATCH(
         });
 
         return NextResponse.json({ success: true, category: updatedCategory });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Update Category Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
     }
 }
 
@@ -36,8 +36,8 @@ export async function DELETE(
         await prisma.category.delete({ where: { id: categoryId } });
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Delete Category Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
     }
 }

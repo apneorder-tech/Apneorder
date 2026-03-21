@@ -27,13 +27,32 @@ type Step =
   | 'tables'
   | 'complete';
 
+interface OnboardingMenuItem {
+  name: string;
+  price: string;
+  type: string;
+}
+
+interface OnboardingCategory {
+  name: string;
+  items: OnboardingMenuItem[];
+}
+
+interface ApiCategory {
+  name: string;
+  menuItems: {
+    name: string;
+    price: number | string;
+    type: string;
+  }[];
+}
+
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>('phone');
   const [isLoading, setIsLoading] = useState(false);
   const [verificationId, setVerificationId] = useState<ConfirmationResult | null>(null);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const recaptchaRef = useRef<HTMLDivElement>(null);
 
   const [data, setData] = useState({
     phone: '',
@@ -86,9 +105,9 @@ export default function OnboardingPage() {
               address: r.address,
               upiId: r.upiId,
               themeColor: r.themeColor,
-              menuCategories: r.categories.map((c: any) => ({
+              menuCategories: r.categories.map((c: ApiCategory) => ({
                 name: c.name,
-                items: c.menuItems.map((i: any) => ({
+                items: c.menuItems.map((i) => ({
                   name: i.name,
                   price: i.price.toString(),
                   type: i.type
@@ -185,7 +204,7 @@ export default function OnboardingPage() {
     if (!window.recaptchaVerifier && step === 'phone') {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
-        'callback': (response: any) => {
+        'callback': () => {
           console.log("Recaptcha verified");
         }
       });
@@ -603,6 +622,6 @@ export default function OnboardingPage() {
 
 declare global {
   interface Window {
-    recaptchaVerifier: any;
+    recaptchaVerifier: RecaptchaVerifier;
   }
 }

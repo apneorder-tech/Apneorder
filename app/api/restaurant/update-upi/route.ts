@@ -3,31 +3,21 @@ import prisma from "@/lib/prisma";
 
 export async function POST(request: Request) {
     try {
-        let { restaurantId, upiId } = await request.json();
+        const { restaurantId, upiId } = await request.json();
 
         if (!restaurantId || !upiId) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+            return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
         }
 
-        upiId = upiId.trim();
-
-        // Basic UPI ID validation
-        if (!upiId.includes("@") || upiId.includes(" ")) {
-            return NextResponse.json({ error: "Invalid UPI ID format" }, { status: 400 });
-        }
-
-        const updatedRestaurant = await prisma.restaurant.update({
+        const updated = await prisma.restaurant.update({
             where: { id: restaurantId },
-            data: { upiId },
+            data: { upiId: upiId.trim() },
         });
 
-        return NextResponse.json({ 
-            success: true, 
-            upiId: updatedRestaurant.upiId 
-        });
+        return NextResponse.json({ success: true, upiId: updated.upiId });
 
-    } catch (error: any) {
-        console.error("Update UPI API Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("Update UPI Error:", error);
+        return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
     }
 }

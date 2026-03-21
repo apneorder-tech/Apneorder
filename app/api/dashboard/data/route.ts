@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         createdAt: { gte: today }
       }
     });
-    const totalSaleToday = completedOrdersToday.reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    const totalSaleToday = completedOrdersToday.reduce((sum: number, o: { totalAmount: { toString(): string } }) => sum + Number(o.totalAmount.toString()), 0);
 
     // Prepared Today (Ready + Completed)
     const preparedTodayCount = await prisma.order.count({
@@ -68,10 +68,10 @@ export async function GET(request: Request) {
 
     // Tables Stats
     const totalTables = restaurant.tables.length;
-    const activeTablesCount = restaurant.tables.filter((t: any) => t.orders.length > 0).length;
+    const activeTablesCount = restaurant.tables.filter((t: { orders: unknown[] }) => t.orders.length > 0).length;
 
     // Flatten all active orders from all tables
-    const activeOrders = restaurant.tables.flatMap((t: any) => t.orders);
+    const activeOrders = restaurant.tables.flatMap((t: { orders: unknown[] }) => t.orders);
 
     return NextResponse.json({ 
       success: true, 
@@ -91,8 +91,8 @@ export async function GET(request: Request) {
       }))
     });
 
-  } catch (error: any) {
-    console.error("Fetch Dashboard Data Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Dashboard Data Error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }

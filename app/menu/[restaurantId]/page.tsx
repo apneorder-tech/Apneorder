@@ -3,13 +3,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ShoppingBag, ChevronRight, Star, Clock, 
-  MapPin, Phone, Info, X, Plus, Minus, Check, Loader2 
+import {
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface MenuItem {
@@ -545,7 +542,7 @@ export default function CustomerMenuPage() {
                         <span className="text-zinc-900 font-black uppercase tracking-widest text-[10px]">Verifying Payment...</span>
                       </div>
                       <p className="text-zinc-500 text-[10px] font-bold leading-relaxed px-4">
-                        We're waiting for the restaurant to confirm your payment. Please stay on this screen.
+                        We&apos;re waiting for the restaurant to confirm your payment. Please stay on this screen.
                       </p>
                     </div>
                   ) : (

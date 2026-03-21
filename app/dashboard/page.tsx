@@ -6,7 +6,6 @@ import { jsPDF } from "jspdf";
 import {
   BarChart3,
   Check,
-  ChevronRight,
   Clock,
   Info,
   LayoutDashboard,
@@ -21,25 +20,15 @@ import {
   QrCode,
   UtensilsCrossed,
   Settings,
-  MapPin,
-  Star,
-  ShoppingBag,
-  Minus,
   ChefHat,
   XCircle,
-  Bell,
-  RefreshCw,
-  Search,
-  MoreVertical,
-  Store
+  Bell
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetTrigger,
-  SheetClose,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -66,7 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { User, RecaptchaVerifier } from "firebase/auth";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
@@ -75,6 +64,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+declare global {
+  interface Window {
+    recaptchaVerifier: RecaptchaVerifier;
+  }
+}
 
 // ─── Types ───
 interface OrderItem {
@@ -602,6 +597,7 @@ export default function DashboardPage() {
   } | null>(null);
 
   const [isShowingPreview, setIsShowingPreview] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   // Derived state
   const verifyingOrders = useMemo(
@@ -622,30 +618,37 @@ export default function DashboardPage() {
     completedOrders;
 
   // ─── Auth & Data ───
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        let idToUse = user.uid;
-        try {
-          const idToken = await user.getIdToken();
-          const syncRes = await fetch("/api/auth/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken }),
-          });
-          const syncData = await syncRes.json();
-          if (syncData.success) idToUse = syncData.managerId;
-        } catch (e) {
-          console.error("Sync error:", e);
-        }
-        setManagerId(idToUse);
-        fetchDashboardData(idToUse);
-      } else {
-        window.location.href = "/";
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const setupRealtimeListener = useCallback(
+    (restId: string) => {
+      const channel = supabase
+        .channel("dashboard-realtime")
+        .on("postgres_changes", { event: "*", schema: "public", table: "Order" }, () => {
+          const uid = auth.currentUser?.uid;
+          if (uid) {
+            fetch(`/api/dashboard/data?managerId=${uid}`).then(r => r.json()).then(data => {
+              if (data.success) {
+                setOrders(data.orders);
+                if (data.stats) setDashboardStats(data.stats);
+              }
+            });
+          }
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "Category" }, () => {
+          const uid = auth.currentUser?.uid;
+          if (uid) {
+            fetch(`/api/menu/${restId}`).then(r => r.json()).then(data => {
+              if (data.success) setMenuCategories(data.restaurant.categories);
+            });
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    },
+    []
+  );
 
   const fetchDashboardData = useCallback(async (uid: string) => {
     try {
@@ -687,29 +690,37 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setupRealtimeListener]);
 
-  const setupRealtimeListener = useCallback(
-    (restId: string) => {
-      const channel = supabase
-        .channel("dashboard-realtime")
-        .on("postgres_changes", { event: "*", schema: "public", table: "Order" }, () => {
-          if (auth.currentUser) fetchDashboardData(auth.currentUser.uid);
-        })
-        .on("postgres_changes", { event: "*", schema: "public", table: "Category" }, () => {
-          if (auth.currentUser) fetchDashboardData(auth.currentUser.uid);
-        })
-        .on("postgres_changes", { event: "*", schema: "public", table: "MenuItem" }, () => {
-          if (auth.currentUser) fetchDashboardData(auth.currentUser.uid);
-        })
-        .subscribe();
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setUser(user);
+        let idToUse = user.uid;
+        if (user.uid === "ADMIN_UID" && localStorage.getItem("IMPERSONATE_USER_ID")) {
+          idToUse = localStorage.getItem("IMPERSONATE_USER_ID")!;
+        }
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    },
-    [fetchDashboardData]
-  );
+        try {
+          const idToken = await user.getIdToken();
+          const syncRes = await fetch("/api/auth/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+          });
+          const syncData = await syncRes.json();
+          if (syncData.success) idToUse = syncData.managerId;
+        } catch (e) {
+          console.error("Sync error:", e);
+        }
+        setManagerId(idToUse);
+        fetchDashboardData(idToUse);
+      } else {
+        window.location.href = "/";
+      }
+    });
+    return () => unsubscribe();
+  }, [fetchDashboardData]);
 
   // ─── Order Actions ───
   const updateOrderStatus = useCallback(
@@ -899,7 +910,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.success) {
-        let finalCategory = { ...data.category, menuItems: [] };
+        const finalCategory = { ...data.category, menuItems: [] };
         if (initialDishName.trim() && initialDishPrice.trim()) {
           try {
             const itemRes = await fetch(
@@ -1562,7 +1573,7 @@ export default function DashboardPage() {
                        <div className="flex items-start gap-4">
                          <Info size={18} className="text-zinc-400 mt-1" />
                          <p className="text-xs text-zinc-500 font-medium leading-relaxed italic">
-                           This UPI ID is used to generate the scan-to-order QR codes for your customers. Make sure it's active and connected to your bank account to receive payments instantly.
+                           This UPI ID is used to generate the scan-to-order QR codes for your customers. Make sure it&apos;s active and connected to your bank account to receive payments instantly.
                          </p>
                        </div>
                     </CardContent>

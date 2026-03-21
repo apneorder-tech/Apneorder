@@ -53,8 +53,8 @@ export async function POST(request: Request) {
       hasRestaurant: false 
     });
 
-  } catch (error: any) {
-    console.error("Auth Sync Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Sync Error:", error);
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
