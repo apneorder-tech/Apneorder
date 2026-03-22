@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 export async function GET(
   request: Request,
@@ -12,9 +12,7 @@ export async function GET(
       select: { status: true }
     });
 
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
+    return NextResponse.json({ success: true, order });
 
   } catch (error: unknown) {
     console.error("Get Order Status Error:", error);

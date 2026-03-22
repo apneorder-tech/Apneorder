@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Manager {
+  id         String      @id @default(cuid())
+  phone      String      @unique
+  name       String?
+  isVerified Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  restaurant Restaurant?
+}
+
+model Restaurant {
+  id         String     @id @default(cuid())
+  name       String
+  ownerName  String
+  city       String
+  address    String
+  logoUrl    String?
+  upiId      String
+  themeColor String     @default("#000000")
+  managerId  String     @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories Category[]
+  manager    Manager    @relation(fields: [managerId], references: [id])
+  tables     Table[]
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  name         String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  menuItems    MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  price       Decimal
+  type        String
+  imageUrl    String?
+  isAvailable Boolean     @default(true)
+  categoryId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+}
+
+model Table {
+  id           String     @id @default(cuid())
+  tableNumber  String
+  qrCodeUrl    String?
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+}
+
+model Order {
+  id               String      @id @default(cuid())
+  tableId          String
+  totalAmount      Decimal
+  status           String
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  transactionId    String?
+  paymentSessionId String?
+  paymentStatus    String      @default("pending")
+  paymentMethod    String      @default("ONLINE")
+  table            Table       @relation(fields: [tableId], references: [id])
+  orderItems       OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  subtotal   Decimal
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id])
+}

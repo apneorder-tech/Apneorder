@@ -1,36 +1,49 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 export async function POST(request: Request) {
     try {
-        const { restaurantId } = await request.json();
+        const { restaurantId, tableNumber } = await request.json();
 
-        if (!restaurantId) {
-            return NextResponse.json({ error: "Restaurant ID is required" }, { status: 400 });
+        if (!restaurantId || !tableNumber) {
+            return NextResponse.json({ error: "Restaurant ID and Table Number are required" }, { status: 400 });
         }
 
-        // 1. Get current tables to find the next table number
-        const currentTables = await prisma.table.findMany({
-            where: { restaurantId },
-            orderBy: { tableNumber: 'asc' }
+        // 1. Validate tableNumber is a positive integer > 0
+        const num = parseInt(tableNumber);
+        if (isNaN(num) || num <= 0) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Table number must be a positive number greater than 0." 
+            }, { status: 400 });
+        }
+
+        // 2. Check if table number already exists for this restaurant
+        const existingTable = await prisma.table.findFirst({
+            where: {
+                restaurantId,
+                tableNumber: tableNumber.trim()
+            }
         });
 
-        // Parse table numbers as integers to find the max
-        const tableNumbers = currentTables.map(t => parseInt(t.tableNumber)).filter(n => !isNaN(n));
-        const nextNumber = tableNumbers.length > 0 ? Math.max(...tableNumbers) + 1 : 1;
-        const newTableNumber = nextNumber.toString();
+        if (existingTable) {
+            return NextResponse.json({ 
+                success: false, 
+                error: `Table "${tableNumber}" already exists.` 
+            }, { status: 400 });
+        }
 
         // 2. Generate QR URL
         const protocol = request.headers.get('x-forwarded-proto') || 'http';
         const host = request.headers.get('host');
         const origin = `${protocol}://${host}`;
-        const qrCodeUrl = `${origin}/menu/${restaurantId}?table=${newTableNumber}`;
+        const qrCodeUrl = `${origin}/menu/${restaurantId}?table=${encodeURIComponent(tableNumber.trim())}`;
 
         // 3. Create the new table
         const newTable = await prisma.table.create({
             data: {
                 restaurantId,
-                tableNumber: newTableNumber,
+                tableNumber: tableNumber.trim(),
                 qrCodeUrl
             }
         });

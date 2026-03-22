@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 export async function POST(request: Request) {
   try {
-    const { restaurantId, tableNumber, items, transactionId } = await request.json();
+    const { restaurantId, tableNumber, items, transactionId, paymentMethod = "ONLINE" } = await request.json();
 
     // 1. Find the table record
     const table = await prisma.table.findFirst({
@@ -38,7 +38,8 @@ export async function POST(request: Request) {
       data: {
         tableId: table.id,
         totalAmount,
-        status: "payment_pending",
+        status: paymentMethod === "CASH" ? "pending" : "payment_pending",
+        paymentMethod: paymentMethod,
         transactionId: transactionId || null,
         orderItems: {
           create: orderItemsData,

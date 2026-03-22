@@ -4,10 +4,17 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone, Download
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone, Download, XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { createClient } from "@supabase/supabase-js";
+
+// ─── Supabase Client ───
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface MenuItem {
   id: string;
@@ -45,6 +52,7 @@ export default function CustomerMenuPage() {
   const [isBagOpen, setIsBagOpen] = useState(false);
 
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
+  const [isOrderRejected, setIsOrderRejected] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -54,6 +62,7 @@ export default function CustomerMenuPage() {
     setTimeout(() => setCopySuccess(false), 2000);
   };
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "CASH">("ONLINE");
   const [isOrdering, setIsOrdering] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
@@ -72,22 +81,54 @@ export default function CustomerMenuPage() {
   useEffect(() => {
     if (!placedOrderId || isOrderSuccess) return;
 
+    // 1. Supabase Realtime Listener (Instant)
+    const channel = supabase
+      .channel(`order-status-${placedOrderId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "Order",
+          filter: `id=eq.${placedOrderId}`
+        },
+        (payload) => {
+          if (payload.new.status === "cancelled") {
+            setIsOrderRejected(true);
+            setPlacedOrderId(null);
+          } else if (payload.new.status !== "payment_pending") {
+            setIsOrderSuccess(true);
+            setPlacedOrderId(null);
+          }
+        }
+      )
+      .subscribe();
+
+    // 2. Polling Backup (Every 3s)
     const pollInterval = setInterval(async () => {
       try {
         const res = await fetch(`/api/orders/${placedOrderId}/status`);
         const data = await res.json();
-        // If status is no longer payment_pending, it means manager approved or it's moving
-        if (data.success && data.order.status !== "payment_pending") {
-          setIsOrderSuccess(true);
-          setPlacedOrderId(null);
-          clearInterval(pollInterval);
+        if (data.success) {
+          if (data.order.status === "cancelled") {
+            setIsOrderRejected(true);
+            setPlacedOrderId(null);
+            clearInterval(pollInterval);
+          } else if (data.order.status !== "payment_pending") {
+            setIsOrderSuccess(true);
+            setPlacedOrderId(null);
+            clearInterval(pollInterval);
+          }
         }
       } catch (err) {
         console.error("Polling error:", err);
       }
     }, 3000);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [placedOrderId, isOrderSuccess]);
 
   useEffect(() => {
@@ -216,6 +257,8 @@ export default function CustomerMenuPage() {
           restaurantId,
           tableNumber,
           items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
+          transactionId: null,
+          paymentMethod
         }),
       });
 
@@ -268,38 +311,6 @@ export default function CustomerMenuPage() {
         animate={{ opacity: 1 }}
         className="min-h-screen bg-zinc-50 font-sans pb-32"
     >
-      {/* ─── Success Overlay ─── */}
-      <AnimatePresence>
-        {isOrderSuccess && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="w-full max-w-sm bg-white rounded-[40px] p-8 text-center space-y-8"
-            >
-              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(34,197,94,0.4)]">
-                <Check size={40} className="text-white" strokeWidth={3} />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-3xl font-black tracking-tight uppercase italic leading-none">Order Sent!</h2>
-                <p className="text-zinc-500 font-medium italic">Your meal is being prepared with love.</p>
-              </div>
-              <Button 
-                onClick={() => setIsOrderSuccess(false)}
-                className="w-full h-14 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest"
-              >
-                Continue Browsing
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Header */}
       <div className="relative">
         <div 
@@ -519,12 +530,56 @@ export default function CustomerMenuPage() {
                 </div>
               </div>
 
-              <div className="p-8 pb-12 bg-white border-t border-zinc-50">
+              <div className="p-8 pb-12 bg-white border-t border-zinc-50 space-y-6">
+                {/* Payment Method Selector */}
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">Select Payment Method</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setPaymentMethod("ONLINE")}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                        paymentMethod === "ONLINE" 
+                          ? "bg-zinc-900 border-zinc-900 text-white shadow-lg scale-[1.02]" 
+                          : "bg-white border-zinc-100 text-zinc-400 hover:border-zinc-200"
+                      )}
+                    >
+                      <Smartphone size={20} className={cn(paymentMethod === "ONLINE" ? "text-white" : "text-zinc-400")} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Online (UPI)</span>
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("CASH")}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                        paymentMethod === "CASH" 
+                          ? "bg-zinc-900 border-zinc-900 text-white shadow-lg scale-[1.02]" 
+                          : "bg-white border-zinc-100 text-zinc-400 hover:border-zinc-200"
+                      )}
+                    >
+                      <ShoppingBag size={20} className={cn(paymentMethod === "CASH" ? "text-white" : "text-zinc-400")} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Pay in Cash</span>
+                    </button>
+                  </div>
+                </div>
+
                 <Button 
-                   onClick={() => setShowPayment(true)}
+                   onClick={() => {
+                     if (paymentMethod === "CASH") {
+                       handleConfirmPaymentSent(); // We'll update this to handle the method
+                     } else {
+                       setShowPayment(true);
+                     }
+                   }}
+                   disabled={isOrdering}
                    className="w-full h-16 text-lg font-black rounded-3xl bg-black text-white shadow-2xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
                 >
-                  Pay & Place Order <ChevronRight size={24} className="ml-2" strokeWidth={3} />
+                  {isOrdering ? (
+                    <Loader2 className="animate-spin" size={24} />
+                  ) : paymentMethod === "CASH" ? (
+                    <>Place Cash Order <ChevronRight size={24} className="ml-2" strokeWidth={3} /></>
+                  ) : (
+                    <>Pay & Place Order <ChevronRight size={24} className="ml-2" strokeWidth={3} /></>
+                  )}
                 </Button>
                 <div className="flex items-center justify-center gap-2 mt-6">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
@@ -596,34 +651,42 @@ export default function CustomerMenuPage() {
               {(showDirectOptions || !isInAppBrowser) && (
                 <>
 
-              {/* Dynamic QR Code (Physical Scan) */}
-              <div className="relative group">
-                <div className="absolute -inset-4 bg-gradient-to-tr from-zinc-100 to-zinc-50 rounded-[40px] -z-10" />
-                <div className="w-56 h-56 bg-white p-4 rounded-3xl shadow-xl border border-zinc-100 flex items-center justify-center overflow-hidden">
-                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`} 
-                    alt="UPI QR Code" 
-                    className="w-full h-full"
-                    onClick={() => !placedOrderId && handlePlaceOrder()}
-                   />
-                </div>
-                <div className="absolute -top-3 -right-3 bg-zinc-900 text-white px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl">
-                   UPI Secure
-                </div>
-              </div>
+               {/* Step 1: Scan / Download */}
+               <div className="w-full space-y-4 flex flex-col items-center">
+                  <div className="flex items-center gap-2 mb-2">
+                     <div className="w-6 h-6 bg-zinc-900 text-white rounded-full flex items-center justify-center text-[10px] font-black">1</div>
+                     <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Scan or Save to Pay</span>
+                  </div>
 
-              <div className="w-full flex flex-col items-center gap-2">
-                <button 
-                  onClick={() => handleDownloadQR(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(upiUrl)}`)}
-                  className="px-6 py-2 bg-zinc-100 rounded-full text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-200 transition-all flex items-center gap-2"
-                >
-                  <Download size={14} />
-                  {isDownloading ? "Downloading..." : "Download QR for Gallery"}
-                </button>
-                <p className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest">
-                   Save & upload in PhonePe/GPay Gallery
-                </p>
-              </div>
+                  {/* Dynamic QR Code (Physical Scan) */}
+                  <div className="relative group">
+                    <div className="absolute -inset-4 bg-gradient-to-tr from-zinc-100 to-zinc-50 rounded-[40px] -z-10" />
+                    <div className="w-56 h-56 bg-white p-4 rounded-3xl shadow-xl border border-zinc-100 flex items-center justify-center overflow-hidden">
+                       <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`} 
+                        alt="UPI QR Code" 
+                        className="w-full h-full cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleDownloadQR(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(upiUrl)}`)}
+                       />
+                    </div>
+                    <div className="absolute -top-3 -right-3 bg-zinc-900 text-white px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl">
+                       Pay ₹{getTotalPrice()}
+                    </div>
+                  </div>
+
+                  <div className="w-full flex flex-col items-center gap-2">
+                    <button 
+                      onClick={() => handleDownloadQR(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(upiUrl)}`)}
+                      className="px-6 py-3 bg-zinc-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-900 hover:bg-zinc-200 active:scale-95 transition-all shadow-sm border border-zinc-200 flex items-center gap-2"
+                    >
+                      <Download size={14} />
+                      {isDownloading ? "Downloading..." : "Download QR Code"}
+                    </button>
+                    <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest text-center px-8 leading-relaxed">
+                       Save & scan using PhonePe/GPay &quot;Gallery&quot; to pay from your phone instantly.
+                    </p>
+                  </div>
+               </div>
 
               {!placedOrderId && (
                 <div className="w-full space-y-4 pt-4 border-t border-zinc-100">
@@ -644,8 +707,6 @@ export default function CustomerMenuPage() {
                     </p>
                   </div>
                 </div>
-              )}
-              </>
               )}
 
               <div className="w-full space-y-6">
@@ -670,20 +731,27 @@ export default function CustomerMenuPage() {
                 </div>
 
                 {!placedOrderId ? (
-                  <Button 
-                    onClick={handleConfirmPaymentSent}
-                    disabled={isOrdering}
-                    className="w-full h-16 bg-zinc-900 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-zinc-200 active:scale-95 transition-all outline-none"
-                  >
-                    {isOrdering ? (
-                      <Loader2 className="animate-spin" size={20} />
-                    ) : (
-                      <div className="flex items-center justify-center gap-3">
-                        <span>I Have Paid & Place Order</span>
-                        <ChevronRight size={18} />
-                      </div>
-                    )}
-                  </Button>
+                  <div className="w-full space-y-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                       <div className="w-6 h-6 bg-zinc-900 text-white rounded-full flex items-center justify-center text-[10px] font-black">2</div>
+                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Confirm Transfer</span>
+                    </div>
+
+                    <Button 
+                      onClick={handleConfirmPaymentSent}
+                      disabled={isOrdering}
+                      className="w-full h-16 bg-zinc-900 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-zinc-300 active:scale-95 transition-all outline-none"
+                    >
+                      {isOrdering ? (
+                        <Loader2 className="animate-spin" size={20} />
+                      ) : (
+                        <div className="flex items-center justify-center gap-3">
+                          <span>I Have Successfully Paid</span>
+                          <ChevronRight size={18} />
+                        </div>
+                      )}
+                    </Button>
+                  </div>
                 ) : (
                   <div className="text-center py-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 animate-pulse">
@@ -697,7 +765,7 @@ export default function CustomerMenuPage() {
                     onClick={() => {
                       if (placedOrderId) {
                         if (confirm("Are you sure you want to go back? Your order is currently being verified.")) {
-                          setShowPayment(false);
+                           setShowPayment(false);
                         }
                       } else {
                         setShowPayment(false);
@@ -709,8 +777,105 @@ export default function CustomerMenuPage() {
                   </button>
                 )}
               </div>
+              </>
+              )}
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Success & Rejection Overlays */}
+      <AnimatePresence>
+        {isOrderSuccess && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-white z-[120] flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", damping: 15 }}
+              className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-green-100"
+            >
+              <Check size={48} className="text-white" strokeWidth={4} />
+            </motion.div>
+            
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="space-y-2"
+            >
+              <h2 className="text-3xl font-black italic tracking-tighter uppercase text-zinc-900">
+                Order Placed!
+              </h2>
+              <p className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                {paymentMethod === "CASH" ? "Please pay after your meal" : "Payment Verified Successfully"}
+              </p>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="mt-12 p-6 bg-zinc-50 rounded-3xl border border-zinc-100 w-full max-w-xs"
+            >
+              <div className="flex items-center gap-3 justify-center mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Kitchen is notified</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 font-bold leading-relaxed px-4">
+                Your food is being prepared. Enjoy your meal!
+              </p>
+            </motion.div>
+
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.5 }}
+              onClick={() => {
+                setIsOrderSuccess(false);
+                setCart({});
+                setIsBagOpen(false);
+                setShowPayment(false);
+              }}
+              className="mt-12 px-8 py-4 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
+            >
+              Done
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOrderRejected && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-white z-[120] flex flex-col items-center justify-center p-6 text-center"
+          >
+            <motion.div 
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="w-24 h-24 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6"
+            >
+              <XCircle size={48} strokeWidth={2} />
+            </motion.div>
+            
+            <h2 className="text-3xl font-black italic tracking-tighter uppercase text-zinc-900">Payment Rejected</h2>
+            <p className="text-xs font-black uppercase tracking-widest text-zinc-400 mt-2">The manager could not verify your payment</p>
+
+            <motion.button
+              onClick={() => {
+                setIsOrderRejected(false);
+                setShowPayment(true);
+              }}
+              className="mt-12 px-8 py-4 bg-zinc-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
+            >
+              Try Again
+            </motion.button>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

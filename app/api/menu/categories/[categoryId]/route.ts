@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 // PATCH /api/menu/categories/[categoryId] - Rename category
 export async function PATCH(

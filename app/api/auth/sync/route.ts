@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebaseAdmin";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 export async function POST(request: Request) {
   try {

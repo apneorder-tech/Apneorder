@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import prisma from "@/lib/prisma-new";
 
 // POST /api/menu/categories/[categoryId]/items - Add new item to category
 export async function POST(
