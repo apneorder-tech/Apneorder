@@ -476,14 +476,14 @@ function OrderCard({
   onStatusUpdate: (id: string, status: Order["status"]) => void;
 }) {
   return (
-    <Card className="border border-zinc-100 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 bg-white group rounded-2xl sm:rounded-3xl w-full">
+    <Card className="relative border border-zinc-100 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 bg-white group rounded-2xl sm:rounded-3xl w-full">
       {/* Header */}
-      <div className="p-3 sm:p-4 md:p-5 flex items-center justify-between gap-2 border-b border-zinc-50 bg-zinc-50/30">
+      <div className="p-3 sm:p-4 md:p-5 flex items-center gap-2 border-b border-zinc-50 bg-zinc-50/30">
         <div className="flex items-center gap-2.5 sm:gap-3 md:gap-4 min-w-0 flex-1">
           <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 bg-white border border-zinc-200 shadow-sm rounded-xl sm:rounded-2xl flex items-center justify-center text-zinc-900 font-black text-sm sm:text-base md:text-lg shrink-0 group-hover:scale-105 transition-transform">
             T{order.table.tableNumber}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 mr-16 sm:mr-20 text-balance">
             <h4 className="text-xs sm:text-sm font-black text-zinc-900 truncate tracking-tight uppercase">
               Order #{order.id.slice(-4).toUpperCase()}
             </h4>
@@ -500,7 +500,9 @@ function OrderCard({
             </div>
           </div>
         </div>
-        <div className="shrink-0">
+        
+        {/* Absolute Status Badge */}
+        <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10">
           <StatusBadge status={order.status} />
         </div>
       </div>
