@@ -195,16 +195,19 @@ export default function CustomerMenuPage() {
 
   const handlePlaceOrder = async () => {
     if (getTotalItems() === 0) return;
-    setIsOrdering(true);
     
-    // Trigger UPI App deep link immediately ONLY if it's safe (amount <= 2000 or not in a restricted browser)
-    // This prevents the "2000 limit" error from triggering automatically.
+    // Step 1: Open payment drawer and instructions
+    setShowPayment(true);
+    
+    // Trigger UPI App deep link immediately if it's safe (amount <= 2000 or not in a restricted browser)
     const isSafeToRedirect = totalPrice <= 2000 || !isInAppBrowser;
-    
     if (upiUrl && isSafeToRedirect) {
       window.location.href = upiUrl;
     }
+  };
 
+  const handleConfirmPaymentSent = async () => {
+    setIsOrdering(true);
     try {
       const res = await fetch("/api/orders/create", {
         method: "POST",
@@ -220,10 +223,11 @@ export default function CustomerMenuPage() {
       if (data.success) {
         setPlacedOrderId(data.orderId);
       } else {
-        throw new Error(data.error);
+        throw new Error(data.error || "Failed to create order");
       }
     } catch (err) {
-      console.error("Place Order Error:", err);
+      console.error("Finalize Order Error:", err);
+      alert("Something went wrong. Please check your connection and try again.");
     } finally {
       setIsOrdering(false);
     }
@@ -621,37 +625,8 @@ export default function CustomerMenuPage() {
                 </p>
               </div>
 
-              <div className="w-full grid grid-cols-4 gap-3">
-                {[
-                  { name: "Google Pay", id: "gpay" },
-                  { name: "PhonePe", id: "phonepe" },
-                  { name: "Paytm", id: "paytm" },
-                  { name: "Any App", id: "any" }
-                ].map((app) => (
-                  <button
-                    key={app.id}
-                    onClick={() => !placedOrderId && handlePlaceOrder()}
-                    className={cn(
-                      "flex items-center justify-center p-4 rounded-3xl border border-zinc-100 transition-all active:scale-95",
-                      placedOrderId ? "opacity-30 grayscale cursor-not-allowed" : "hover:bg-zinc-50 hover:border-zinc-200"
-                    )}
-                  >
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{app.name}</span>
-                  </button>
-                ))}
-              </div>
-
               {!placedOrderId && (
-                <div className="w-full space-y-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-zinc-100"></div>
-                    </div>
-                    <div className="relative flex justify-center text-[8px] font-black uppercase tracking-[0.3em] text-zinc-300 bg-white px-4">
-                      Or Pay Manually
-                    </div>
-                  </div>
-
+                <div className="w-full space-y-4 pt-4 border-t border-zinc-100">
                   <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 flex items-center justify-between group active:scale-[0.98] transition-all" onClick={() => copyToClipboard(restaurant.upiId)}>
                     <div className="space-y-1">
                       <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Merchant UPI ID</p>
@@ -662,24 +637,10 @@ export default function CustomerMenuPage() {
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => {
-                        copyToClipboard(`UPI: ${restaurant.upiId}\nAmount: ₹${totalPrice}`);
-                        window.location.href = upiIdOnlyUrl;
-                        if (!placedOrderId) handlePlaceOrder();
-                    }}
-                    className="w-full py-4 bg-zinc-900 text-white rounded-2xl flex items-center justify-center gap-2 group active:scale-95 transition-all"
-                  >
-                    <div className="flex flex-col items-center">
-                      <span className="text-[10px] font-black uppercase tracking-widest leading-none">Copy Details & Open Pay App</span>
-                      <span className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Bypasses ₹2,000 Automated Limit</span>
-                    </div>
-                  </button>
-
                   <div className="flex items-start gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                     <Info size={14} className="text-zinc-400 shrink-0 mt-0.5" />
                     <p className="text-[9px] text-zinc-500 font-bold leading-relaxed italic">
-                      This copies your order amount and the merchant UPI ID automatically, so you can pay smoothly even if the app blocks the direct link.
+                      Scan the QR above or <strong>Download</strong> it to pay via Gallery. This method is the most reliable way to pay any amount without limits.
                     </p>
                   </div>
                 </div>
@@ -714,7 +675,7 @@ export default function CustomerMenuPage() {
 
                 {!placedOrderId ? (
                   <Button 
-                    onClick={handlePlaceOrder}
+                    onClick={handleConfirmPaymentSent}
                     disabled={isOrdering}
                     className="w-full h-16 bg-zinc-900 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-zinc-200 active:scale-95 transition-all outline-none"
                   >
@@ -722,7 +683,7 @@ export default function CustomerMenuPage() {
                       <Loader2 className="animate-spin" size={20} />
                     ) : (
                       <div className="flex items-center justify-center gap-3">
-                        <span>Place Order & Pay</span>
+                        <span>I Have Paid & Place Order</span>
                         <ChevronRight size={18} />
                       </div>
                     )}
