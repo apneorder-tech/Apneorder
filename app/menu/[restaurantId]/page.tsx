@@ -524,7 +524,7 @@ export default function CustomerMenuPage() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] z-[90] p-8 space-y-8 flex flex-col items-center"
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[40px] z-[90] p-6 pb-10 space-y-6 flex flex-col items-center max-h-[92vh] overflow-y-auto"
             >
               <div className="w-12 h-1.5 bg-zinc-200 rounded-full mb-2" />
               
