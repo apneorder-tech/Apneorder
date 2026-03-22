@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import {
@@ -27,6 +27,7 @@ import {
   ExternalLink,
   RefreshCw,
   ShoppingBag,
+  TrendingUp,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
@@ -244,6 +251,220 @@ function StatCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function AnalyticsView({ stats }: { stats: any }) {
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">("week");
+  
+  const currentData = stats.timeframes?.[timeRange] || { chartData: [], topItems: [] };
+  const maxSales = Math.max(...currentData.chartData.map((d: any) => d.sales), 1);
+
+  const ranges = [
+    { id: "week", label: "Week" },
+    { id: "month", label: "Month" },
+    { id: "year", label: "Year" }
+  ] as const;
+
+  return (
+    <div className="space-y-6 lg:space-y-10 pb-20">
+      {/* Time Range Selector */}
+      <div className="flex justify-center sm:justify-start">
+        <div className="bg-zinc-100 p-1 rounded-2xl flex gap-1 items-center">
+          {ranges.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setTimeRange(r.id)}
+              className={cn(
+                "px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all relative",
+                timeRange === r.id ? "text-zinc-900" : "text-zinc-400 hover:text-zinc-600"
+              )}
+            >
+              <span className="relative z-10">{r.label}</span>
+              {timeRange === r.id && (
+                <motion.div
+                  layoutId="range-bg"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm border border-zinc-200"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sales Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="bg-white border-none shadow-sm overflow-hidden group rounded-[32px]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                <BarChart3 size={20} />
+              </div>
+              <Badge className="bg-amber-50 text-amber-600 border-none font-black text-[10px]">DAILY</Badge>
+            </div>
+            <p className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Total Sale Today</p>
+            <h3 className="text-2xl sm:text-3xl font-black text-zinc-900 mt-1">{formatCurrency(stats.totalSaleToday)}</h3>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900 text-white border-none shadow-xl shadow-zinc-200/50 overflow-hidden relative rounded-[32px]">
+          <div className="absolute top-0 right-0 p-4">
+             <TrendingUp className="text-zinc-700 w-20 h-20 -mr-6 -mt-6 opacity-20" />
+          </div>
+          <CardContent className="p-6 relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                <Clock size={20} className="text-white" />
+              </div>
+              <Badge className="bg-white/10 text-white border-none font-black text-[10px]">7 DAYS</Badge>
+            </div>
+            <p className="text-white/40 text-xs font-bold uppercase tracking-wider">Weekly Revenue</p>
+            <h3 className="text-2xl sm:text-3xl font-black text-white mt-1">{formatCurrency(stats.salesWeekly)}</h3>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm overflow-hidden rounded-[32px]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                <ShoppingBag size={20} />
+              </div>
+              <Badge className="bg-blue-50 text-blue-600 border-none font-black text-[10px]">30 DAYS</Badge>
+            </div>
+            <p className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Monthly Revenue</p>
+            <h3 className="text-2xl sm:text-3xl font-black text-zinc-900 mt-1">{formatCurrency(stats.salesMonthly)}</h3>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-none shadow-sm overflow-hidden rounded-[32px]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
+                <Check size={20} />
+              </div>
+              <Badge className="bg-green-50 text-green-600 border-none font-black text-[10px]">YEARLY</Badge>
+            </div>
+            <p className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Annual Revenue</p>
+            <h3 className="text-2xl sm:text-3xl font-black text-zinc-900 mt-1">{formatCurrency(stats.salesYearly || 0)}</h3>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sales Trend & Top Products */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
+        {/* Sales Trend (Bar Chart CSS) */}
+        <Card className="border-none shadow-sm bg-white p-6 sm:p-8 rounded-[32px]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">
+              {timeRange === 'week' ? 'Weekly' : timeRange === 'month' ? 'Monthly' : 'Yearly'} Sales Trend
+            </h3>
+            <div className="flex items-center gap-2">
+               <div className="w-3 h-3 rounded-full bg-zinc-900" />
+               <span className="text-[10px] font-black uppercase text-zinc-400 tracking-wider">Revenue</span>
+            </div>
+          </div>
+          <div className="overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
+            <div 
+              className={cn(
+                "flex items-end justify-between h-56 gap-1.5 sm:gap-3 px-2 transition-all duration-500",
+                timeRange === 'year' ? "min-w-[650px] sm:min-w-full" : "min-w-full"
+              )}
+            >
+              <AnimatePresence mode="popLayout">
+                {currentData.chartData.map((item: any, i: number) => {
+                  const hasData = item.sales > 0;
+                  return (
+                    <motion.div 
+                      layout
+                      key={`${timeRange}-${i}`}
+                      initial={{ opacity: 0, scaleY: 0 }}
+                      animate={{ opacity: 1, scaleY: 1 }}
+                      exit={{ opacity: 0, scaleY: 0 }}
+                      className="flex-1 flex flex-col items-center gap-4 group h-full justify-end origin-bottom"
+                    >
+                      {hasData ? (
+                        <Tooltip delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className="w-full bg-zinc-50 rounded-xl relative flex items-end min-h-[4px] transition-all duration-300 cursor-pointer"
+                              style={{ height: `${(item.sales / maxSales) * 100}%` }}
+                            >
+                               <div className="w-full transition-all duration-500 h-full rounded-xl bg-zinc-900 shadow-sm" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="right" 
+                            sideOffset={10}
+                            className="bg-black text-white border-zinc-800 font-bold text-[10px] px-2 py-1 shadow-2xl animate-in fade-in zoom-in duration-200"
+                          >
+                            <p>₹{item.sales.toLocaleString('en-IN')}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <div 
+                          className="w-full bg-zinc-50 rounded-xl relative flex items-end min-h-[4px]"
+                          style={{ height: '0%' }}
+                        >
+                           <div className="w-full h-full rounded-xl bg-zinc-100" />
+                        </div>
+                      )}
+                      <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest truncate w-full text-center">{item.date}</span>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </div>
+        </Card>
+
+        {/* Top Items */}
+        <Card className="border-none shadow-sm bg-white p-6 sm:p-8 rounded-[32px]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-lg font-black text-zinc-900 uppercase tracking-tight">Top Dishes</h3>
+            <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest px-2 py-0.5 border-zinc-200 text-zinc-500">
+              {timeRange === 'week' ? '7 Days' : timeRange === 'month' ? '30 Days' : '365 Days'}
+            </Badge>
+          </div>
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {currentData.topItems.map((item: any, i: number) => (
+                <motion.div 
+                  layout
+                  key={`${timeRange}-${item.name}`}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="flex items-center justify-between p-3.5 bg-zinc-50 rounded-2xl hover:bg-zinc-100/80 transition-colors group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white border border-zinc-100 flex items-center justify-center font-black text-zinc-900 group-hover:scale-110 transition-transform text-sm">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-black text-zinc-900">{item.name}</p>
+                      <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{item.type}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs sm:text-sm font-black text-zinc-900">{item.count}</p>
+                    <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Orders</p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {currentData.topItems.length === 0 && (
+              <div className="text-center py-10">
+                <div className="w-12 h-12 bg-zinc-50 rounded-2xl flex items-center justify-center mx-auto mb-3 opacity-50">
+                   <ShoppingBag size={20} className="text-zinc-300" />
+                </div>
+                <p className="text-zinc-300 text-sm font-medium italic">No sales data for this period</p>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }
 
@@ -847,9 +1068,13 @@ export default function DashboardPage() {
   const [managerId, setManagerId] = useState<string | null>(null);
   const [dashboardStats, setDashboardStats] = useState({
     totalSaleToday: 0,
+    salesWeekly: 0,
+    salesMonthly: 0,
     preparedTodayCount: 0,
     tablesFilled: "0/0",
     activeOrdersCount: 0,
+    topItems: [] as { name: string; count: number; type: string }[],
+    chartData: [] as { date: string; sales: number }[],
   });
   const [activeView, setActiveView] = useState<
     "orders" | "menu" | "tables" | "analytics" | "settings"
@@ -2074,6 +2299,11 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ─── ANALYTICS VIEW ─── */}
+          {activeView === "analytics" && (
+            <AnalyticsView stats={dashboardStats} />
           )}
 
           {activeView === "settings" && (
