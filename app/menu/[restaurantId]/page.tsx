@@ -176,8 +176,11 @@ export default function CustomerMenuPage() {
     if (getTotalItems() === 0) return;
     setIsOrdering(true);
     
-    // Trigger UPI App deep link immediately on user click to avoid browser blockage
-    if (upiUrl) {
+    // Trigger UPI App deep link immediately ONLY if it's safe (amount <= 2000 or not in a restricted browser)
+    // This prevents the "2000 limit" error from triggering automatically.
+    const isSafeToRedirect = totalPrice <= 2000 || !isInAppBrowser;
+    
+    if (upiUrl && isSafeToRedirect) {
       window.location.href = upiUrl;
     }
 
