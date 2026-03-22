@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,7 @@ export default function CustomerMenuPage() {
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [showDirectOptions, setShowDirectOptions] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const ua = navigator.userAgent || "";
@@ -163,6 +164,26 @@ export default function CustomerMenuPage() {
       const item = restaurant.categories.flatMap(c => c.menuItems).find(i => i.id === id);
       return total + (item?.price || 0) * qty;
     }, 0);
+  };
+
+  const handleDownloadQR = async (url: string) => {
+    try {
+      setIsDownloading(true);
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `Apneorder_QR_${restaurant?.name?.replace(/\s+/g, '_')}_${getTotalPrice()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download Error:", err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const totalPrice = getTotalPrice();
@@ -585,6 +606,19 @@ export default function CustomerMenuPage() {
                 <div className="absolute -top-3 -right-3 bg-zinc-900 text-white px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl">
                    UPI Secure
                 </div>
+              </div>
+
+              <div className="w-full flex flex-col items-center gap-2">
+                <button 
+                  onClick={() => handleDownloadQR(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(upiUrl)}`)}
+                  className="px-6 py-2 bg-zinc-100 rounded-full text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-200 transition-all flex items-center gap-2"
+                >
+                  <Download size={14} />
+                  {isDownloading ? "Downloading..." : "Download QR for Gallery"}
+                </button>
+                <p className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest">
+                   Save & upload in PhonePe/GPay Gallery
+                </p>
               </div>
 
               <div className="w-full grid grid-cols-4 gap-3">
