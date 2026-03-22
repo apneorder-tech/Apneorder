@@ -61,59 +61,65 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
     }
 
-    // Fetch orders for the last year for comprehensive analytics
-    const completedOrdersYear = await prisma.order.findMany({
-      where: {
-        table: { restaurantId: restaurant.id },
-        status: "completed",
-        createdAt: { gte: oneYearAgo }
-      },
-      select: {
-        totalAmount: true,
-        createdAt: true,
-        orderItems: { include: { menuItem: { select: { name: true, type: true } } } }
-      }
+    // Fetch stats using HIGH-PERFORMANCE aggregates (Zero memory overhead for lists)
+    const [
+      salesDailyAgg,
+      salesWeeklyAgg,
+      salesMonthlyAgg,
+      salesYearlyAgg,
+      preparedTodayCount,
+    ] = await Promise.all([
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: todayStart } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: sevenDaysAgo } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: thirtyDaysAgo } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: oneYearAgo } }
+      }),
+      prisma.order.count({
+        where: { table: { restaurantId: restaurant.id }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
+      })
+    ]);
+
+    // Fetch Top Items using GroupBy
+    const topItemsAgg = await prisma.orderItem.groupBy({
+      by: ['menuItemId'],
+      _sum: { quantity: true },
+      where: { order: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: sevenDaysAgo } } },
+      orderBy: { _sum: { quantity: 'desc' } },
+      take: 5
     });
 
-    const preparedTodayCount = await prisma.order.count({
-      where: {
-        table: { restaurantId: restaurant.id },
-        status: { in: ["ready", "completed"] },
-        createdAt: { gte: todayStart }
-      }
-    });
-
-    // 3. Process Advanced Analytics for Multi-Timeframe
-    const getTopItems = (orders: any[]) => {
-      const itemMap: Record<string, { count: number, type: string }> = {};
-      orders.forEach(order => {
-        order.orderItems.forEach((item: any) => {
-          const name = item.menuItem.name;
-          if (!itemMap[name]) itemMap[name] = { count: 0, type: item.menuItem.type };
-          itemMap[name].count += item.quantity;
-        });
+    // Populate top item names
+    const topItems = await Promise.all(topItemsAgg.map(async (item) => {
+      const menuItem = await prisma.menuItem.findUnique({
+        where: { id: item.menuItemId },
+        select: { name: true, type: true }
       });
-      return Object.entries(itemMap)
-        .map(([name, data]) => ({ name, count: data.count, type: data.type }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-    };
+      return { name: menuItem?.name || "Unknown", count: item._sum.quantity || 0, type: menuItem?.type || "veg" };
+    }));
 
-    const salesDaily = completedOrdersYear
-      .filter(o => new Date(o.createdAt) >= todayStart)
-      .reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    
-    const salesWeekly = completedOrdersYear
-      .filter(o => new Date(o.createdAt) >= sevenDaysAgo)
-      .reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    // Fetch minimalistic data for charts (only what's needed)
+    const chartOrders = await prisma.order.findMany({
+      where: { table: { restaurantId: restaurant.id }, status: "completed", createdAt: { gte: oneYearAgo } },
+      select: { totalAmount: true, createdAt: true }
+    });
 
-    const salesMonthly = completedOrdersYear
-      .filter(o => new Date(o.createdAt) >= thirtyDaysAgo)
-      .reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    const salesDaily = Number(salesDailyAgg._sum.totalAmount || 0);
+    const salesWeekly = Number(salesWeeklyAgg._sum.totalAmount || 0);
+    const salesMonthly = Number(salesMonthlyAgg._sum.totalAmount || 0);
+    const salesYearly = Number(salesYearlyAgg._sum.totalAmount || 0);
 
-    const salesYearly = completedOrdersYear.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-
-    // --- Chart Data Generators ---
+    // --- Chart Data Generators (Optimized with minimal chartOrders) ---
     
     // Weekly (Last 7 Days)
     const chartWeek = Array.from({ length: 7 }).map((_, i) => {
@@ -121,7 +127,7 @@ export async function GET(request: Request) {
       d.setDate(d.getDate() - i);
       const start = new Date(d); start.setHours(0,0,0,0);
       const end = new Date(d); end.setHours(23,59,59,999);
-      const val = completedOrdersYear.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end)
+      const val = chartOrders.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end)
                                      .reduce((s, o) => s + Number(o.totalAmount), 0);
       return { date: start.toLocaleDateString('en-IN', { weekday: 'short' }), sales: val };
     }).reverse();
@@ -130,17 +136,17 @@ export async function GET(request: Request) {
     const chartMonth = Array.from({ length: 4 }).map((_, i) => {
       const start = new Date(); start.setDate(start.getDate() - (i + 1) * 7);
       const end = new Date(); end.setDate(end.getDate() - i * 7);
-      const val = completedOrdersYear.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end)
+      const val = chartOrders.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end)
                                      .reduce((s, o) => s + Number(o.totalAmount), 0);
       return { date: `Week ${4-i}`, sales: val };
     }).reverse();
 
-    // Yearly (Current Calendar Year: January to December)
+    // Yearly (Current Calendar Year)
     const currentYear = new Date().getFullYear();
     const chartYear = Array.from({ length: 12 }).map((_, i) => {
       const start = new Date(currentYear, i, 1);
       const end = new Date(currentYear, i + 1, 0, 23, 59, 59, 999);
-      const val = completedOrdersYear.filter(o => {
+      const val = chartOrders.filter(o => {
         const d = new Date(o.createdAt);
         return d >= start && d <= end;
       }).reduce((s, o) => s + Number(o.totalAmount), 0);
@@ -148,9 +154,39 @@ export async function GET(request: Request) {
       return { date: start.toLocaleDateString('en-IN', { month: 'short' }), sales: val };
     });
 
+    // 4. Fetch Paginated Completed Orders (History)
+    const completedPage = parseInt(searchParams.get("page") || "1");
+    const completedLimit = parseInt(searchParams.get("limit") || "20");
+    const skip = (completedPage - 1) * completedLimit;
+
+    const completedOrders = await prisma.order.findMany({
+      where: { table: { restaurantId: restaurant.id }, status: "completed" },
+      include: {
+        orderItems: { include: { menuItem: { select: { name: true, type: true } } } },
+        table: { select: { tableNumber: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: skip,
+      take: completedLimit
+    });
+
+    const totalCompletedCount = await prisma.order.count({
+      where: { table: { restaurantId: restaurant.id }, status: "completed" }
+    });
+
+    const hasMoreCompleted = totalCompletedCount > skip + completedOrders.length;
+
+    // Active Orders (Payment Pending, Preparing, Ready)
+    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed");
+    // Also include TODAY'S completed orders for the "Completed" tab initial view
+    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed");
+
     return NextResponse.json({ 
       success: true, 
-      orders: restaurant.tables.flatMap(t => t.orders),
+      orders: activeOrders,
+      completedOrders: completedPage === 1 ? todayCompleted : completedOrders,
+      hasMoreCompleted,
+      totalCompleted: totalCompletedCount,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
       upiId: restaurant.upiId,
@@ -162,11 +198,11 @@ export async function GET(request: Request) {
         salesYearly,
         preparedTodayCount,
         tablesFilled: `${restaurant.tables.filter(t => t.orders.length > 0).length}/${restaurant.tables.length}`,
-        activeOrdersCount: restaurant.tables.flatMap(t => t.orders).length,
+        activeOrdersCount: activeOrders.length,
         timeframes: {
-          week: { chartData: chartWeek, topItems: getTopItems(completedOrdersYear.filter(o => new Date(o.createdAt) >= sevenDaysAgo)) },
-          month: { chartData: chartMonth, topItems: getTopItems(completedOrdersYear.filter(o => new Date(o.createdAt) >= thirtyDaysAgo)) },
-          year: { chartData: chartYear, topItems: getTopItems(completedOrdersYear) }
+          week: { chartData: chartWeek, topItems: topItems },
+          month: { chartData: chartMonth, topItems: topItems },
+          year: { chartData: chartYear, topItems: topItems }
         }
       },
       tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl }))

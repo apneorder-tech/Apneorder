@@ -28,6 +28,7 @@ import {
   RefreshCw,
   ShoppingBag,
   TrendingUp,
+  ChevronDown,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1062,6 +1063,12 @@ function OrdersGrid({
 export default function DashboardPage() {
   // State
   const [orders, setOrders] = useState<Order[]>([]);
+  const [completedOrders, setCompletedOrders] = useState<Order[]>([]);
+  const [completedPage, setCompletedPage] = useState(1);
+  const [hasMoreCompleted, setHasMoreCompleted] = useState(false);
+  const [totalCompleted, setTotalCompleted] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     "verifying" | "active" | "completed"
@@ -1127,7 +1134,7 @@ export default function DashboardPage() {
   const [isShowingPreview, setIsShowingPreview] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
-  // Derived state
+  // Derived state (from Active/Today feed)
   const verifyingOrders = useMemo(
     () => orders.filter((o) => o.status === "payment_pending"),
     [orders]
@@ -1142,10 +1149,7 @@ export default function DashboardPage() {
       ),
     [orders]
   );
-  const completedOrders = useMemo(
-    () => orders.filter((o) => o.status === "completed"),
-    [orders]
-  );
+
   const displayedOrders =
     activeTab === "verifying"
       ? verifyingOrders
@@ -1173,7 +1177,12 @@ export default function DashboardPage() {
       .channel(`dashboard-${restaurantId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public" },
+        {
+          event: "*",
+          schema: "public",
+          table: "Order",
+          filter: `restaurantId=eq.${restaurantId}`,
+        },
         (payload) => {
           const tableName = payload.table.toLowerCase();
           if (tableName === "order" || tableName === "orders") {
@@ -1237,6 +1246,10 @@ export default function DashboardPage() {
 
       if (data.tables) setTables(data.tables);
       setOrders(data.orders);
+      setCompletedOrders(data.completedOrders || []);
+      setHasMoreCompleted(data.hasMoreCompleted || false);
+      setTotalCompleted(data.totalCompleted || 0);
+      setCompletedPage(1);
       setRestaurantName(data.restaurantName);
       if (data.stats) setDashboardStats(data.stats);
 
@@ -1256,6 +1269,28 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  const loadMoreCompleted = useCallback(async () => {
+    if (!managerId || isLoadingMore || !hasMoreCompleted) return;
+    
+    setIsLoadingMore(true);
+    try {
+      const nextPage = completedPage + 1;
+      const res = await fetch(`/api/dashboard/data?managerId=${managerId}&page=${nextPage}`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setCompletedOrders(prev => [...prev, ...data.completedOrders]);
+        setHasMoreCompleted(data.hasMoreCompleted);
+        setCompletedPage(nextPage);
+      }
+    } catch (err) {
+      console.error("Load More Error:", err);
+      toast.error("Failed to load more orders");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [managerId, completedPage, isLoadingMore, hasMoreCompleted]);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -2078,10 +2113,36 @@ export default function DashboardPage() {
                     {displayedOrders.length === 0 ? (
                       <OrdersEmptyState activeTab={activeTab} />
                     ) : (
-                      <OrdersGrid
-                        orders={displayedOrders}
-                        onStatusUpdate={updateOrderStatus}
-                      />
+                      <div className="space-y-8">
+                        <OrdersGrid
+                          orders={displayedOrders}
+                          onStatusUpdate={updateOrderStatus}
+                        />
+                        
+                        {activeTab === "completed" && hasMoreCompleted && (
+                          <div className="flex justify-center pt-4 pb-12">
+                            <Button
+                              variant="outline"
+                              size="lg"
+                              className="bg-white hover:bg-zinc-50 text-zinc-900 border-zinc-200 px-8 font-bold rounded-xl shadow-sm gap-2"
+                              onClick={loadMoreCompleted}
+                              disabled={isLoadingMore}
+                            >
+                              {isLoadingMore ? (
+                                <>
+                                  <Loader2 size={16} className="animate-spin" />
+                                  Loading...
+                                </>
+                              ) : (
+                                <>
+                                  Load More Orders
+                                  <ChevronDown size={16} />
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </motion.div>
                 </AnimatePresence>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { redis, CACHE_KEYS } from "@/lib/redis-new";
 
 // PATCH /api/menu/categories/[categoryId] - Rename category
 export async function PATCH(
@@ -14,6 +15,9 @@ export async function PATCH(
             where: { id: categoryId },
             data: { name }
         });
+
+        // Invalidate Redis Cache
+        await redis.del(CACHE_KEYS.menu(updatedCategory.restaurantId));
 
         return NextResponse.json({ success: true, category: updatedCategory });
     } catch (error: unknown) {
@@ -30,10 +34,21 @@ export async function DELETE(
     try {
         const { categoryId } = await params;
 
+        // Fetch category to get restaurantId before deletion
+        const category = await prisma.category.findUnique({
+            where: { id: categoryId },
+            select: { restaurantId: true }
+        });
+
         // Note: Prisma will fail if there are dependent items and no cascade. 
         // We handle it by deleting items first or ensuring cascade in schema.
         await prisma.menuItem.deleteMany({ where: { categoryId } });
         await prisma.category.delete({ where: { id: categoryId } });
+
+        // Invalidate Redis Cache
+        if (category) {
+            await redis.del(CACHE_KEYS.menu(category.restaurantId));
+        }
 
         return NextResponse.json({ success: true });
     } catch (error: unknown) {

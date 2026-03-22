@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { redis, CACHE_KEYS } from "@/lib/redis-new";
 
 // POST /api/menu/categories - Create a new category
 export async function POST(request: Request) {
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
                 name
             }
         });
+
+        // 4. Invalidate Redis Cache for this restaurant
+        await redis.del(CACHE_KEYS.menu(restaurantId));
 
         return NextResponse.json({ success: true, category });
     } catch (error: unknown) {

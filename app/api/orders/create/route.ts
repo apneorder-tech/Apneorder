@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     const order = await prisma.order.create({
       data: {
         tableId: table.id,
+        restaurantId,
         totalAmount,
         status: paymentMethod === "CASH" ? "pending" : "payment_pending",
         paymentMethod: paymentMethod,

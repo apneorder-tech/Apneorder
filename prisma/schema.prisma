@@ -34,6 +34,7 @@ model Restaurant {
   categories Category[]
   manager    Manager    @relation(fields: [managerId], references: [id])
   tables     Table[]
+  orders     Order[]
 }
 
 model Category {
@@ -44,6 +45,8 @@ model Category {
   updatedAt    DateTime   @updatedAt
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   menuItems    MenuItem[]
+
+  @@index([restaurantId])
 }
 
 model MenuItem {
@@ -58,6 +61,8 @@ model MenuItem {
   updatedAt   DateTime    @updatedAt
   category    Category    @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
+
+  @@index([categoryId])
 }
 
 model Table {
@@ -69,11 +74,14 @@ model Table {
   updatedAt    DateTime   @updatedAt
   orders       Order[]
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
 }
 
 model Order {
   id               String      @id @default(cuid())
   tableId          String
+  restaurantId     String
   totalAmount      Decimal
   status           String
   createdAt        DateTime    @default(now())
@@ -83,7 +91,13 @@ model Order {
   paymentStatus    String      @default("pending")
   paymentMethod    String      @default("ONLINE")
   table            Table       @relation(fields: [tableId], references: [id])
+  restaurant       Restaurant  @relation(fields: [restaurantId], references: [id])
   orderItems       OrderItem[]
+
+  @@index([tableId])
+  @@index([restaurantId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -96,4 +110,7 @@ model OrderItem {
   updatedAt  DateTime @updatedAt
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
 }

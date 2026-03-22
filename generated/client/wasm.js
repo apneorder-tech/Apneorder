@@ -172,6 +172,7 @@ exports.Prisma.TableScalarFieldEnum = {
 exports.Prisma.OrderScalarFieldEnum = {
   id: 'id',
   tableId: 'tableId',
+  restaurantId: 'restaurantId',
   totalAmount: 'totalAmount',
   status: 'status',
   createdAt: 'createdAt',
