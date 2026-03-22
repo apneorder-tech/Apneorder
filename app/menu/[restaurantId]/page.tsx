@@ -657,18 +657,14 @@ export default function CustomerMenuPage() {
                         <span className="text-zinc-900 font-black uppercase tracking-widest text-[10px]">Verifying Payment...</span>
                       </div>
                       <p className="text-zinc-500 text-[10px] font-bold leading-relaxed px-4">
-                        We&apos;re waiting for the restaurant to confirm your payment. Please stay on this screen.
+                        We&apos;re waiting for the restaurant to confirm your payment.
+                        <br/>
+                        <span className="text-zinc-400 font-medium">Please stay on this screen while we verify your scan.</span>
                       </p>
-                      <button 
-                        onClick={() => upiUrl && (window.location.href = upiUrl)}
-                        className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-zinc-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-zinc-900 active:scale-95 transition-all mt-4 border border-zinc-200"
-                      >
-                        Retry Opening Payment App
-                      </button>
                     </div>
                   ) : (
-                    <p className="text-zinc-500 text-xs font-bold leading-relaxed">
-                      Choose your preferred app to pay. Your order will be placed automatically!
+                    <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">
+                      Scan the QR above & Pay. Your order will be placed after confirmation!
                     </p>
                   )}
                 </div>
