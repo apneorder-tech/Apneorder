@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,87 +9,87 @@ datasource db {
 }
 
 model Manager {
-  id          String      @id @default(cuid())
-  phone       String      @unique
-  name        String?
-  isVerified  Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  restaurant  Restaurant?
+  id         String      @id @default(cuid())
+  phone      String      @unique
+  name       String?
+  isVerified Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  restaurant Restaurant?
 }
 
 model Restaurant {
-  id            String     @id @default(cuid())
-  name          String
-  ownerName     String
-  city          String
-  address       String
-  logoUrl       String?
-  upiId         String
-  themeColor    String     @default("#000000")
-  manager       Manager    @relation(fields: [managerId], references: [id])
-  managerId     String     @unique
-  categories    Category[]
-  tables        Table[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id         String     @id @default(cuid())
+  name       String
+  ownerName  String
+  city       String
+  address    String
+  logoUrl    String?
+  upiId      String
+  themeColor String     @default("#000000")
+  managerId  String     @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  categories Category[]
+  manager    Manager    @relation(fields: [managerId], references: [id])
+  tables     Table[]
 }
 
 model Category {
-  id            String     @id @default(cuid())
-  name          String
-  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId  String
-  menuItems     MenuItem[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  name         String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  menuItems    MenuItem[]
 }
 
 model MenuItem {
-  id            String     @id @default(cuid())
-  name          String
-  price         Decimal
-  type          String     // "veg" or "non-veg"
-  imageUrl      String?
-  isAvailable   Boolean    @default(true)
-  category      Category   @relation(fields: [categoryId], references: [id])
-  categoryId    String
-  orderItems    OrderItem[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id          String      @id @default(cuid())
+  name        String
+  price       Decimal
+  type        String
+  imageUrl    String?
+  isAvailable Boolean     @default(true)
+  categoryId  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
 }
 
 model Table {
-  id            String     @id @default(cuid())
-  tableNumber   String
-  qrCodeUrl     String?
-  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
-  restaurantId  String
-  orders        Order[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  tableNumber  String
+  qrCodeUrl    String?
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 }
 
 model Order {
-  id            String     @id @default(cuid())
-  table         Table      @relation(fields: [tableId], references: [id])
+  id            String      @id @default(cuid())
   tableId       String
   totalAmount   Decimal
-  status        String     // "payment_pending", "pending", "preparing", "ready", "completed", "cancelled"
-  transactionId String?    // For UPI UTR or reference number
+  status        String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  transactionId String?
+  table         Table       @relation(fields: [tableId], references: [id])
   orderItems    OrderItem[]
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
 }
 
 model OrderItem {
-  id            String     @id @default(cuid())
-  order         Order      @relation(fields: [orderId], references: [id])
-  orderId       String
-  menuItem      MenuItem   @relation(fields: [menuItemId], references: [id])
-  menuItemId    String
-  quantity      Int
-  subtotal      Decimal
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  subtotal   Decimal
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id])
 }
