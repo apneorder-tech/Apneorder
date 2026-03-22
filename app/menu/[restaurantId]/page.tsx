@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Smartphone
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Smartphone, Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,13 @@ export default function CustomerMenuPage() {
 
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
   const [showPayment, setShowPayment] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
@@ -150,6 +157,12 @@ export default function CustomerMenuPage() {
   const handlePlaceOrder = async () => {
     if (getTotalItems() === 0) return;
     setIsOrdering(true);
+    
+    // Trigger UPI App deep link immediately on user click to avoid browser blockage
+    if (upiUrl) {
+      window.location.href = upiUrl;
+    }
+
     try {
       const orderItems = Object.entries(cart).map(([id, qty]) => {
         const item = restaurant!.categories.flatMap(c => c.menuItems).find(i => i.id === id);
@@ -172,10 +185,6 @@ export default function CustomerMenuPage() {
 
       const data = await res.json();
       if (data.success) {
-        // Trigger UPI App deep link
-        if (upiUrl) {
-          window.location.href = upiUrl;
-        }
         setPlacedOrderId(data.orderId);
       } else {
         throw new Error(data.error);
@@ -549,6 +558,38 @@ export default function CustomerMenuPage() {
                 ))}
               </div>
 
+              {!placedOrderId && (
+                <div className="w-full space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-zinc-100"></div>
+                    </div>
+                    <div className="relative flex justify-center text-[8px] font-black uppercase tracking-[0.3em] text-zinc-300 bg-white px-4">
+                      Or Pay Manually
+                    </div>
+                  </div>
+
+                  <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 flex items-center justify-between group active:scale-[0.98] transition-all" onClick={() => copyToClipboard(restaurant.upiId)}>
+                    <div className="space-y-1">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Merchant UPI ID</p>
+                      <p className="text-sm font-black tracking-tight">{restaurant.upiId}</p>
+                    </div>
+                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-black transition-colors">
+                      {copySuccess ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                    </div>
+                  </div>
+
+                  {getTotalPrice() > 2000 && (
+                     <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                       <Info size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                       <p className="text-[9px] text-amber-700 font-bold leading-relaxed">
+                         Orders over ₹2,000 might be restricted by some UPI apps. If the app doesn&apos;t open correctly, please copy the UPI ID above and pay manually.
+                       </p>
+                     </div>
+                  )}
+                </div>
+              )}
+
               <div className="w-full space-y-6">
                 <div className="bg-zinc-50 rounded-3xl p-6 border border-zinc-100 text-center">
                   {placedOrderId ? (
@@ -560,6 +601,13 @@ export default function CustomerMenuPage() {
                       <p className="text-zinc-500 text-[10px] font-bold leading-relaxed px-4">
                         We&apos;re waiting for the restaurant to confirm your payment. Please stay on this screen.
                       </p>
+                      <button 
+                        onClick={() => upiUrl && (window.location.href = upiUrl)}
+                        className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-zinc-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-zinc-900 active:scale-95 transition-all mt-4 border border-zinc-200"
+                      >
+                        <Smartphone size={10} />
+                        Retry Opening Payment App
+                      </button>
                     </div>
                   ) : (
                     <p className="text-zinc-500 text-xs font-bold leading-relaxed">
