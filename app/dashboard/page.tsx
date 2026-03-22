@@ -476,9 +476,9 @@ function OrderCard({
   onStatusUpdate: (id: string, status: Order["status"]) => void;
 }) {
   return (
-    <Card className="relative border border-zinc-100 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 bg-white group rounded-2xl sm:rounded-3xl w-full">
+    <Card className="relative border border-zinc-100 shadow-sm overflow-hidden hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-300 bg-white group rounded-xl w-full">
       {/* Header */}
-      <div className="p-3 sm:p-4 md:p-5 flex items-center gap-2 border-b border-zinc-50 bg-zinc-50/30">
+      <div className="p-6 flex items-center gap-2 border-b border-zinc-50 bg-zinc-50/30">
         <div className="flex items-center gap-2.5 sm:gap-3 md:gap-4 min-w-0 flex-1">
           <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 bg-white border border-zinc-200 shadow-sm rounded-xl sm:rounded-2xl flex items-center justify-center text-zinc-900 font-black text-sm sm:text-base md:text-lg shrink-0 group-hover:scale-105 transition-transform">
             T{order.table.tableNumber}
@@ -502,13 +502,13 @@ function OrderCard({
         </div>
         
         {/* Absolute Status Badge */}
-        <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10">
+        <div className="absolute top-5 right-5 z-10">
           <StatusBadge status={order.status} />
         </div>
       </div>
 
       {/* Body */}
-      <div className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
+      <div className="p-6 space-y-4">
         {order.status === "payment_pending" && (
           <div className="bg-purple-50 border border-purple-100 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between gap-2">
             {order.paymentMethod === "CASH" ? (
@@ -604,7 +604,7 @@ function OrderCard({
       </div>
 
       {/* Footer */}
-      <div className="p-3 sm:p-4 bg-zinc-50/80 space-y-2.5 sm:space-y-3">
+      <div className="p-6 bg-zinc-50/80 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-[10px] sm:text-xs font-bold text-zinc-400 uppercase tracking-wider">
             Total
@@ -1039,7 +1039,7 @@ function OrdersGrid({
   onStatusUpdate: (id: string, status: Order["status"]) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       <AnimatePresence>
         {orders.map((order) => (
           <motion.div
