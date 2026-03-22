@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Smartphone, Copy
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -530,35 +530,44 @@ export default function CustomerMenuPage() {
               
               <div className="text-center space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Complete Payment</p>
-                <h2 className="text-3xl font-black italic tracking-tighter uppercase">Choose Payment App</h2>
+                <h2 className="text-3xl font-black italic tracking-tighter uppercase">Scan or Choose App</h2>
                 <div className="flex items-center justify-center gap-2 py-2">
                    <span className="text-4xl font-black italic tracking-tighter">₹{getTotalPrice()}</span>
                 </div>
               </div>
 
-              <div className="w-full grid grid-cols-2 gap-4">
+              {/* Dynamic QR Code (Physical Scan) */}
+              <div className="relative group">
+                <div className="absolute -inset-4 bg-gradient-to-tr from-zinc-100 to-zinc-50 rounded-[40px] -z-10" />
+                <div className="w-56 h-56 bg-white p-4 rounded-3xl shadow-xl border border-zinc-100 flex items-center justify-center overflow-hidden">
+                   <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`} 
+                    alt="UPI QR Code" 
+                    className="w-full h-full"
+                    onClick={() => !placedOrderId && handlePlaceOrder()}
+                   />
+                </div>
+                <div className="absolute -top-3 -right-3 bg-zinc-900 text-white px-4 py-2 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-xl">
+                   UPI Secure
+                </div>
+              </div>
+
+              <div className="w-full grid grid-cols-4 gap-3">
                 {[
-                  { name: "Google Pay", id: "gpay", color: "bg-white", icon: "https://www.gstatic.com/images/branding/product/1x/gpay_64dp.png" },
-                  { name: "PhonePe", id: "phonepe", color: "bg-white", icon: "https://freelogopng.com/images/all_img/1664035860phonepe-logo-png.png" },
-                  { name: "Paytm", id: "paytm", color: "bg-white", icon: "https://static.vecteezy.com/system/resources/previews/021/515/009/non_2x/paytm-logo-vector-paytm-icon-free-vector.jpg" },
-                  { name: "Any App", id: "any", color: "bg-zinc-100", icon: null }
+                  { name: "Google Pay", id: "gpay" },
+                  { name: "PhonePe", id: "phonepe" },
+                  { name: "Paytm", id: "paytm" },
+                  { name: "Any App", id: "any" }
                 ].map((app) => (
                   <button
                     key={app.id}
                     onClick={() => !placedOrderId && handlePlaceOrder()}
                     className={cn(
-                      "flex flex-col items-center justify-center p-4 rounded-3xl border border-zinc-100 space-y-3 transition-all active:scale-95",
-                      placedOrderId ? "opacity-50 grayscale cursor-not-allowed" : "hover:bg-zinc-50 hover:border-zinc-200"
+                      "flex items-center justify-center p-4 rounded-3xl border border-zinc-100 transition-all active:scale-95",
+                      placedOrderId ? "opacity-30 grayscale cursor-not-allowed" : "hover:bg-zinc-50 hover:border-zinc-200"
                     )}
                   >
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden", app.color)}>
-                      {app.icon ? (
-                        <img src={app.icon} alt={app.name} className="w-full h-full object-cover p-2" />
-                      ) : (
-                        <Smartphone size={24} className="text-zinc-400" />
-                      )}
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">{app.name}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-900">{app.name}</span>
                   </button>
                 ))}
               </div>
@@ -618,7 +627,6 @@ export default function CustomerMenuPage() {
                         onClick={() => upiUrl && (window.location.href = upiUrl)}
                         className="flex items-center gap-1.5 mx-auto px-4 py-2 bg-zinc-100 rounded-xl text-[9px] font-black uppercase tracking-widest text-zinc-900 active:scale-95 transition-all mt-4 border border-zinc-200"
                       >
-                        <Smartphone size={10} />
                         Retry Opening Payment App
                       </button>
                     </div>
