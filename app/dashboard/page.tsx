@@ -1151,6 +1151,15 @@ export default function DashboardPage() {
         ? activeOrders
         : completedOrders;
 
+  const sortedTables = useMemo(() => {
+    return [...tables].sort((a, b) =>
+      a.tableNumber.localeCompare(b.tableNumber, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
+  }, [tables]);
+
   // ─── Auth & Data ───
   // ─── Realtime Listener ───
   useEffect(() => {
@@ -2214,7 +2223,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {tables.map((table) => (
+                {sortedTables.map((table) => (
                   <Card
                     key={table.id}
                     className="overflow-hidden border-zinc-100 shadow-sm hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-300 group"
