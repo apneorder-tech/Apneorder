@@ -225,7 +225,12 @@ export default function CustomerMenuPage() {
     </div>
   );
 
-  const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${getTotalPrice().toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
+  const totalPrice = getTotalPrice();
+  // Format amount: drop .00 for whole numbers to be more compatible with some UPI apps
+  const amParam = totalPrice % 1 === 0 ? totalPrice.toFixed(0) : totalPrice.toFixed(2);
+  
+  const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${amParam}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
+  const upiIdOnlyUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}` : "";
 
   return (
     <motion.div 
@@ -579,14 +584,22 @@ export default function CustomerMenuPage() {
                     </div>
                   </div>
 
-                  {getTotalPrice() > 2000 && (
-                     <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                       <Info size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                       <p className="text-[9px] text-amber-700 font-bold leading-relaxed">
-                         Orders over ₹2,000 might be restricted by some UPI apps. If the app doesn&apos;t open correctly, please copy the UPI ID above and pay manually.
-                       </p>
-                     </div>
-                  )}
+                  <button 
+                    onClick={() => {
+                        window.location.href = upiIdOnlyUrl;
+                        if (!placedOrderId) handlePlaceOrder();
+                    }}
+                    className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                  >
+                    Open Manual Pay App
+                  </button>
+
+                  <div className="flex items-start gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+                    <Info size={14} className="text-zinc-400 shrink-0 mt-0.5" />
+                    <p className="text-[9px] text-zinc-500 font-bold leading-relaxed">
+                      If you see a &quot;₹2,000 limit&quot; warning, it may be because you scanned the table QR with a payment app. For higher limits, please open this menu in <strong>Chrome</strong> or <strong>Safari</strong>.
+                    </p>
+                  </div>
                 </div>
               )}
 
