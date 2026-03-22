@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,17 @@ export default function CustomerMenuPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  const [showDirectOptions, setShowDirectOptions] = useState(false);
+
+  useEffect(() => {
+    const ua = navigator.userAgent || "";
+    // Detect PhonePe, GPay, WhatsApp, and generic mobile in-app browsers
+    const isRestricted = /PhonePe|GPay|GSA|FBAN|FBAV|Instagram|WhatsApp|LinkedIn/i.test(ua);
+    setIsInAppBrowser(isRestricted);
+    // If not in a restricted browser, show options immediately
+    if (!isRestricted) setShowDirectOptions(true);
+  }, []);
 
   useEffect(() => {
     if (!placedOrderId || isOrderSuccess) return;
@@ -154,6 +165,13 @@ export default function CustomerMenuPage() {
     }, 0);
   };
 
+  const totalPrice = getTotalPrice();
+  // Format amount: drop .00 for whole numbers to be more compatible with some UPI apps
+  const amParam = totalPrice % 1 === 0 ? totalPrice.toFixed(0) : totalPrice.toFixed(2);
+  
+  const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${amParam}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
+  const upiIdOnlyUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}` : "";
+
   const handlePlaceOrder = async () => {
     if (getTotalItems() === 0) return;
     setIsOrdering(true);
@@ -164,22 +182,13 @@ export default function CustomerMenuPage() {
     }
 
     try {
-      const orderItems = Object.entries(cart).map(([id, qty]) => {
-        const item = restaurant!.categories.flatMap(c => c.menuItems).find(i => i.id === id);
-        return {
-          id,
-          quantity: qty,
-          price: item?.price || 0,
-        };
-      });
-
       const res = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           restaurantId,
           tableNumber,
-          items: orderItems,
+          items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
         }),
       });
 
@@ -224,13 +233,6 @@ export default function CustomerMenuPage() {
       </div>
     </div>
   );
-
-  const totalPrice = getTotalPrice();
-  // Format amount: drop .00 for whole numbers to be more compatible with some UPI apps
-  const amParam = totalPrice % 1 === 0 ? totalPrice.toFixed(0) : totalPrice.toFixed(2);
-  
-  const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${amParam}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
-  const upiIdOnlyUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}` : "";
 
   return (
     <motion.div 
@@ -528,13 +530,43 @@ export default function CustomerMenuPage() {
             >
               <div className="w-12 h-1.5 bg-zinc-200 rounded-full mb-2" />
               
-              <div className="text-center space-y-2">
+               <div className="text-center space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Complete Payment</p>
                 <h2 className="text-3xl font-black italic tracking-tighter uppercase">Scan or Choose App</h2>
                 <div className="flex items-center justify-center gap-2 py-2">
                    <span className="text-4xl font-black italic tracking-tighter">₹{getTotalPrice()}</span>
                 </div>
               </div>
+
+              {isInAppBrowser && !showDirectOptions && (
+                <div className="w-full space-y-6 flex flex-col items-center py-4">
+                  <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center animate-pulse">
+                     <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center">
+                        <Smartphone size={32} className="text-amber-600" />
+                     </div>
+                  </div>
+                  <div className="text-center space-y-2 px-4">
+                     <h3 className="text-xl font-black tracking-tight uppercase">Browser Restricted</h3>
+                     <p className="text-[10px] text-zinc-500 font-bold leading-relaxed">
+                        For higher limits and a smoother payment of <strong>₹{getTotalPrice()}</strong>, please open this menu in <strong>Chrome</strong> or <strong>Safari</strong>.
+                     </p>
+                  </div>
+                  <div className="w-full space-y-3">
+                    <button 
+                      onClick={() => setShowDirectOptions(true)}
+                      className="w-full h-16 bg-zinc-900 text-white rounded-[24px] font-black uppercase tracking-widest text-[10px] shadow-xl active:scale-95 transition-all"
+                    >
+                      Continue Anyway
+                    </button>
+                    <p className="text-[8px] text-center font-black uppercase tracking-widest text-zinc-400">
+                       Tip: Tap the <code className="bg-zinc-100 px-1.5 py-0.5 rounded italic">...</code> to open in browser
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {(showDirectOptions || !isInAppBrowser) && (
+                <>
 
               {/* Dynamic QR Code (Physical Scan) */}
               <div className="relative group">
@@ -595,21 +627,27 @@ export default function CustomerMenuPage() {
 
                   <button 
                     onClick={() => {
+                        copyToClipboard(`UPI: ${restaurant.upiId}\nAmount: ₹${totalPrice}`);
                         window.location.href = upiIdOnlyUrl;
                         if (!placedOrderId) handlePlaceOrder();
                     }}
-                    className="w-full py-3 bg-zinc-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+                    className="w-full py-4 bg-zinc-900 text-white rounded-2xl flex items-center justify-center gap-2 group active:scale-95 transition-all"
                   >
-                    Open Manual Pay App
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest leading-none">Copy Details & Open Pay App</span>
+                      <span className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Bypasses ₹2,000 Automated Limit</span>
+                    </div>
                   </button>
 
                   <div className="flex items-start gap-3 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
                     <Info size={14} className="text-zinc-400 shrink-0 mt-0.5" />
-                    <p className="text-[9px] text-zinc-500 font-bold leading-relaxed">
-                      If you see a &quot;₹2,000 limit&quot; warning, it may be because you scanned the table QR with a payment app. For higher limits, please open this menu in <strong>Chrome</strong> or <strong>Safari</strong>.
+                    <p className="text-[9px] text-zinc-500 font-bold leading-relaxed italic">
+                      This copies your order amount and the merchant UPI ID automatically, so you can pay smoothly even if the app blocks the direct link.
                     </p>
                   </div>
                 </div>
+              )}
+              </>
               )}
 
               <div className="w-full space-y-6">
