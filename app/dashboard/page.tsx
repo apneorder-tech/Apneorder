@@ -193,19 +193,36 @@ export default function DashboardPage() {
     } catch (err) { console.error("Load More Error:", err); toast.error("Failed to load more orders"); } finally { setIsLoadingMore(false); }
   }, [managerId, completedPage, isLoadingMore, hasMoreCompleted]);
 
+  const [hasMounted, setHasMounted] = useState(false);
+  
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  // Use the new progressive fetch on mount
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         setUser(user);
+        
         let idToUse = user.uid;
-        if (user.uid === "ADMIN_UID" && typeof window !== "undefined") {
-          const impId = localStorage.getItem("IMPERSONATE_USER_ID");
-          if (impId) idToUse = impId;
+        
+        // 1. Try to get cached managerId from localStorage first (VERY FAST)
+        if (typeof window !== "undefined") {
+          const cachedId = localStorage.getItem(`managerId_${user.uid}`);
+          if (cachedId) idToUse = cachedId;
+          
+          // Impersonation logic for ADMIN
+          if (user.uid === "ADMIN_UID") {
+            const impId = localStorage.getItem("IMPERSONATE_USER_ID");
+            if (impId) idToUse = impId;
+          }
         }
+
         setManagerId(idToUse);
         fetchDashboardData(idToUse, true); // Start essentials immediately!
 
-        // Run sync in the background to ensure DB is up to date, but don't block the UI
+        // Run sync in the background to ensure DB is up to date
         try {
           const idToken = await user.getIdToken();
           fetch("/api/auth/sync", {
@@ -214,6 +231,10 @@ export default function DashboardPage() {
             body: JSON.stringify({ idToken }),
           }).then(res => res.json()).then(syncData => {
             if (syncData.success) {
+              if (typeof window !== "undefined") {
+                localStorage.setItem(`managerId_${user.uid}`, syncData.managerId);
+              }
+              
               if (syncData.managerId !== idToUse) {
                 setManagerId(syncData.managerId);
                 fetchDashboardData(syncData.managerId, true);
@@ -390,6 +411,8 @@ export default function DashboardPage() {
     } catch { toast.error("Failed to delete category"); }
   };
 
+
+  if (!hasMounted) return null;
 
   // Standard dashboard layout
   return (

@@ -33,63 +33,50 @@ export async function GET(request: Request) {
 
     // 3. Fetch Data based on mode
     if (isEssentials) {
-      const [restaurant] = await Promise.all([
-        prisma.restaurant.findUnique({
-          where: { managerId },
-          select: {
-            id: true, name: true, upiId: true, themeColor: true,
-            categories: { select: { id: true } },
-            tables: {
-              select: {
-                id: true, tableNumber: true, qrCodeUrl: true,
-                orders: {
-                  where: {
-                    status: { notIn: ["cancelled"] },
-                    OR: [
-                      { status: { notIn: ["completed"] } },
-                      { status: "completed", createdAt: { gte: todayStart } }
-                    ]
-                  },
-                  include: {
-                    orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
-                    table: { select: { tableNumber: true } }
-                  },
-                  orderBy: { createdAt: 'desc' }
-                }
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { managerId },
+        select: { 
+          id: true, name: true, upiId: true,
+          categories: { select: { id: true } },
+          tables: {
+            select: {
+              id: true, tableNumber: true, qrCodeUrl: true,
+              orders: {
+                where: {
+                  OR: [
+                    { status: { notIn: ["completed", "cancelled"] } },
+                    { status: "completed", createdAt: { gte: todayStart } }
+                  ]
+                },
+                include: {
+                  orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
+                  table: { select: { tableNumber: true } }
+                },
+                orderBy: { createdAt: 'desc' }
               }
             }
           }
-        }),
-      ]);
+        }
+      });
 
       if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
-      const activeOrders = restaurant.tables.flatMap(t => t.orders)
-        .filter(o => o.status !== "completed")
-        .map(o => ({
-          ...o,
-          items: o.orderItems.map(oi => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })),
-          tableNumber: o.table.tableNumber
-        }));
-
-      const todayCompleted = restaurant.tables.flatMap(t => t.orders)
-        .filter(o => o.status === "completed")
-        .map(o => ({
-          ...o,
-          items: o.orderItems.map(oi => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })),
-          tableNumber: o.table.tableNumber
-        }));
+      const allOrders = restaurant.tables.flatMap(t => t.orders).map((o: any) => ({
+        ...o,
+        items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })),
+        tableNumber: o.table.tableNumber
+      }));
 
       return NextResponse.json({
         success: true,
-        orders: activeOrders,
-        completedOrders: todayCompleted,
+        orders: allOrders.filter(o => o.status !== "completed"),
+        completedOrders: allOrders.filter(o => o.status === "completed").slice(0, 10),
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
         upiId: restaurant.upiId,
         menuCategories: restaurant.categories,
         tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
-        stats: null // Signal that stats are loading separately
+        stats: null
       });
     }
 
