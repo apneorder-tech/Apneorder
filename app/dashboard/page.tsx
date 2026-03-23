@@ -2302,7 +2302,7 @@ export default function DashboardPage() {
                       <div className="relative group/qr">
                         <div className="w-32 h-32 bg-white flex items-center justify-center border border-zinc-100 rounded-2xl overflow-hidden group-hover/qr:scale-105 transition-transform duration-500 shadow-sm">
                           <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`)}`}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`)}&upi=${upiId}`}
                             alt={`QR for Table ${table.tableNumber}`}
                           />
                         </div>

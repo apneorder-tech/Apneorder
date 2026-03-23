@@ -14,6 +14,10 @@ export async function POST(request: Request) {
             data: { upiId: upiId.trim() },
         });
 
+        // 2. Clear SQL/Redis Cache (Proper logic for realtime removal of old UPI)
+        const { redis } = await import("@/lib/redis-new");
+        await redis.del(`menu:${restaurantId}`);
+
         return NextResponse.json({ success: true, upiId: updated.upiId });
 
     } catch (error: unknown) {
