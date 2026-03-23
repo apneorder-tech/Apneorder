@@ -92,7 +92,10 @@ export default function OnboardingPage() {
         // Check if restaurant already exists
         setIsSyncing(true);
         try {
-          const res = await fetch(`/api/onboarding/status?managerId=${internalManagerId}`);
+          const idToken = await user.getIdToken();
+          const res = await fetch(`/api/onboarding/status?managerId=${internalManagerId}`, {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
           const status = await res.json();
           if (status.exists && status.restaurant) {
             const r = status.restaurant;
@@ -142,10 +145,14 @@ export default function OnboardingPage() {
     if (s === 'complete') {
       setIsLoading(true);
       try {
+        const idToken = await auth.currentUser?.getIdToken();
         console.log("Saving onboarding data for manager:", data.managerId);
         const res = await fetch('/api/onboarding/save', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
           body: JSON.stringify(data),
         });
         const result = await res.json();

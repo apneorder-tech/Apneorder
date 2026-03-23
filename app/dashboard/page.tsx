@@ -121,7 +121,10 @@ export default function DashboardPage() {
   // ─── Data Fetching ───
   const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false) => {
     try {
-      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`);
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`, {
+        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+      });
       const data = await res.json();
       
       if (!data.success) { 
@@ -160,7 +163,10 @@ export default function DashboardPage() {
     if (isMenuLoaded || isLoadingMenu) return;
     setIsLoadingMenu(true);
     try {
-      const res = await fetch(`/api/menu/data?restaurantId=${rid}`);
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/menu/data?restaurantId=${rid}`, {
+        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+      });
       const data = await res.json();
       if (data.success) {
         setMenuCategories(data.menuCategories);
@@ -277,9 +283,13 @@ export default function DashboardPage() {
     const prev = orders.find((o) => o.id === orderId);
     setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, status } : o)));
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
         body: JSON.stringify({ status }),
       });
       if (!res.ok && prev) setOrders((p) => p.map((o) => (o.id === orderId ? prev : o)));
@@ -290,9 +300,13 @@ export default function DashboardPage() {
     if (!restaurantId || !tempUpiId.trim() || !tempUpiId.includes("@")) return;
     setIsUpdatingUpi(true);
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/restaurant/update-upi", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
         body: JSON.stringify({ restaurantId, upiId: tempUpiId.trim() }),
       });
       const data = await res.json();
@@ -305,9 +319,13 @@ export default function DashboardPage() {
     if (!restaurantId || isAddingTable || isNaN(tableNum) || tableNum <= 0) return;
     setIsAddingTable(true);
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/tables/add", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
         body: JSON.stringify({ restaurantId, tableNumber: num.trim() }),
       });
       const data = await res.json();
@@ -322,7 +340,11 @@ export default function DashboardPage() {
 
   const handleDeleteTable = async (tableId: string) => {
     try {
-      const res = await fetch(`/api/tables/${tableId}`, { method: "DELETE" });
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/tables/${tableId}`, { 
+        method: "DELETE",
+        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+      });
       const data = await res.json();
       if (data.success) {
         setTables(tables.filter((t) => t.id !== tableId));
@@ -369,12 +391,27 @@ export default function DashboardPage() {
     if (!newCategoryName.trim() || !restaurantId) return;
     setIsUpdating("new-category");
     try {
-      const res = await fetch(`/api/menu/categories`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId, name: newCategoryName }) });
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/menu/categories`, { 
+        method: "POST", 
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        }, 
+        body: JSON.stringify({ restaurantId, name: newCategoryName }) 
+      });
       const data = await res.json();
       if (data.success) {
         const finalCategory = { ...data.category, menuItems: [] };
         if (initialDishName.trim() && initialDishPrice.trim()) {
-           const itemRes = await fetch(`/api/menu/categories/${data.category.id}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: initialDishName, price: parseFloat(initialDishPrice), type: "veg", description: "" }) });
+           const itemRes = await fetch(`/api/menu/categories/${data.category.id}/items`, { 
+             method: "POST", 
+             headers: { 
+               "Content-Type": "application/json",
+               ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+             }, 
+             body: JSON.stringify({ name: initialDishName, price: parseFloat(initialDishPrice), type: "veg", description: "" }) 
+           });
            const itemData = await itemRes.json();
            if (itemData.success) finalCategory.menuItems = [itemData.item];
         }
@@ -389,7 +426,15 @@ export default function DashboardPage() {
     if (!newItemName.trim() || !newItemPrice.trim()) return;
     setIsUpdating(categoryId);
     try {
-      const res = await fetch(`/api/menu/categories/${categoryId}/items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newItemName, price: parseFloat(newItemPrice), type: newItemType, description: newItemDescription }) });
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/menu/categories/${categoryId}/items`, { 
+        method: "POST", 
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        }, 
+        body: JSON.stringify({ name: newItemName, price: parseFloat(newItemPrice), type: newItemType, description: newItemDescription }) 
+      });
       const data = await res.json();
       if (data.success) {
         setMenuCategories(menuCategories.map(cat => cat.id === categoryId ? { ...cat, menuItems: [...cat.menuItems, data.item] } : cat));
@@ -402,7 +447,11 @@ export default function DashboardPage() {
   const handleDeleteCategory = async () => {
     if (!deletingCategory) return;
     try {
-      const res = await fetch(`/api/menu/categories/${deletingCategory.id}`, { method: "DELETE" });
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/menu/categories/${deletingCategory.id}`, { 
+        method: "DELETE",
+        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+      });
       if (res.ok) {
         setMenuCategories(menuCategories.filter(c => c.id !== deletingCategory.id));
         setDeletingCategory(null);
@@ -506,27 +555,55 @@ export default function DashboardPage() {
                 onDeleteCategory={setDeletingCategory} 
                 onUpdateItemName={async (id, name) => {
                   try {
-                    const res = await fetch(`/api/menu/items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+                    const idToken = await auth.currentUser?.getIdToken();
+                    const res = await fetch(`/api/menu/items/${id}`, { 
+                      method: "PATCH", 
+                      headers: { 
+                        "Content-Type": "application/json",
+                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                      }, 
+                      body: JSON.stringify({ name }) 
+                    });
                     if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, name } : i) })));
                   } catch { toast.error("Failed to update name"); }
                 }} 
                 onUpdatePrice={async (id, price) => {
                   setIsUpdating(id);
                   try {
-                    const res = await fetch(`/api/menu/items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ price }) });
+                    const idToken = await auth.currentUser?.getIdToken();
+                    const res = await fetch(`/api/menu/items/${id}`, { 
+                      method: "PATCH", 
+                      headers: { 
+                        "Content-Type": "application/json",
+                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                      }, 
+                      body: JSON.stringify({ price }) 
+                    });
                     if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, price } : i) })));
                   } catch { toast.error("Failed to update price"); } finally { setIsUpdating(null); }
                 }} 
                 onToggleAvailability={async (id, current) => {
                   setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: !current } : i) })));
                   try {
-                    const res = await fetch(`/api/menu/items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isAvailable: !current }) });
+                    const idToken = await auth.currentUser?.getIdToken();
+                    const res = await fetch(`/api/menu/items/${id}`, { 
+                      method: "PATCH", 
+                      headers: { 
+                        "Content-Type": "application/json",
+                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                      }, 
+                      body: JSON.stringify({ isAvailable: !current }) 
+                    });
                     if (!res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: current } : i) })));
                   } catch { toast.error("Network error"); }
                 }} 
                 onDeleteItem={async (id) => {
                   try {
-                    const res = await fetch(`/api/menu/items/${id}`, { method: "DELETE" });
+                    const idToken = await auth.currentUser?.getIdToken();
+                    const res = await fetch(`/api/menu/items/${id}`, { 
+                      method: "DELETE",
+                      headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+                    });
                     if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.filter(i => i.id !== id) })));
                   } catch { toast.error("Failed to delete item"); }
                 }} 
@@ -572,7 +649,15 @@ export default function DashboardPage() {
         <RenameCategoryDialog open={!!renamingCategory} onOpenChange={(open) => !open && setRenamingCategory(null)} onRename={async () => {
           if (!renamingCategory) return;
           try {
-            const res = await fetch(`/api/menu/categories/${renamingCategory.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: renameCategoryValue }) });
+            const idToken = await auth.currentUser?.getIdToken();
+            const res = await fetch(`/api/menu/categories/${renamingCategory.id}`, { 
+              method: "PATCH", 
+              headers: { 
+                "Content-Type": "application/json",
+                ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+              }, 
+              body: JSON.stringify({ name: renameCategoryValue }) 
+            });
             if (res.ok) { setMenuCategories(menuCategories.map(c => c.id === renamingCategory.id ? { ...c, name: renameCategoryValue } : c)); toast.success("Renamed!"); }
           } finally { setRenamingCategory(null); setRenameCategoryValue(""); }
         }} value={renameCategoryValue} setValue={setRenameCategoryValue} />

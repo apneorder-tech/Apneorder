@@ -1,0 +1,85 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { ratelimit } from "@/lib/ratelimit";
+
+export async function proxy(request: NextRequest) {
+    const response = NextResponse.next();
+
+    // 1. Add Security Headers
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    response.headers.set("X-XSS-Protection", "1; mode=block");
+    
+    if (process.env.NODE_ENV === "production") {
+        response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+    }
+
+    // Add Permissions Policy (Disables risky browser APIs by default)
+    response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
+
+    // 2. Content Security Policy (Advanced Fortification)
+    const cspHeader = `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://apis.google.com https://*.supabase.co;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.supabase.co wss://*.supabase.co;
+        img-src 'self' blob: data: https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        frame-src 'self' https://*.firebaseapp.com;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        frame-ancestors 'none';
+        upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim();
+
+    response.headers.set("Content-Security-Policy", cspHeader);
+
+    // 3. Global & Specific Rate Limiting
+    const pathname = request.nextUrl.pathname;
+    const isApi = pathname.startsWith("/api/");
+    
+    if (isApi) {
+        const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+        const clientIp = ip.split(',')[0];
+        
+        let limit = 60; // Baseline: 60 requests per minute for any API
+        let duration = 60;
+
+        if (pathname.startsWith("/api/orders/create")) {
+            limit = 10; // Strict limit for order creation
+        } else if (pathname.startsWith("/api/menu/")) {
+            limit = 30; // Medium limit for menu fetching
+        } else if (pathname.startsWith("/api/onboarding/save")) {
+            limit = 5;  // Very strict limit for onboarding (resource heavy)
+        } else if (pathname.startsWith("/api/auth/sync")) {
+            limit = 10; // Strict limit for auth sync to prevent brute-force
+        }
+
+        const res = await ratelimit(clientIp, limit, duration);
+
+        if (!res.success) {
+            return new NextResponse(
+                JSON.stringify({ 
+                    error: "Too many requests", 
+                    message: "Please wait a moment before trying again." 
+                }),
+                { 
+                    status: 429, 
+                    headers: { "Content-Type": "application/json" } 
+                }
+            );
+        }
+    }
+
+    return response;
+}
+
+// Ensure middleware runs for API and specific routes
+export const config = {
+  matcher: [
+    "/api/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
+};

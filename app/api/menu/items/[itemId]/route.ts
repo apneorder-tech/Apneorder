@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
 import { redis, CACHE_KEYS } from "@/lib/redis-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
+import { MenuItemUpdateSchema } from "@/lib/schemas";
 
 // PATCH /api/menu/items/[itemId] - Update price, availability, or name
 export async function PATCH(
@@ -9,7 +11,33 @@ export async function PATCH(
 ) {
     try {
         const { itemId } = await params;
-        const { name, price, isAvailable } = await request.json();
+        const body = await request.json();
+        const result = MenuItemUpdateSchema.safeParse(body);
+
+        if (!result.success) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Invalid item data", 
+                details: result.error.format() 
+            }, { status: 400 });
+        }
+
+        const { name, price, isAvailable } = result.data;
+
+        // 1. Verify Authentication
+        const auth = await verifyManagerSession(request);
+        if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+        // 2. Verify Authorization
+        const item = await prisma.menuItem.findUnique({
+            where: { id: itemId },
+            include: { category: { select: { restaurant: { select: { managerId: true } } } } }
+        });
+
+        if (!item) return NextResponse.json({ success: false, error: "Item not found" }, { status: 404 });
+        if (item.category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+            return forbiddenResponse();
+        }
 
         const updatedItem = await prisma.menuItem.update({
             where: { id: itemId },
@@ -25,7 +53,17 @@ export async function PATCH(
             }
         });
 
-        // Invalidate Redis Cache
+        // 3. Audit Log
+        const { logAction, AuditAction } = await import("@/lib/logger");
+        await logAction(
+            auth.uid, 
+            AuditAction.UPDATE_ITEM, 
+            "MenuItem", 
+            itemId, 
+            { name, price, isAvailable }
+        );
+
+        // 4. Invalidate Redis Cache
         await redis.del(CACHE_KEYS.menu(updatedItem.category.restaurantId));
 
         return NextResponse.json({ success: true, item: updatedItem });
@@ -43,21 +81,43 @@ export async function DELETE(
     try {
         const { itemId } = await params;
 
-        // Fetch to get restaurantId before deletion
+        // 1. Verify Authentication
+        const auth = await verifyManagerSession(request);
+        if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+        // 2. Fetch to get restaurantId before deletion and check auth
         const item = await prisma.menuItem.findUnique({
             where: { id: itemId },
             include: {
                 category: {
-                    select: { restaurantId: true }
+                    select: { 
+                        restaurantId: true,
+                        restaurant: { select: { managerId: true } } 
+                    }
                 }
             }
         });
+
+        if (!item) return NextResponse.json({ success: true }); // Already gone
+        if (item.category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+            return forbiddenResponse();
+        }
 
         await prisma.menuItem.delete({
             where: { id: itemId }
         });
 
-        // Invalidate Redis Cache
+        // 3. Audit Log
+        const { logAction, AuditAction } = await import("@/lib/logger");
+        await logAction(
+            auth.uid, 
+            AuditAction.DELETE_ITEM, 
+            "MenuItem", 
+            itemId, 
+            { restaurantId: item.category.restaurantId, name: item.name }
+        );
+
+        // 4. Invalidate Redis Cache
         if (item) {
             await redis.del(CACHE_KEYS.menu(item.category.restaurantId));
         }

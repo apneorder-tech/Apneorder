@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
@@ -10,15 +11,46 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing managerId" }, { status: 400 });
     }
 
+    // 1. Verify Authentication
+    const auth = await verifyManagerSession(request);
+    if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+    // 2. Verify Authorization
+    if (auth.uid !== managerId && auth.uid !== "ADMIN_UID") {
+        return forbiddenResponse();
+    }
+
     const restaurant = await prisma.restaurant.findUnique({
       where: { managerId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        ownerName: true,
+        city: true,
+        address: true,
+        upiId: true,
+        themeColor: true,
         categories: {
-          include: {
-            menuItems: true,
+          select: {
+            id: true,
+            name: true,
+            menuItems: {
+               select: {
+                   id: true,
+                   name: true,
+                   price: true,
+                   type: true,
+                   isAvailable: true
+               }
+            },
           },
         },
-        tables: true,
+        tables: {
+            select: {
+                id: true,
+                tableNumber: true
+            }
+        },
       },
     });
 

@@ -1,12 +1,39 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
+import { AddTableSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
     try {
-        const { restaurantId, tableNumber } = await request.json();
+        const body = await request.json();
+        const result = AddTableSchema.safeParse(body);
 
-        if (!restaurantId || !tableNumber) {
-            return NextResponse.json({ error: "Restaurant ID and Table Number are required" }, { status: 400 });
+        if (!result.success) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Invalid table data", 
+                details: result.error.format() 
+            }, { status: 400 });
+        }
+
+        const { restaurantId, tableNumber } = result.data;
+
+        // 1. Verify Authentication
+        const auth = await verifyManagerSession(request);
+        if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+        // 2. Verify Authorization
+        const restaurant = await prisma.restaurant.findUnique({
+            where: { id: restaurantId },
+            select: { managerId: true }
+        });
+
+        if (!restaurant) {
+            return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
+        }
+
+        if (restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+            return forbiddenResponse();
         }
 
         // 1. Validate tableNumber is a positive integer > 0
@@ -47,6 +74,16 @@ export async function POST(request: Request) {
                 qrCodeUrl
             }
         });
+
+        // 4. Audit Log
+        const { logAction, AuditAction } = await import("@/lib/logger");
+        await logAction(
+            auth.uid, 
+            AuditAction.ADD_TABLE, 
+            "Table", 
+            newTable.id, 
+            { tableNumber: tableNumber.trim(), restaurantId }
+        );
 
         return NextResponse.json({ success: true, table: newTable });
 

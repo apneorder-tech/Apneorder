@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
+import { z } from "zod";
+
+const QuerySchema = z.object({
+    managerId: z.string(),
+});
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const managerId = searchParams.get("managerId");
+    const queryResult = QuerySchema.safeParse({
+        managerId: searchParams.get("managerId")
+    });
 
-    if (!managerId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    if (!queryResult.success) {
+        return NextResponse.json({ success: false, error: "Manager ID is required" }, { status: 400 });
     }
+
+    const { managerId } = queryResult.data;
+
+    // 1. Verify Authentication
+    const auth = await verifyManagerSession(request);
+    if (!auth.authenticated) {
+      return unauthorizedResponse(auth.error);
+    }
+
+    // 2. Critical: Use the authenticated UID as the primary managerId for security and to resolve legacy CUID mismatches.
+    const effectiveManagerId = auth.uid === "ADMIN_UID" ? managerId : auth.uid;
 
     // 1. Define Time Ranges
     const now = new Date();
@@ -34,7 +53,7 @@ export async function GET(request: Request) {
     // 3. Fetch Data based on mode
     if (isEssentials) {
       const restaurant = await prisma.restaurant.findUnique({
-        where: { managerId },
+        where: { managerId: effectiveManagerId },
         select: { 
           id: true, name: true, upiId: true,
           categories: { select: { id: true } },
@@ -91,7 +110,7 @@ export async function GET(request: Request) {
       totalCompletedCount
     ] = await Promise.all([
       prisma.restaurant.findUnique({
-        where: { managerId },
+        where: { managerId: effectiveManagerId },
         select: {
           id: true, name: true, upiId: true, themeColor: true,
           categories: { select: { id: true } },
@@ -117,21 +136,21 @@ export async function GET(request: Request) {
         }
       }),
       prisma.order.findMany({
-        where: { table: { restaurant: { managerId } }, status: "completed", createdAt: { gte: oneYearAgo } },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: oneYearAgo } },
         select: { totalAmount: true, createdAt: true }
       }),
       prisma.order.count({
-        where: { table: { restaurant: { managerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
       }),
       prisma.orderItem.groupBy({
         by: ['menuItemId'],
         _sum: { quantity: true },
-        where: { order: { table: { restaurant: { managerId } }, status: "completed", createdAt: { gte: sevenDaysAgo } } },
+        where: { order: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: sevenDaysAgo } } },
         orderBy: { _sum: { quantity: 'desc' } },
         take: 5
       }),
       prisma.order.findMany({
-        where: { table: { restaurant: { managerId } }, status: "completed" },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" },
         include: {
           orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
           table: { select: { tableNumber: true } }
@@ -141,7 +160,7 @@ export async function GET(request: Request) {
         take: completedLimit
       }),
       prisma.order.count({
-        where: { table: { restaurant: { managerId } }, status: "completed" }
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" }
       })
     ]);
 

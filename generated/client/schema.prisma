@@ -114,3 +114,16 @@ model OrderItem {
   @@index([orderId])
   @@index([menuItemId])
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  managerId  String
+  action     String // e.g., "UPDATE_UPI", "CREATE_ITEM", "DELETE_TABLE"
+  resource   String // e.g., "Restaurant", "MenuItem", "Table"
+  resourceId String?
+  details    Json? // Specific changes (e.g., old vs new UPI)
+  timestamp  DateTime @default(now())
+
+  @@index([managerId])
+  @@index([timestamp])
+}

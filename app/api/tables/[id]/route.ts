@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
 
 export async function DELETE(
   request: Request,
@@ -8,7 +9,26 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // 1. Check for active orders (payment_pending, placed, preparing, ready)
+    // 1. Verify Authentication
+    const auth = await verifyManagerSession(request);
+    if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+    // 2. Fetch table to verify ownership
+    const table = await prisma.table.findUnique({
+        where: { id },
+        select: { restaurant: { select: { id: true, managerId: true } }, tableNumber: true }
+    });
+
+    if (!table) return NextResponse.json({ success: true }); // Already gone
+
+    // 3. Verify Authorization
+    if (table.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+        return forbiddenResponse();
+    }
+
+    const restaurantId = table.restaurant.id;
+
+    // 4. Check for active orders (payment_pending, placed, preparing, ready)
     const activeOrdersCount = await prisma.order.count({
       where: {
         tableId: id,
@@ -51,6 +71,16 @@ export async function DELETE(
         where: { id }
       });
     });
+
+    // 4. Audit Log
+    const { logAction, AuditAction } = await import("@/lib/logger");
+    await logAction(
+        auth.uid, 
+        AuditAction.DELETE_TABLE, 
+        "Table", 
+        id, 
+        { restaurantId, tableNumber: table.tableNumber }
+    );
 
     return NextResponse.json({ success: true });
 

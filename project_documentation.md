@@ -11,7 +11,7 @@ Apneorder is a high-end, real-time restaurant management and digital ordering sy
 1. **Entry**: Customer scans a table-specific **QR Code** (e.g., Table 2).
 2. **Browsing**: Arrives at the digital menu, filtered by categories (e.g., Starters, Main Course).
 3. **Selection**: Adds items to a persistent cart with real-time price calculation.
-4. **Checkout**: chooses between **Online Payment** (Cashfree/UPI) or **Pay-with-Cash**.
+4. **Checkout**: chooses between **Direct UPI Payment** (Scan/Intent) or **Pay-with-Cash**.
 5. **Placement**: Order is sent instantly to the kitchen via **Supabase Realtime**.
 6. **Tracking**: Customer sees live status updates (Pending → Preparing → Ready).
 
@@ -31,7 +31,7 @@ Apneorder is a high-end, real-time restaurant management and digital ordering sy
 
 ### 💻 Core Infrastructure
 - **Real-time Sync**: Full PostgreSQL change tracking via Supabase for zero-delay order updates.
-- **Hybrid Payments**: Integrated Cashfree for UPI/Cards and a "Confirm-on-Receipt" system for Cash.
+- **Hybrid Payments**: Integrated Direct UPI (Scan & Pay) and a "Confirm-on-Receipt" system for Cash.
 - **High-Fidelity UI**: Built with Next.js 15, Tailwind CSS, and Framer Motion for a fluid, mobile-first experience.
 
 ### 📊 Advanced Analytics

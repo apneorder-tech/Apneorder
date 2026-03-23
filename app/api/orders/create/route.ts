@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { OrderCreateSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
   try {
-    const { restaurantId, tableNumber, items, transactionId, paymentMethod = "ONLINE" } = await request.json();
+    const body = await request.json();
+    const result = OrderCreateSchema.safeParse(body);
+    
+    if (!result.success) {
+        return NextResponse.json({ 
+            error: "Invalid order data", 
+            details: result.error.format() 
+        }, { status: 400 });
+    }
+
+    const { restaurantId, tableNumber, items, transactionId, paymentMethod } = result.data;
 
     // 1. Find the table record
     const table = await prisma.table.findFirst({
         where: {
             restaurantId,
-            tableNumber: tableNumber.toString()
+            tableNumber: tableNumber
         }
     });
 

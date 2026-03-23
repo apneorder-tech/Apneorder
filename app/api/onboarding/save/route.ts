@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
+import { OnboardingSaveSchema } from "@/lib/schemas";
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
+    const body = await request.json();
+    const result = OnboardingSaveSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Invalid onboarding data", 
+        details: result.error.format() 
+      }, { status: 400 });
+    }
+
     const { 
       managerId, 
       phone,
@@ -15,13 +27,18 @@ export async function POST(request: Request) {
       themeColor, 
       menuCategories, 
       tableCount 
-    } = data;
+    } = result.data;
+
+    // 1. Verify Authentication
+    const auth = await verifyManagerSession(request);
+    if (!auth.authenticated) return unauthorizedResponse(auth.error);
+
+    // 2. Critical: Ensure the manager can only save for themselves
+    if (!managerId || (auth.uid !== managerId && auth.uid !== "ADMIN_UID")) {
+      return forbiddenResponse("Unauthorized manager ID");
+    }
 
     const trimmedUpiId = upiId ? upiId.trim() : "";
-
-    if (!managerId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     // 0. Verify Manager Exists (Robust Lookup)
     let managerRecord = await prisma.manager.findUnique({
@@ -109,6 +126,16 @@ export async function POST(request: Request) {
     await prisma.table.createMany({
         data: tables
     });
+
+    // 4. Audit Log
+    const { logAction, AuditAction } = await import("@/lib/logger");
+    await logAction(
+        auth.uid, 
+        AuditAction.SAVE_ONBOARDING, 
+        "Restaurant", 
+        restaurant.id, 
+        { restaurantName, ownerName, tableCount }
+    );
 
     return NextResponse.json({ success: true, restaurantId: restaurant.id });
 
