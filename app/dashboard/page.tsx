@@ -18,6 +18,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import dynamic from "next/dynamic";
+
 // Extracted Components
 import { SidebarContent } from "./_components/SidebarContent";
 import { DashboardHeader } from "./_components/DashboardHeader";
@@ -25,15 +27,23 @@ import { StatCard } from "./_components/StatCard";
 import { OrderTabSelector } from "./_components/OrderTabSelector";
 import { OrdersEmptyState } from "./_components/OrdersEmptyState";
 import { OrdersGrid } from "./_components/OrdersGrid";
-import { MenuView } from "./_components/MenuView";
-import { TablesView } from "./_components/TablesView";
-import { AnalyticsView } from "./_components/AnalyticsView";
-import { SettingsView } from "./_components/SettingsView";
 import { MobileBottomNav } from "./_components/MobileBottomNav";
-import { PreviewModal } from "./_components/PreviewModal";
-import { AddCategoryDialog, AddItemDialog, RenameCategoryDialog, DeleteCategoryAlert } from "./_components/MenuDialogs";
-import { AddTableDialog, DeleteTableAlert } from "./_components/TableDialogs";
 import { StatCardSkeleton } from "./_components/DashboardSkeleton";
+
+// Dynamic Sub-Views (Loaded only when active)
+const MenuView = dynamic(() => import("./_components/MenuView").then(m => m.MenuView), { ssr: false });
+const TablesView = dynamic(() => import("./_components/TablesView").then(m => m.TablesView), { ssr: false });
+const AnalyticsView = dynamic(() => import("./_components/AnalyticsView").then(m => m.AnalyticsView), { ssr: false });
+const SettingsView = dynamic(() => import("./_components/SettingsView").then(m => m.SettingsView), { ssr: false });
+
+// Dynamic Dialogs & Modals
+const PreviewModal = dynamic(() => import("./_components/PreviewModal").then(m => m.PreviewModal), { ssr: false });
+const AddCategoryDialog = dynamic(() => import("./_components/MenuDialogs").then(m => m.AddCategoryDialog), { ssr: false });
+const AddItemDialog = dynamic(() => import("./_components/MenuDialogs").then(m => m.AddItemDialog), { ssr: false });
+const RenameCategoryDialog = dynamic(() => import("./_components/MenuDialogs").then(m => m.RenameCategoryDialog), { ssr: false });
+const DeleteCategoryAlert = dynamic(() => import("./_components/MenuDialogs").then(m => m.DeleteCategoryAlert), { ssr: false });
+const AddTableDialog = dynamic(() => import("./_components/TableDialogs").then(m => m.AddTableDialog), { ssr: false });
+const DeleteTableAlert = dynamic(() => import("./_components/TableDialogs").then(m => m.DeleteTableAlert), { ssr: false });
 
 // Utils & Constants & Types
 import { formatCurrency } from "./_components/utils";
@@ -84,14 +94,12 @@ export default function DashboardPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [initialDishName, setInitialDishName] = useState("");
   const [initialDishPrice, setInitialDishPrice] = useState("");
-
   const [isAddingItem, setIsAddingItem] = useState<string | null>(null);
   const [addingToCategoryName, setAddingToCategoryName] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
   const [newItemType, setNewItemType] = useState<"veg" | "non-veg">("veg");
   const [newItemDescription, setNewItemDescription] = useState("");
-
   const [renamingCategory, setRenamingCategory] = useState<{ id: string; name: string } | null>(null);
   const [renameCategoryValue, setRenameCategoryValue] = useState("");
   const [deletingCategory, setDeletingCategory] = useState<{ id: string; name: string } | null>(null);
@@ -106,29 +114,66 @@ export default function DashboardPage() {
   const activeOrders = useMemo(() => orders.filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "payment_pending"), [orders]);
   const displayedOrders = activeTab === "verifying" ? verifyingOrders : activeTab === "active" ? activeOrders : completedOrders;
 
+  const [isMenuLoaded, setIsMenuLoaded] = useState(false);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [isEssentialsLoaded, setIsEssentialsLoaded] = useState(false);
+
   // ─── Data Fetching ───
-  const fetchDashboardData = useCallback(async (uid: string) => {
+  const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false) => {
     try {
-      const res = await fetch(`/api/dashboard/data?managerId=${uid}`);
+      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`);
       const data = await res.json();
-      if (!data.success) { window.location.href = "/onboarding"; return; }
-      if (!data.menuCategories || data.menuCategories.length === 0) { window.location.href = "/onboarding"; return; }
+      if (!data.success) { 
+        if (!essentialsOnly) window.location.href = "/onboarding"; 
+        return; 
+      }
+      
       if (data.tables) setTables(data.tables);
       setOrders(data.orders);
-      setCompletedOrders(data.completedOrders || []);
-      setHasMoreCompleted(data.hasMoreCompleted || false);
-      setTotalCompleted(data.totalCompleted || 0);
-      setCompletedPage(1);
-      setRestaurantName(data.restaurantName);
+      if (data.completedOrders) setCompletedOrders(data.completedOrders);
+      if (data.hasMoreCompleted !== undefined) setHasMoreCompleted(data.hasMoreCompleted);
+      if (data.totalCompleted !== undefined) setTotalCompleted(data.totalCompleted);
+      if (data.restaurantName) setRestaurantName(data.restaurantName);
       if (data.stats) setDashboardStats((prev) => ({ ...prev, ...data.stats }));
+      
       if (data.restaurantId) {
         setRestaurantId(data.restaurantId);
         setUpiId(data.upiId || "");
         setTempUpiId(data.upiId || "");
-        if (data.menuCategories) setMenuCategories(data.menuCategories);
       }
-    } catch (err) { console.error("Fetch Error:", err); window.location.href = "/onboarding"; } finally { setLoading(false); }
+
+      if (essentialsOnly) {
+        setIsEssentialsLoaded(true);
+        fetchDashboardData(uid, false);
+      }
+    } catch (err) { 
+      console.error("Fetch Error:", err); 
+    } finally { 
+      if (!essentialsOnly) setLoading(false);
+    }
   }, []);
+
+  const fetchMenuData = useCallback(async (rid: string) => {
+    if (isMenuLoaded || isLoadingMenu) return;
+    setIsLoadingMenu(true);
+    try {
+      const res = await fetch(`/api/menu/data?restaurantId=${rid}`);
+      const data = await res.json();
+      if (data.success) {
+        setMenuCategories(data.menuCategories);
+        setIsMenuLoaded(true);
+      }
+    } catch (err) {
+      console.error("Menu Fetch Error:", err);
+      toast.error("Failed to load menu data");
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  }, [isMenuLoaded, isLoadingMenu]);
+
+  useEffect(() => {
+    if (activeView === "menu" && restaurantId) fetchMenuData(restaurantId);
+  }, [activeView, restaurantId, fetchMenuData]);
 
   const loadMoreCompleted = useCallback(async () => {
     if (!managerId || isLoadingMore || !hasMoreCompleted) return;
@@ -150,38 +195,45 @@ export default function DashboardPage() {
       if (user) {
         setUser(user);
         let idToUse = user.uid;
-        if (user.uid === "ADMIN_UID" && localStorage.getItem("IMPERSONATE_USER_ID")) {
-          idToUse = localStorage.getItem("IMPERSONATE_USER_ID")!;
+        if (user.uid === "ADMIN_UID" && typeof window !== "undefined") {
+          const impId = localStorage.getItem("IMPERSONATE_USER_ID");
+          if (impId) idToUse = impId;
         }
+        setManagerId(idToUse);
+        fetchDashboardData(idToUse, true); // Start essentials immediately!
+
+        // Run sync in the background to ensure DB is up to date, but don't block the UI
         try {
           const idToken = await user.getIdToken();
-          const syncRes = await fetch("/api/auth/sync", {
+          fetch("/api/auth/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken }),
+          }).then(res => res.json()).then(syncData => {
+            if (syncData.success && syncData.managerId !== idToUse) {
+              setManagerId(syncData.managerId);
+              fetchDashboardData(syncData.managerId, true); // Re-fetch only if ID changed
+            }
           });
-          const syncData = await syncRes.json();
-          if (syncData.success) idToUse = syncData.managerId;
-        } catch (e) { console.error("Sync error:", e); }
-        setManagerId(idToUse);
-        fetchDashboardData(idToUse);
-      } else { window.location.href = "/"; }
+        } catch (e) { 
+          console.error("Background sync error:", e); 
+        }
+      } else { 
+        window.location.href = "/login"; 
+      }
     });
     return () => unsubscribe();
   }, [fetchDashboardData]);
 
-  // ─── Realtime ───
   useEffect(() => {
     if (!restaurantId || !managerId) return;
     const channel = supabase.channel(`dashboard-${restaurantId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "Order", filter: `restaurantId=eq.${restaurantId}` }, (payload: any) => {
-        fetch(`/api/dashboard/data?managerId=${managerId}`)
+        fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`)
           .then((r) => r.json())
           .then((data) => {
             if (data.success) {
               setOrders(data.orders);
-              if (data.stats) setDashboardStats((prev) => ({ ...prev, ...data.stats }));
-              if (data.menuCategories) setMenuCategories(data.menuCategories);
               if (payload.eventType === "INSERT") {
                 new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(() => {});
                 toast.success("New Order Received!", { icon: <Bell className="text-purple-500 animate-bounce" /> });
@@ -192,7 +244,6 @@ export default function DashboardPage() {
     return () => { supabase.removeChannel(channel); };
   }, [restaurantId, managerId]);
 
-  // ─── Actions ───
   const updateOrderStatus = useCallback(async (orderId: string, status: Order["status"]) => {
     const prev = orders.find((o) => o.id === orderId);
     setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, status } : o)));
@@ -356,8 +407,8 @@ export default function DashboardPage() {
             <DashboardHeader 
               activeView={activeView} 
               realtimeStatus={realtimeStatus} 
-              loading={loading} 
-              onRefresh={() => managerId && fetchDashboardData(managerId)} 
+              loading={!isEssentialsLoaded} 
+              onRefresh={() => managerId && fetchDashboardData(managerId, true)} 
               onDownloadAllQRs={downloadAllQRs} 
               onShowPreview={() => setIsShowingPreview(true)} 
               onAddCategory={() => setIsAddingCategory(true)} 
@@ -368,7 +419,7 @@ export default function DashboardPage() {
             {activeView === "orders" && (
               <>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-                  {loading ? (
+                  {loading ? ( // Still loading stats
                     <>
                       <StatCardSkeleton />
                       <StatCardSkeleton />
@@ -394,9 +445,13 @@ export default function DashboardPage() {
                     completedCount={completedOrders.length}
                   />
                   
-                  {!loading && displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
+                  {isEssentialsLoaded && displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
                     <div className="space-y-6 sm:space-y-8">
-                      <OrdersGrid orders={displayedOrders} onStatusUpdate={updateOrderStatus} loading={loading} />
+                      <OrdersGrid 
+                        orders={displayedOrders} 
+                        onStatusUpdate={updateOrderStatus} 
+                        loading={!isEssentialsLoaded} 
+                      />
                       {activeTab === "completed" && hasMoreCompleted && (
                         <div className="flex justify-center pt-2 sm:pt-4 pb-8 sm:pb-12">
                           <Button variant="outline" size="lg" className="bg-white hover:bg-zinc-50 font-bold rounded-xl shadow-sm gap-2" onClick={loadMoreCompleted} disabled={isLoadingMore}>
@@ -444,7 +499,7 @@ export default function DashboardPage() {
                     if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.filter(i => i.id !== id) })));
                   } catch { toast.error("Failed to delete item"); }
                 }} 
-                loading={loading}
+                loading={loading || isLoadingMenu}
               />
             )}
 

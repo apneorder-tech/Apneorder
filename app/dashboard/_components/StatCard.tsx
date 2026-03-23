@@ -10,37 +10,34 @@ interface StatCardProps {
   color: string;
 }
 
-export function StatCard({ label, value, icon: Icon, color }: StatCardProps) {
-  // Safe color mapping for Tailwind JIT
-  const colorMap: Record<string, { bg: string; icon: string }> = {
-    "text-orange-600": { bg: "bg-orange-50", icon: "text-orange-600" },
-    "text-green-600": { bg: "bg-green-50", icon: "text-green-600" },
-    "text-blue-600": { bg: "bg-blue-50", icon: "text-blue-600" },
-    "text-purple-600": { bg: "bg-purple-50", icon: "text-purple-600" },
-    "text-zinc-600": { bg: "bg-zinc-50", icon: "text-zinc-600" },
-  };
-
-  const { bg: bgColorClass } = colorMap[color] || colorMap["text-zinc-600"];
-
+export function StatCard({ label, value, icon: Icon }: StatCardProps) {
   return (
-    <Card className="border border-zinc-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-[24px] overflow-hidden bg-white group">
-      <CardContent className="p-5 sm:p-6 lg:p-7">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1.5 min-w-0">
-            <p className="text-xs sm:text-sm font-medium text-zinc-500 leading-none">
+    <Card
+      className={cn(
+        "border border-zinc-200/60 rounded-2xl bg-white",
+        "shadow-none hover:shadow-sm",
+        "transition-all duration-200 ease-out",
+        "hover:border-zinc-300/60"
+      )}
+    >
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="text-[12px] sm:text-[13px] font-medium text-zinc-500 leading-none truncate">
               {label}
             </p>
-            <h3 className="text-2xl sm:text-3xl font-black text-zinc-900 tracking-tight flex items-baseline gap-1">
+            <p
+              className={cn(
+                "text-xl sm:text-2xl font-extrabold text-zinc-900",
+                "leading-none tracking-tight tabular-nums"
+              )}
+            >
               {value}
-            </h3>
+            </p>
           </div>
-          <div
-            className={cn(
-              "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110",
-              bgColorClass
-            )}
-          >
-            <Icon className="w-6 h-6 text-zinc-900" />
+
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-zinc-900 flex items-center justify-center shrink-0">
+            <Icon className="w-5 h-5 text-white" strokeWidth={1.8} />
           </div>
         </div>
       </CardContent>
