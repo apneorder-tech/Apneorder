@@ -61,7 +61,7 @@ export async function GET(request: Request) {
                   ]
                 },
                 include: {
-                  orderItems: { include: { menuItem: { select: { name: true, type: true } } } },
+                  orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
                   table: { select: { tableNumber: true } }
                 },
                 orderBy: { createdAt: 'desc' }
@@ -107,7 +107,7 @@ export async function GET(request: Request) {
       prisma.order.findMany({
         where: { table: { restaurant: { managerId } }, status: "completed" },
         include: {
-          orderItems: { include: { menuItem: { select: { name: true, type: true } } } },
+          orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
           table: { select: { tableNumber: true } }
         },
         orderBy: { createdAt: 'desc' },
@@ -174,14 +174,49 @@ export async function GET(request: Request) {
     const hasMoreCompleted = totalCompletedCount > skip + completedOrders.length;
 
     // Active Orders (Payment Pending, Preparing, Ready)
-    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed");
+    const activeOrders = restaurant.tables.flatMap(t => t.orders)
+      .filter(o => o.status !== "completed")
+      .map(o => ({
+        ...o,
+        items: o.orderItems.map(oi => ({
+          id: oi.id,
+          name: oi.menuItem.name,
+          quantity: oi.quantity,
+          price: Number(oi.menuItem.price)
+        })),
+        tableNumber: o.table.tableNumber
+      }));
+
     // Also include TODAY'S completed orders for the "Completed" tab initial view
-    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed");
+    const todayCompleted = restaurant.tables.flatMap(t => t.orders)
+      .filter(o => o.status === "completed")
+      .map(o => ({
+        ...o,
+        items: o.orderItems.map(oi => ({
+          id: oi.id,
+          name: oi.menuItem.name,
+          quantity: oi.quantity,
+          price: Number(oi.menuItem.price)
+        })),
+        tableNumber: o.table.tableNumber
+      }));
+
+    // Map history feed orders too
+    const historyOrders = completedOrders.map(o => ({
+      ...o,
+      items: o.orderItems.map(oi => ({
+        id: oi.id,
+        name: oi.menuItem.name,
+        quantity: oi.quantity,
+        price: Number(oi.menuItem.price)
+      })),
+      tableNumber: o.table.tableNumber
+    }));
 
     return NextResponse.json({ 
       success: true, 
       orders: activeOrders,
-      completedOrders: completedPage === 1 ? todayCompleted : completedOrders,
+      completedOrders: completedPage === 1 ? todayCompleted : historyOrders,
       hasMoreCompleted,
       totalCompleted: totalCompletedCount,
       restaurantId: restaurant.id,
