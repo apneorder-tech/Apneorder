@@ -21,12 +21,14 @@ export async function POST(request: Request) {
     // 2. Sync with Prisma Manager table
     // Try UID first, then phone.
     let manager = await prisma.manager.findUnique({
-      where: { id: uid }
+      where: { id: uid },
+      include: { restaurant: { select: { id: true } } }
     });
 
     if (!manager) {
       manager = await prisma.manager.findUnique({
-        where: { phone: phone_number }
+        where: { phone: phone_number },
+        include: { restaurant: { select: { id: true } } }
       });
     }
 
@@ -37,20 +39,22 @@ export async function POST(request: Request) {
           id: uid,
           phone: phone_number,
           isVerified: true,
-        }
+        },
+        include: { restaurant: { select: { id: true } } }
       });
     } else {
       // Update existing record (could be ID=uid or ID=cuid)
       manager = await prisma.manager.update({
         where: { id: manager.id },
-        data: { isVerified: true, phone: phone_number }
+        data: { isVerified: true, phone: phone_number },
+        include: { restaurant: { select: { id: true } } }
       });
     }
 
     return NextResponse.json({ 
       success: true, 
       managerId: manager.id, 
-      hasRestaurant: false 
+      hasRestaurant: !!manager.restaurant 
     });
 
   } catch (error: unknown) {

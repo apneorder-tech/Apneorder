@@ -123,8 +123,11 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`);
       const data = await res.json();
+      
       if (!data.success) { 
-        if (!essentialsOnly) window.location.href = "/onboarding"; 
+        // If essential fetch fails, we just wait for sync.
+        // Only redirect to onboarding if FULL fetch fails AND we are reasonably sure sync is done.
+        // We'll handle the redirect in the onAuthStateChanged sync callback instead.
         return; 
       }
       
@@ -210,9 +213,14 @@ export default function DashboardPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken }),
           }).then(res => res.json()).then(syncData => {
-            if (syncData.success && syncData.managerId !== idToUse) {
-              setManagerId(syncData.managerId);
-              fetchDashboardData(syncData.managerId, true); // Re-fetch only if ID changed
+            if (syncData.success) {
+              if (syncData.managerId !== idToUse) {
+                setManagerId(syncData.managerId);
+                fetchDashboardData(syncData.managerId, true);
+              }
+              if (!syncData.hasRestaurant) {
+                window.location.href = "/onboarding";
+              }
             }
           });
         } catch (e) { 

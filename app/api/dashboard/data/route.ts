@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const managerId = searchParams.get("managerId");
 
     if (!managerId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     // 1. Define Time Ranges
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         }),
       ]);
 
-      if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+      if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
       const activeOrders = restaurant.tables.flatMap(t => t.orders)
         .filter(o => o.status !== "completed")
@@ -158,7 +158,7 @@ export async function GET(request: Request) {
       })
     ]);
 
-    if (!restaurant) return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+    if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
     const topItemIds = topItemsAgg.map(item => item.menuItemId);
     const topItemsMeta = await prisma.menuItem.findMany({
