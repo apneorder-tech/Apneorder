@@ -189,7 +189,10 @@ export default function DashboardPage() {
     setIsLoadingMore(true);
     try {
       const nextPage = completedPage + 1;
-      const res = await fetch(`/api/dashboard/data?managerId=${managerId}&page=${nextPage}`);
+      const idToken = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/dashboard/data?managerId=${managerId}&page=${nextPage}`, {
+        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+      });
       const data = await res.json();
       if (data.success) {
         setCompletedOrders((prev) => [...prev, ...data.completedOrders]);
@@ -263,8 +266,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!restaurantId || !managerId) return;
     const channel = supabase.channel(`dashboard-${restaurantId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "Order", filter: `restaurantId=eq.${restaurantId}` }, (payload: any) => {
-        fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "Order", filter: `restaurantId=eq.${restaurantId}` }, async (payload: any) => {
+        const idToken = await auth.currentUser?.getIdToken();
+        fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`, {
+          headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+        })
           .then((r) => r.json())
           .then((data) => {
             if (data.success) {
