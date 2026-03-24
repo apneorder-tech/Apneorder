@@ -45,17 +45,17 @@ export async function proxy(request: NextRequest) {
         const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
         const clientIp = ip.split(',')[0];
         
-        let limit = 60; // Baseline: 60 requests per minute for any API
+        let limit = 120; // Baseline: 120 requests per minute for any API (2 per second)
         let duration = 60;
 
         if (pathname.startsWith("/api/orders/create")) {
-            limit = 10; // Strict limit for order creation
+            limit = 20; // Allow a few more orders
         } else if (pathname.startsWith("/api/menu/")) {
-            limit = 30; // Medium limit for menu fetching
+            limit = 60; // Standard menu limit
         } else if (pathname.startsWith("/api/onboarding/save")) {
-            limit = 5;  // Very strict limit for onboarding (resource heavy)
+            limit = 10; // Onboarding should be rare
         } else if (pathname.startsWith("/api/auth/sync")) {
-            limit = 10; // Strict limit for auth sync to prevent brute-force
+            limit = 30; // More lenient for sync to avoid false positives during auth-state changes
         }
 
         const res = await ratelimit(clientIp, limit, duration);
