@@ -26,6 +26,7 @@ export async function proxy(request: NextRequest) {
         img-src 'self' blob: data: https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
+        media-src 'self' https://assets.mixkit.co;
         frame-src 'self' https://*.firebaseapp.com;
         object-src 'none';
         base-uri 'self';
