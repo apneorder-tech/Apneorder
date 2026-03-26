@@ -646,6 +646,7 @@ export default function DashboardPage() {
                 menuCategories={menuCategories} 
                 tables={tables} 
                 subscription={subscription || undefined}
+                loading={loading}
               />
             )}
           </div>

@@ -18,6 +18,7 @@ export function SettingsView({
   menuCategories,
   tables,
   subscription,
+  loading,
 }: {
   restaurantName: string;
   upiId: string;
@@ -31,6 +32,7 @@ export function SettingsView({
     status: string;
     currentPeriodEnd: string;
   };
+  loading?: boolean;
 }) {
   return (
     <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 lg:space-y-8 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -151,6 +153,7 @@ export function SettingsView({
            <SubscriptionCard 
              status={subscription?.status} 
              expiryDate={subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : undefined} 
+             isLoading={loading}
            />
         </div>
       </div>

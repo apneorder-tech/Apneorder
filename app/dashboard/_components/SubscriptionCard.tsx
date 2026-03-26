@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Sparkles, CreditCard, Loader2, Zap, RefreshCw } from "lucide-react";
+import { Check, Sparkles, CreditCard, Loader2, Zap, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,12 @@ import { auth } from "@/lib/firebase";
 
 export function SubscriptionCard({ 
   status, 
-  expiryDate 
+  expiryDate,
+  isLoading
 }: { 
   status?: string; 
   expiryDate?: string;
+  isLoading?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -124,6 +126,21 @@ export function SubscriptionCard({
   };
 
   const isActive = status === "ACTIVE";
+  const isPastDue = status === "PAST_DUE";
+
+  if (isLoading && !status) {
+    return (
+      <Card className="border-zinc-100 shadow-2xl rounded-3xl p-8 bg-white animate-pulse">
+        <div className="h-8 bg-zinc-100 rounded-lg w-1/3 mb-4" />
+        <div className="h-12 bg-zinc-100 rounded-xl w-1/2 mb-8" />
+        <div className="space-y-4">
+          <div className="h-4 bg-zinc-100 rounded w-full" />
+          <div className="h-4 bg-zinc-100 rounded w-full" />
+          <div className="h-14 bg-zinc-100 rounded-2xl w-full mt-6" />
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="relative overflow-hidden border-zinc-100 shadow-2xl shadow-zinc-200/50 rounded-3xl p-8 bg-white group">
@@ -138,6 +155,11 @@ export function SubscriptionCard({
               {isActive && (
                 <Badge className="bg-green-100 text-green-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border-none">
                   Active
+                </Badge>
+              )}
+              {isPastDue && (
+                <Badge className="bg-red-100 text-red-700 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border-none">
+                  Action Required
                 </Badge>
               )}
             </div>
@@ -178,7 +200,7 @@ export function SubscriptionCard({
         <div className="pt-4 space-y-4">
           {isActive ? (
              <div className="space-y-4">
-                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 flex items-center justify-between">
+                <div className="p-4 bg-zinc-50 rounded-2xl border border-zinc-100 flex items-center justify-start">
                    <div className="flex items-center gap-3">
                       <CreditCard size={18} className="text-zinc-400" />
                       <div className="space-y-0.5">
@@ -186,25 +208,43 @@ export function SubscriptionCard({
                          <p className="text-sm font-black tracking-tight italic">{expiryDate || "N/A"}</p>
                       </div>
                    </div>
-                   <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-red-600">
-                      Manage
-                   </Button>
                 </div>
              </div>
           ) : (
             <div className="space-y-4">
-              <Button 
-                  onClick={handleSubscribe}
-                  disabled={loading || isSyncing}
-                  className="w-full h-16 bg-zinc-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-[0.15em] shadow-xl shadow-zinc-200 active:scale-95 transition-all text-xs flex items-center gap-3"
-              >
-                {loading ? <Loader2 size={18} className="animate-spin" /> : (
-                  <>
-                    <Zap size={18} fill="currentColor" />
-                    Upgrade to Premium
-                  </>
-                )}
-              </Button>
+              {isPastDue ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-red-600 mb-1">
+                    <AlertCircle size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Payment Overdue</span>
+                  </div>
+                  <Button 
+                    onClick={handleSubscribe}
+                    disabled={loading || isSyncing}
+                    className="w-full h-16 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase tracking-[0.15em] shadow-xl shadow-red-200 active:scale-95 transition-all text-xs flex items-center gap-3"
+                  >
+                    {loading ? <Loader2 size={18} className="animate-spin" /> : (
+                      <>
+                        <Zap size={18} fill="currentColor" />
+                        Re-Activate Plan
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                    onClick={handleSubscribe}
+                    disabled={loading || isSyncing}
+                    className="w-full h-16 bg-zinc-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-[0.15em] shadow-xl shadow-zinc-200 active:scale-95 transition-all text-xs flex items-center gap-3"
+                >
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : (
+                    <>
+                      <Zap size={18} fill="currentColor" />
+                      Upgrade to Premium
+                    </>
+                  )}
+                </Button>
+              )}
               
               <Button
                 variant="link"
