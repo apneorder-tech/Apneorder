@@ -50,6 +50,30 @@ export async function GET(request: Request) {
     const skip = (completedPage - 1) * completedLimit;
 
     const isEssentials = searchParams.get("essentials") === "true";
+    const isSubscriptionOnly = searchParams.get("subscriptionOnly") === "true";
+
+    // 2.5 Quick Subscription Check mode
+    if (isSubscriptionOnly) {
+      const [restaurant, subscription] = await Promise.all([
+        prisma.restaurant.findUnique({
+          where: { managerId: effectiveManagerId },
+          select: { id: true, name: true }
+        }),
+        (prisma as any).subscription.findUnique({
+          where: { managerId: effectiveManagerId },
+          select: { status: true, currentPeriodEnd: true }
+        })
+      ]);
+
+      if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
+
+      return NextResponse.json({
+        success: true,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        subscription: subscription || null
+      });
+    }
 
     // 3. Fetch Data based on mode
     if (isEssentials) {

@@ -17,8 +17,6 @@ export function SettingsView({
   onUpdateUpi,
   menuCategories,
   tables,
-  subscription,
-  loading,
 }: {
   restaurantName: string;
   upiId: string;
@@ -28,11 +26,6 @@ export function SettingsView({
   onUpdateUpi: () => void;
   menuCategories: ManageCategory[];
   tables: ManageTable[];
-  subscription?: {
-    status: string;
-    currentPeriodEnd: string;
-  };
-  loading?: boolean;
 }) {
   return (
     <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 lg:space-y-8 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -147,15 +140,6 @@ export function SettingsView({
             </Button>
           </div>
         </Card>
-
-        {/* Subscription Card - Full Width below or alongside */}
-        <div className="md:col-span-2">
-           <SubscriptionCard 
-             status={subscription?.status} 
-             expiryDate={subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : undefined} 
-             isLoading={loading}
-           />
-        </div>
       </div>
     </div>
   );

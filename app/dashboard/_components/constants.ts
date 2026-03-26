@@ -8,7 +8,8 @@ import {
   UtensilsCrossed,
   BarChart3,
   Settings,
-  QrCode
+  QrCode,
+  Sparkles
 } from "lucide-react";
 
 export const ORDER_STATUS_CONFIG = {
@@ -76,6 +77,11 @@ export const NAV_ITEMS = [
     id: "analytics",
     label: "Analytics",
     icon: BarChart3,
+  },
+  {
+    id: "plans",
+    label: "Plans",
+    icon: Sparkles,
   },
   {
     id: "settings",

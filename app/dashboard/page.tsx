@@ -23,6 +23,8 @@ import dynamic from "next/dynamic";
 // Extracted Components
 import { SidebarContent } from "./_components/SidebarContent";
 import { DashboardHeader } from "./_components/DashboardHeader";
+import { SubscriptionLock } from "./_components/SubscriptionLock";
+import { SubscriptionCard } from "./_components/SubscriptionCard";
 import { StatCard } from "./_components/StatCard";
 import { OrderTabSelector } from "./_components/OrderTabSelector";
 import { OrdersEmptyState } from "./_components/OrdersEmptyState";
@@ -77,7 +79,7 @@ export default function DashboardPage() {
       year: { chartData: [], topItems: [] },
     },
   });
-  const [activeView, setActiveView] = useState<"orders" | "menu" | "tables" | "analytics" | "settings">("orders");
+  const [activeView, setActiveView] = useState<"orders" | "menu" | "tables" | "analytics" | "settings" | "plans">("orders");
   const [menuCategories, setMenuCategories] = useState<ManageCategory[]>([]);
   const [tables, setTables] = useState<ManageTable[]>([]);
   const [isAddingTable, setIsAddingTable] = useState(false);
@@ -111,8 +113,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
 
   // Derived state
-  const verifyingOrders = useMemo(() => orders.filter((o) => o.status === "payment_pending"), [orders]);
-  const activeOrders = useMemo(() => orders.filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "payment_pending"), [orders]);
+  const verifyingOrders = useMemo(() => (orders || []).filter((o) => o.status === "payment_pending"), [orders]);
+  const activeOrders = useMemo(() => (orders || []).filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "payment_pending"), [orders]);
   const displayedOrders = activeTab === "verifying" ? verifyingOrders : activeTab === "active" ? activeOrders : completedOrders;
 
   const [isMenuLoaded, setIsMenuLoaded] = useState(false);
@@ -120,10 +122,10 @@ export default function DashboardPage() {
   const [isEssentialsLoaded, setIsEssentialsLoaded] = useState(false);
 
   // ─── Data Fetching ───
-  const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false) => {
+  const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false, subscriptionOnly = false) => {
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`, {
+      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}&subscriptionOnly=${subscriptionOnly}`, {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
       const data = await res.json();
@@ -136,7 +138,7 @@ export default function DashboardPage() {
       }
       
       if (data.tables) setTables(data.tables);
-      setOrders(data.orders);
+      if (data.orders) setOrders(data.orders);
       if (data.completedOrders) setCompletedOrders(data.completedOrders);
       if (data.hasMoreCompleted !== undefined) setHasMoreCompleted(data.hasMoreCompleted);
       if (data.totalCompleted !== undefined) setTotalCompleted(data.totalCompleted);
@@ -150,9 +152,21 @@ export default function DashboardPage() {
         if (data.subscription) setSubscription(data.subscription);
       }
 
+      if (subscriptionOnly) {
+        // If it's subscription-only check, only proceed to essentials IF active
+        if (data.subscription?.status === "ACTIVE") {
+          fetchDashboardData(uid, true, false);
+        } else {
+          // Done loading for now (locked)
+          setLoading(false);
+          setIsEssentialsLoaded(true);
+        }
+        return;
+      }
+
       if (essentialsOnly) {
         setIsEssentialsLoaded(true);
-        fetchDashboardData(uid, false);
+        fetchDashboardData(uid, false, false);
       }
     } catch (err) { 
       console.error("Fetch Error:", err); 
@@ -231,7 +245,7 @@ export default function DashboardPage() {
         }
 
         setManagerId(idToUse);
-        fetchDashboardData(idToUse, true); // Start essentials immediately!
+        fetchDashboardData(idToUse, false, true); // Start with SUBSCRIPTION ONLY!
 
         // Run sync in the background to ensure DB is up to date
         try {
@@ -477,14 +491,26 @@ export default function DashboardPage() {
       <div className="flex min-h-screen bg-[#FDFDFD] font-sans text-zinc-900 selection:bg-zinc-900 selection:text-white">
         {/* Sidebar */}
         <aside className="hidden lg:flex w-[280px] flex-col sticky top-0 h-screen border-r border-zinc-100 bg-white/50 backdrop-blur-xl z-50">
-          <SidebarContent activeView={activeView} setActiveView={setActiveView} restaurantName={restaurantName} />
+          <SidebarContent 
+            activeView={activeView} 
+            setActiveView={setActiveView} 
+            restaurantName={restaurantName} 
+            subscriptionStatus={subscription?.status}
+            loading={loading}
+          />
         </aside>
 
         {/* Mobile Header (Sheet Trigger only, layout consistent with Sidebar) */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent side="left" className="w-72 p-0 border-none">
             <SheetHeader className="sr-only"><SheetTitle>Navigation Menu</SheetTitle><SheetDescription>Access dashboard sections</SheetDescription></SheetHeader>
-            <SidebarContent activeView={activeView} setActiveView={(v) => { setActiveView(v); setMobileMenuOpen(false); }} restaurantName={restaurantName} />
+            <SidebarContent 
+              activeView={activeView} 
+              setActiveView={(v) => { setActiveView(v); setMobileMenuOpen(false); }} 
+              restaurantName={restaurantName} 
+              subscriptionStatus={subscription?.status}
+              loading={loading}
+            />
           </SheetContent>
         </Sheet>
 
@@ -506,135 +532,154 @@ export default function DashboardPage() {
             />
 
             {activeView === "orders" && (
-              <>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-                  {loading ? ( // Still loading stats
-                    <>
-                      <StatCardSkeleton />
-                      <StatCardSkeleton />
-                      <StatCardSkeleton />
-                      <StatCardSkeleton />
-                    </>
-                  ) : (
-                    <>
-                      <StatCard label="Live Orders" value={activeOrders.length.toString()} icon={ChefHat} color="text-orange-600" />
-                      <StatCard label="Ready/Served" value={dashboardStats.preparedTodayCount.toString()} icon={Check} color="text-green-600" />
-                      <StatCard label="Table Occupancy" value={dashboardStats.tablesFilled} icon={Bell} color="text-blue-600" />
-                      <StatCard label="Today's Sale" value={formatCurrency(dashboardStats.totalSaleToday)} icon={Clock} color="text-purple-600" />
-                    </>
-                  )}
-                </div>
+              (subscription?.status === "ACTIVE" || loading) ? (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                    {loading ? ( // Still loading stats
+                      <>
+                        <StatCardSkeleton />
+                        <StatCardSkeleton />
+                        <StatCardSkeleton />
+                        <StatCardSkeleton />
+                      </>
+                    ) : (
+                      <>
+                        <StatCard label="Live Orders" value={activeOrders.length.toString()} icon={ChefHat} color="text-orange-600" />
+                        <StatCard label="Ready/Served" value={dashboardStats.preparedTodayCount.toString()} icon={Check} color="text-green-600" />
+                        <StatCard label="Table Occupancy" value={dashboardStats.tablesFilled} icon={Bell} color="text-blue-600" />
+                        <StatCard label="Today's Sale" value={formatCurrency(dashboardStats.totalSaleToday)} icon={Clock} color="text-purple-600" />
+                      </>
+                    )}
+                  </div>
 
-                <div className="space-y-6 sm:space-y-8">
-                  <OrderTabSelector 
-                    activeTab={activeTab} 
-                    setActiveTab={setActiveTab} 
-                    verifyingCount={verifyingOrders.length} 
-                    activeCount={activeOrders.length} 
-                    completedCount={completedOrders.length}
-                  />
-                  
-                  {isEssentialsLoaded && displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
-                    <div className="space-y-6 sm:space-y-8">
-                      <OrdersGrid 
-                        orders={displayedOrders} 
-                        onStatusUpdate={updateOrderStatus} 
-                        loading={!isEssentialsLoaded} 
-                      />
-                      {activeTab === "completed" && hasMoreCompleted && (
-                        <div className="flex justify-center pt-2 sm:pt-4 pb-8 sm:pb-12">
-                          <Button variant="outline" size="lg" className="bg-white hover:bg-zinc-50 font-bold rounded-xl shadow-sm gap-2" onClick={loadMoreCompleted} disabled={isLoadingMore}>
-                            {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : "Load More Orders"}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
+                  <div className="space-y-6 sm:space-y-8">
+                    <OrderTabSelector 
+                      activeTab={activeTab} 
+                      setActiveTab={setActiveTab} 
+                      verifyingCount={verifyingOrders.length} 
+                      activeCount={activeOrders.length} 
+                      completedCount={completedOrders.length}
+                    />
+                    
+                    {isEssentialsLoaded && displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
+                      <div className="space-y-6 sm:space-y-8">
+                        <OrdersGrid 
+                          orders={displayedOrders} 
+                          onStatusUpdate={updateOrderStatus} 
+                          loading={!isEssentialsLoaded} 
+                        />
+                        {activeTab === "completed" && hasMoreCompleted && (
+                          <div className="flex justify-center pt-2 sm:pt-4 pb-8 sm:pb-12">
+                            <Button variant="outline" size="lg" className="bg-white hover:bg-zinc-50 font-bold rounded-xl shadow-sm gap-2" onClick={loadMoreCompleted} disabled={isLoadingMore}>
+                              {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : "Load More Orders"}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
 
             {activeView === "menu" && (
-              <MenuView 
-                menuCategories={menuCategories} 
-                isUpdating={isUpdating} 
-                onAddCategory={() => setIsAddingCategory(true)} 
-                onAddItem={(id, name) => { setIsAddingItem(id); setAddingToCategoryName(name); }} 
-                onRenameCategory={(cat) => { setRenamingCategory(cat); setRenameCategoryValue(cat.name); }} 
-                onDeleteCategory={setDeletingCategory} 
-                onUpdateItemName={async (id, name) => {
-                  try {
-                    const idToken = await auth.currentUser?.getIdToken();
-                    const res = await fetch(`/api/menu/items/${id}`, { 
-                      method: "PATCH", 
-                      headers: { 
-                        "Content-Type": "application/json",
-                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-                      }, 
-                      body: JSON.stringify({ name }) 
-                    });
-                    if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, name } : i) })));
-                  } catch { toast.error("Failed to update name"); }
-                }} 
-                onUpdatePrice={async (id, price) => {
-                  setIsUpdating(id);
-                  try {
-                    const idToken = await auth.currentUser?.getIdToken();
-                    const res = await fetch(`/api/menu/items/${id}`, { 
-                      method: "PATCH", 
-                      headers: { 
-                        "Content-Type": "application/json",
-                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-                      }, 
-                      body: JSON.stringify({ price }) 
-                    });
-                    if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, price } : i) })));
-                  } catch { toast.error("Failed to update price"); } finally { setIsUpdating(null); }
-                }} 
-                onToggleAvailability={async (id, current) => {
-                  setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: !current } : i) })));
-                  try {
-                    const idToken = await auth.currentUser?.getIdToken();
-                    const res = await fetch(`/api/menu/items/${id}`, { 
-                      method: "PATCH", 
-                      headers: { 
-                        "Content-Type": "application/json",
-                        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-                      }, 
-                      body: JSON.stringify({ isAvailable: !current }) 
-                    });
-                    if (!res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: current } : i) })));
-                  } catch { toast.error("Network error"); }
-                }} 
-                onDeleteItem={async (id) => {
-                  try {
-                    const idToken = await auth.currentUser?.getIdToken();
-                    const res = await fetch(`/api/menu/items/${id}`, { 
-                      method: "DELETE",
-                      headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
-                    });
-                    if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.filter(i => i.id !== id) })));
-                  } catch { toast.error("Failed to delete item"); }
-                }} 
-                loading={loading || isLoadingMenu}
-              />
+              (subscription?.status === "ACTIVE" || loading) ? (
+                <MenuView 
+                  menuCategories={menuCategories} 
+                  isUpdating={isUpdating} 
+                  onAddCategory={() => setIsAddingCategory(true)} 
+                  onAddItem={(id, name) => { setIsAddingItem(id); setAddingToCategoryName(name); }} 
+                  onRenameCategory={(cat) => { setRenamingCategory(cat); setRenameCategoryValue(cat.name); }} 
+                  onDeleteCategory={setDeletingCategory} 
+                  onUpdateItemName={async (id, name) => {
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, { 
+                        method: "PATCH", 
+                        headers: { 
+                          "Content-Type": "application/json",
+                          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                        }, 
+                        body: JSON.stringify({ name }) 
+                      });
+                      if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, name } : i) })));
+                    } catch { toast.error("Failed to update name"); }
+                  }} 
+                  onUpdatePrice={async (id, price) => {
+                    setIsUpdating(id);
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, { 
+                        method: "PATCH", 
+                        headers: { 
+                          "Content-Type": "application/json",
+                          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                        }, 
+                        body: JSON.stringify({ price }) 
+                      });
+                      if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, price } : i) })));
+                    } catch { toast.error("Failed to update price"); } finally { setIsUpdating(null); }
+                  }} 
+                  onToggleAvailability={async (id, current) => {
+                    setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: !current } : i) })));
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, { 
+                        method: "PATCH", 
+                        headers: { 
+                          "Content-Type": "application/json",
+                          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                        }, 
+                        body: JSON.stringify({ isAvailable: !current }) 
+                      });
+                      if (!res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: current } : i) })));
+                    } catch { toast.error("Network error"); }
+                  }} 
+                  onDeleteItem={async (id) => {
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, { 
+                        method: "DELETE",
+                        headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+                      });
+                      if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.filter(i => i.id !== id) })));
+                    } catch { toast.error("Failed to delete item"); }
+                  }} 
+                  loading={loading || isLoadingMenu}
+                />
+              ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
 
             {activeView === "tables" && (
-              <TablesView 
-                tables={tables} 
-                restaurantId={restaurantId} 
-                upiId={upiId} 
-                onAddTable={() => setIsAddTableDialogOpen(true)} 
-                onDeleteTable={setDeletingTable} 
-                onDownloadQR={downloadQR} 
-                onDownloadAllQRs={downloadAllQRs} 
-                loading={loading}
-              />
+              (subscription?.status === "ACTIVE" || loading) ? (
+                <TablesView 
+                  tables={tables} 
+                  restaurantId={restaurantId} 
+                  upiId={upiId} 
+                  onAddTable={() => setIsAddTableDialogOpen(true)} 
+                  onDeleteTable={setDeletingTable} 
+                  onDownloadQR={downloadQR} 
+                  onDownloadAllQRs={downloadAllQRs} 
+                  loading={loading}
+                />
+              ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
 
-            {activeView === "analytics" && <AnalyticsView stats={dashboardStats} loading={loading} />}
+            {activeView === "analytics" && (
+              (subscription?.status === "ACTIVE" || loading) ? (
+                <AnalyticsView stats={dashboardStats} loading={loading} />
+              ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
+            )}
 
+            {activeView === "plans" && (
+              <div className="max-w-xl mx-auto pt-8">
+                <SubscriptionCard 
+                  status={subscription?.status} 
+                  expiryDate={subscription?.currentPeriodEnd}
+                  isLoading={loading}
+                />
+              </div>
+            )}
             {activeView === "settings" && (
               <SettingsView 
                 restaurantName={restaurantName} 
@@ -645,8 +690,6 @@ export default function DashboardPage() {
                 onUpdateUpi={handleUpdateUpi} 
                 menuCategories={menuCategories} 
                 tables={tables} 
-                subscription={subscription || undefined}
-                loading={loading}
               />
             )}
           </div>

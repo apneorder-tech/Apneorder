@@ -74,51 +74,53 @@ export function DashboardHeader({
 
           {/* Right actions */}
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
-            {/* Realtime Status Indicator */}
-            <div
-              className={cn(
-                "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border opacity-80",
-                realtimeStatus === "SUBSCRIBED"
-                  ? "bg-green-50 border-green-100"
-                  : "bg-zinc-50 border-zinc-100"
-              )}
-            >
+            {/* Realtime Status Indicator (Premium Only) */}
+            {subscriptionStatus === "ACTIVE" && (
               <div
                 className={cn(
-                  "w-1.5 h-1.5 rounded-full animate-pulse",
+                  "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border opacity-80",
                   realtimeStatus === "SUBSCRIBED"
-                    ? "bg-green-500"
-                    : "bg-zinc-300"
-                )}
-              />
-              <span
-                className={cn(
-                  "text-[10px] font-black uppercase tracking-widest",
-                  realtimeStatus === "SUBSCRIBED"
-                    ? "text-green-700"
-                    : "text-zinc-500"
+                    ? "bg-green-50 border-green-100"
+                    : "bg-zinc-50 border-zinc-100"
                 )}
               >
-                {realtimeStatus === "SUBSCRIBED"
-                  ? "Live Sync"
-                  : realtimeStatus.toLowerCase()}
-              </span>
-              <button
-                onClick={onRefresh}
-                className="ml-1 p-1 hover:bg-zinc-200 rounded-full transition-colors"
-                title="Manual Refresh"
-              >
-                <RefreshCw
-                  size={10}
+                <div
                   className={cn(
-                    "text-zinc-500",
-                    loading && "animate-spin"
+                    "w-1.5 h-1.5 rounded-full animate-pulse",
+                    realtimeStatus === "SUBSCRIBED"
+                      ? "bg-green-500"
+                      : "bg-zinc-300"
                   )}
                 />
-              </button>
-            </div>
+                <span
+                  className={cn(
+                    "text-[10px] font-black uppercase tracking-widest",
+                    realtimeStatus === "SUBSCRIBED"
+                      ? "text-green-700"
+                      : "text-zinc-500"
+                  )}
+                >
+                  {realtimeStatus === "SUBSCRIBED"
+                    ? "Live Sync"
+                    : realtimeStatus.toLowerCase()}
+                </span>
+                <button
+                  onClick={onRefresh}
+                  className="ml-1 p-1 hover:bg-zinc-200 rounded-full transition-colors"
+                  title="Manual Refresh"
+                >
+                  <RefreshCw
+                    size={10}
+                    className={cn(
+                      "text-zinc-500",
+                      loading && "animate-spin"
+                    )}
+                  />
+                </button>
+              </div>
+            )}
 
-            {activeView === "tables" && (
+            {activeView === "tables" && subscriptionStatus === "ACTIVE" && (
               <Button
                 onClick={onDownloadAllQRs}
                 variant="outline"
@@ -130,38 +132,29 @@ export function DashboardHeader({
                 <span className="lg:hidden">All PDFs</span>
               </Button>
             )}
-            {activeView === "menu" ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 sm:h-10 text-xs font-bold rounded-lg hidden sm:flex"
-                  onClick={onShowPreview}
-                >
-                  <Eye size={14} className="mr-1.5" />
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-9 sm:h-10 text-xs font-bold rounded-lg bg-zinc-900"
-                  onClick={onAddCategory}
-                >
-                  <Plus size={14} className="mr-1 sm:mr-1.5" />
-                  <span className="hidden sm:inline">New Category</span>
-                  <span className="sm:hidden">Add</span>
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-9 h-9 p-0 text-zinc-400 relative"
-              >
-                <Bell size={18} />
-                {activeOrdersCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                )}
-              </Button>
+            {activeView === "menu" && (
+              subscriptionStatus === "ACTIVE" ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 sm:h-10 text-xs font-bold rounded-lg hidden sm:flex"
+                    onClick={onShowPreview}
+                  >
+                    <Eye size={14} className="mr-1.5" />
+                    Preview
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-9 sm:h-10 text-xs font-bold rounded-lg bg-zinc-900"
+                    onClick={onAddCategory}
+                  >
+                    <Plus size={14} className="mr-1 sm:mr-1.5" />
+                    <span className="hidden sm:inline">New Category</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
+                </>
+              ) : null
             )}
           </div>
         </div>
