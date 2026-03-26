@@ -52,18 +52,18 @@ export async function GET(request: Request) {
     const isEssentials = searchParams.get("essentials") === "true";
     const isSubscriptionOnly = searchParams.get("subscriptionOnly") === "true";
 
-    // 2.5 Quick Subscription Check mode
+    // 2.5 Fetch Subscription Status First (Pre-flight Security)
+    const subscription = await (prisma as any).subscription.findUnique({
+      where: { managerId: effectiveManagerId },
+      select: { status: true, currentPeriodEnd: true }
+    });
+
+    // 2.6 Quick Subscription Check mode
     if (isSubscriptionOnly) {
-      const [restaurant, subscription] = await Promise.all([
-        prisma.restaurant.findUnique({
-          where: { managerId: effectiveManagerId },
-          select: { id: true, name: true }
-        }),
-        (prisma as any).subscription.findUnique({
-          where: { managerId: effectiveManagerId },
-          select: { status: true, currentPeriodEnd: true }
-        })
-      ]);
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { managerId: effectiveManagerId },
+        select: { id: true, name: true }
+      });
 
       if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
@@ -71,6 +71,24 @@ export async function GET(request: Request) {
         success: true,
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
+        subscription: subscription || null
+      });
+    }
+
+    // 2.7 Security Enforcement: Ensure ACTIVE subscription for any operational data
+    if (!subscription || subscription.status !== "ACTIVE") {
+      // We still need to return basic restaurant info so the dashboard can show the UI/Plans state
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { managerId: effectiveManagerId },
+        select: { id: true, name: true }
+      });
+      
+      return NextResponse.json({
+        success: true, // success = true but content is restricted
+        restricted: true,
+        message: "Active subscription required for this data",
+        restaurantId: restaurant?.id,
+        restaurantName: restaurant?.name,
         subscription: subscription || null
       });
     }
@@ -132,7 +150,6 @@ export async function GET(request: Request) {
     const [
       restaurant,
       salesAnnualArr,
-      subscriptionData,
       preparedTodayCount,
       topItemsAgg,
       completedOrders,
@@ -167,10 +184,6 @@ export async function GET(request: Request) {
       prisma.order.findMany({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: oneYearAgo } },
         select: { totalAmount: true, createdAt: true }
-      }),
-      (prisma as any).subscription.findUnique({
-        where: { managerId: effectiveManagerId },
-        select: { status: true, currentPeriodEnd: true }
       }),
       prisma.order.count({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
@@ -265,7 +278,7 @@ export async function GET(request: Request) {
         timeframes: { week: { chartData: chartWeek, topItems }, month: { chartData: chartMonth, topItems }, year: { chartData: chartYear, topItems } }
       },
       tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
-      subscription: subscriptionData
+      subscription: subscription
     });
 
   } catch (error: unknown) {
