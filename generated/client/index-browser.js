@@ -180,7 +180,8 @@ exports.Prisma.OrderScalarFieldEnum = {
   transactionId: 'transactionId',
   paymentSessionId: 'paymentSessionId',
   paymentStatus: 'paymentStatus',
-  paymentMethod: 'paymentMethod'
+  paymentMethod: 'paymentMethod',
+  customerPhone: 'customerPhone'
 };
 
 exports.Prisma.OrderItemScalarFieldEnum = {

@@ -6,6 +6,7 @@ export interface Order {
   createdAt: string;
   paymentMethod?: string;
   transactionId?: string;
+  customerPhone?: string | null;
   items: {
     id: string;
     name: string;

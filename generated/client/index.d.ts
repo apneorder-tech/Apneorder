@@ -7368,6 +7368,7 @@ export namespace Prisma {
     paymentSessionId: string | null
     paymentStatus: string | null
     paymentMethod: string | null
+    customerPhone: string | null
   }
 
   export type OrderMaxAggregateOutputType = {
@@ -7382,6 +7383,7 @@ export namespace Prisma {
     paymentSessionId: string | null
     paymentStatus: string | null
     paymentMethod: string | null
+    customerPhone: string | null
   }
 
   export type OrderCountAggregateOutputType = {
@@ -7396,6 +7398,7 @@ export namespace Prisma {
     paymentSessionId: number
     paymentStatus: number
     paymentMethod: number
+    customerPhone: number
     _all: number
   }
 
@@ -7420,6 +7423,7 @@ export namespace Prisma {
     paymentSessionId?: true
     paymentStatus?: true
     paymentMethod?: true
+    customerPhone?: true
   }
 
   export type OrderMaxAggregateInputType = {
@@ -7434,6 +7438,7 @@ export namespace Prisma {
     paymentSessionId?: true
     paymentStatus?: true
     paymentMethod?: true
+    customerPhone?: true
   }
 
   export type OrderCountAggregateInputType = {
@@ -7448,6 +7453,7 @@ export namespace Prisma {
     paymentSessionId?: true
     paymentStatus?: true
     paymentMethod?: true
+    customerPhone?: true
     _all?: true
   }
 
@@ -7549,6 +7555,7 @@ export namespace Prisma {
     paymentSessionId: string | null
     paymentStatus: string
     paymentMethod: string
+    customerPhone: string | null
     _count: OrderCountAggregateOutputType | null
     _avg: OrderAvgAggregateOutputType | null
     _sum: OrderSumAggregateOutputType | null
@@ -7582,6 +7589,7 @@ export namespace Prisma {
     paymentSessionId?: boolean
     paymentStatus?: boolean
     paymentMethod?: boolean
+    customerPhone?: boolean
     table?: boolean | TableDefaultArgs<ExtArgs>
     restaurant?: boolean | RestaurantDefaultArgs<ExtArgs>
     orderItems?: boolean | Order$orderItemsArgs<ExtArgs>
@@ -7600,6 +7608,7 @@ export namespace Prisma {
     paymentSessionId?: boolean
     paymentStatus?: boolean
     paymentMethod?: boolean
+    customerPhone?: boolean
     table?: boolean | TableDefaultArgs<ExtArgs>
     restaurant?: boolean | RestaurantDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["order"]>
@@ -7616,6 +7625,7 @@ export namespace Prisma {
     paymentSessionId?: boolean
     paymentStatus?: boolean
     paymentMethod?: boolean
+    customerPhone?: boolean
     table?: boolean | TableDefaultArgs<ExtArgs>
     restaurant?: boolean | RestaurantDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["order"]>
@@ -7632,9 +7642,10 @@ export namespace Prisma {
     paymentSessionId?: boolean
     paymentStatus?: boolean
     paymentMethod?: boolean
+    customerPhone?: boolean
   }
 
-  export type OrderOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "tableId" | "restaurantId" | "totalAmount" | "status" | "createdAt" | "updatedAt" | "transactionId" | "paymentSessionId" | "paymentStatus" | "paymentMethod", ExtArgs["result"]["order"]>
+  export type OrderOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "tableId" | "restaurantId" | "totalAmount" | "status" | "createdAt" | "updatedAt" | "transactionId" | "paymentSessionId" | "paymentStatus" | "paymentMethod" | "customerPhone", ExtArgs["result"]["order"]>
   export type OrderInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     table?: boolean | TableDefaultArgs<ExtArgs>
     restaurant?: boolean | RestaurantDefaultArgs<ExtArgs>
@@ -7669,6 +7680,7 @@ export namespace Prisma {
       paymentSessionId: string | null
       paymentStatus: string
       paymentMethod: string
+      customerPhone: string | null
     }, ExtArgs["result"]["order"]>
     composites: {}
   }
@@ -8106,6 +8118,7 @@ export namespace Prisma {
     readonly paymentSessionId: FieldRef<"Order", 'String'>
     readonly paymentStatus: FieldRef<"Order", 'String'>
     readonly paymentMethod: FieldRef<"Order", 'String'>
+    readonly customerPhone: FieldRef<"Order", 'String'>
   }
     
 
@@ -10783,7 +10796,8 @@ export namespace Prisma {
     transactionId: 'transactionId',
     paymentSessionId: 'paymentSessionId',
     paymentStatus: 'paymentStatus',
-    paymentMethod: 'paymentMethod'
+    paymentMethod: 'paymentMethod',
+    customerPhone: 'customerPhone'
   };
 
   export type OrderScalarFieldEnum = (typeof OrderScalarFieldEnum)[keyof typeof OrderScalarFieldEnum]
@@ -11325,6 +11339,7 @@ export namespace Prisma {
     paymentSessionId?: StringNullableFilter<"Order"> | string | null
     paymentStatus?: StringFilter<"Order"> | string
     paymentMethod?: StringFilter<"Order"> | string
+    customerPhone?: StringNullableFilter<"Order"> | string | null
     table?: XOR<TableScalarRelationFilter, TableWhereInput>
     restaurant?: XOR<RestaurantScalarRelationFilter, RestaurantWhereInput>
     orderItems?: OrderItemListRelationFilter
@@ -11342,6 +11357,7 @@ export namespace Prisma {
     paymentSessionId?: SortOrderInput | SortOrder
     paymentStatus?: SortOrder
     paymentMethod?: SortOrder
+    customerPhone?: SortOrderInput | SortOrder
     table?: TableOrderByWithRelationInput
     restaurant?: RestaurantOrderByWithRelationInput
     orderItems?: OrderItemOrderByRelationAggregateInput
@@ -11362,6 +11378,7 @@ export namespace Prisma {
     paymentSessionId?: StringNullableFilter<"Order"> | string | null
     paymentStatus?: StringFilter<"Order"> | string
     paymentMethod?: StringFilter<"Order"> | string
+    customerPhone?: StringNullableFilter<"Order"> | string | null
     table?: XOR<TableScalarRelationFilter, TableWhereInput>
     restaurant?: XOR<RestaurantScalarRelationFilter, RestaurantWhereInput>
     orderItems?: OrderItemListRelationFilter
@@ -11379,6 +11396,7 @@ export namespace Prisma {
     paymentSessionId?: SortOrderInput | SortOrder
     paymentStatus?: SortOrder
     paymentMethod?: SortOrder
+    customerPhone?: SortOrderInput | SortOrder
     _count?: OrderCountOrderByAggregateInput
     _avg?: OrderAvgOrderByAggregateInput
     _max?: OrderMaxOrderByAggregateInput
@@ -11401,6 +11419,7 @@ export namespace Prisma {
     paymentSessionId?: StringNullableWithAggregatesFilter<"Order"> | string | null
     paymentStatus?: StringWithAggregatesFilter<"Order"> | string
     paymentMethod?: StringWithAggregatesFilter<"Order"> | string
+    customerPhone?: StringNullableWithAggregatesFilter<"Order"> | string | null
   }
 
   export type OrderItemWhereInput = {
@@ -11933,6 +11952,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     table: TableCreateNestedOneWithoutOrdersInput
     restaurant: RestaurantCreateNestedOneWithoutOrdersInput
     orderItems?: OrderItemCreateNestedManyWithoutOrderInput
@@ -11950,6 +11970,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     orderItems?: OrderItemUncheckedCreateNestedManyWithoutOrderInput
   }
 
@@ -11963,6 +11984,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     table?: TableUpdateOneRequiredWithoutOrdersNestedInput
     restaurant?: RestaurantUpdateOneRequiredWithoutOrdersNestedInput
     orderItems?: OrderItemUpdateManyWithoutOrderNestedInput
@@ -11980,6 +12002,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     orderItems?: OrderItemUncheckedUpdateManyWithoutOrderNestedInput
   }
 
@@ -11995,6 +12018,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
   }
 
   export type OrderUpdateManyMutationInput = {
@@ -12007,6 +12031,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type OrderUncheckedUpdateManyInput = {
@@ -12021,6 +12046,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type OrderItemCreateInput = {
@@ -12548,6 +12574,7 @@ export namespace Prisma {
     paymentSessionId?: SortOrder
     paymentStatus?: SortOrder
     paymentMethod?: SortOrder
+    customerPhone?: SortOrder
   }
 
   export type OrderAvgOrderByAggregateInput = {
@@ -12566,6 +12593,7 @@ export namespace Prisma {
     paymentSessionId?: SortOrder
     paymentStatus?: SortOrder
     paymentMethod?: SortOrder
+    customerPhone?: SortOrder
   }
 
   export type OrderMinOrderByAggregateInput = {
@@ -12580,6 +12608,7 @@ export namespace Prisma {
     paymentSessionId?: SortOrder
     paymentStatus?: SortOrder
     paymentMethod?: SortOrder
+    customerPhone?: SortOrder
   }
 
   export type OrderSumOrderByAggregateInput = {
@@ -13576,6 +13605,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     table: TableCreateNestedOneWithoutOrdersInput
     orderItems?: OrderItemCreateNestedManyWithoutOrderInput
   }
@@ -13591,6 +13621,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     orderItems?: OrderItemUncheckedCreateNestedManyWithoutOrderInput
   }
 
@@ -13719,6 +13750,7 @@ export namespace Prisma {
     paymentSessionId?: StringNullableFilter<"Order"> | string | null
     paymentStatus?: StringFilter<"Order"> | string
     paymentMethod?: StringFilter<"Order"> | string
+    customerPhone?: StringNullableFilter<"Order"> | string | null
   }
 
   export type RestaurantCreateWithoutCategoriesInput = {
@@ -13981,6 +14013,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     restaurant: RestaurantCreateNestedOneWithoutOrdersInput
     orderItems?: OrderItemCreateNestedManyWithoutOrderInput
   }
@@ -13996,6 +14029,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     orderItems?: OrderItemUncheckedCreateNestedManyWithoutOrderInput
   }
 
@@ -14320,6 +14354,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
     table: TableCreateNestedOneWithoutOrdersInput
     restaurant: RestaurantCreateNestedOneWithoutOrdersInput
   }
@@ -14336,6 +14371,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
   }
 
   export type OrderCreateOrConnectWithoutOrderItemsInput = {
@@ -14399,6 +14435,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     table?: TableUpdateOneRequiredWithoutOrdersNestedInput
     restaurant?: RestaurantUpdateOneRequiredWithoutOrdersNestedInput
   }
@@ -14415,6 +14452,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type CategoryCreateManyRestaurantInput = {
@@ -14443,6 +14481,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
   }
 
   export type CategoryUpdateWithoutRestaurantInput = {
@@ -14504,6 +14543,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     table?: TableUpdateOneRequiredWithoutOrdersNestedInput
     orderItems?: OrderItemUpdateManyWithoutOrderNestedInput
   }
@@ -14519,6 +14559,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     orderItems?: OrderItemUncheckedUpdateManyWithoutOrderNestedInput
   }
 
@@ -14533,6 +14574,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type MenuItemCreateManyCategoryInput = {
@@ -14628,6 +14670,7 @@ export namespace Prisma {
     paymentSessionId?: string | null
     paymentStatus?: string
     paymentMethod?: string
+    customerPhone?: string | null
   }
 
   export type OrderUpdateWithoutTableInput = {
@@ -14640,6 +14683,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     restaurant?: RestaurantUpdateOneRequiredWithoutOrdersNestedInput
     orderItems?: OrderItemUpdateManyWithoutOrderNestedInput
   }
@@ -14655,6 +14699,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
     orderItems?: OrderItemUncheckedUpdateManyWithoutOrderNestedInput
   }
 
@@ -14669,6 +14714,7 @@ export namespace Prisma {
     paymentSessionId?: NullableStringFieldUpdateOperationsInput | string | null
     paymentStatus?: StringFieldUpdateOperationsInput | string
     paymentMethod?: StringFieldUpdateOperationsInput | string
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type OrderItemCreateManyOrderInput = {

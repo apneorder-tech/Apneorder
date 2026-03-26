@@ -14,7 +14,7 @@ export async function POST(request: Request) {
         }, { status: 400 });
     }
 
-    const { restaurantId, tableNumber, items, transactionId, paymentMethod } = result.data;
+    const { restaurantId, tableNumber, items, transactionId, paymentMethod, customerPhone } = result.data;
 
     // 1. Find the table record
     const table = await prisma.table.findFirst({
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         status: paymentMethod === "CASH" ? "pending" : "payment_pending",
         paymentMethod: paymentMethod,
         transactionId: transactionId || null,
+        customerPhone: customerPhone || null,
         orderItems: {
           create: orderItemsData,
         },

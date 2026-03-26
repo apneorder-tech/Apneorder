@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   ExternalLink,
   ChevronRight,
-  Loader2
+  Loader2,
+  MessageCircle
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,24 @@ export function OrderCard({
               </div>
             </div>
           </div>
-          <StatusBadge status={order.status} />
+          <div className="flex items-center gap-2">
+            {order.customerPhone && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0 border-green-100 bg-green-50 text-green-600 hover:bg-green-100 hover:border-green-200 rounded-full transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const message = encodeURIComponent(`Hi! Your order from Table ${order.tableNumber} is ready at the restaurant. Thank you for dining with us!`);
+                  window.open(`https://wa.me/91${order.customerPhone}?text=${message}`, '_blank');
+                }}
+                title="Send WhatsApp Update"
+              >
+                <MessageCircle size={14} fill="currentColor" />
+              </Button>
+            )}
+            <StatusBadge status={order.status} />
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -96,13 +114,8 @@ export function OrderCard({
               size="sm"
               className="bg-purple-600 hover:bg-purple-700 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-purple-200 transition-all active:scale-95 h-9"
               onClick={() => handleUpdate("pending")}
-              disabled={updating}
             >
-              {updating ? (
-                <Loader2 size={14} className="animate-spin mr-1.5" />
-              ) : (
-                <CheckCircle2 size={14} className="mr-1.5" />
-              )}
+              <CheckCircle2 size={14} className="mr-1.5" />
               Accept Payment
             </Button>
           )}
@@ -112,13 +125,8 @@ export function OrderCard({
               size="sm"
               className="bg-zinc-900 hover:bg-zinc-800 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-zinc-200 transition-all active:scale-95 h-9"
               onClick={() => handleUpdate("preparing")}
-              disabled={updating}
             >
-              {updating ? (
-                <Loader2 size={14} className="animate-spin mr-1.5" />
-              ) : (
-                <ChefHat size={14} className="mr-1.5" />
-              )}
+              <ChefHat size={14} className="mr-1.5" />
               Start Cooking
             </Button>
           )}
@@ -128,13 +136,8 @@ export function OrderCard({
               size="sm"
               className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-amber-200 transition-all active:scale-95 h-9"
               onClick={() => handleUpdate("ready")}
-              disabled={updating}
             >
-              {updating ? (
-                <Loader2 size={14} className="animate-spin mr-1.5" />
-              ) : (
-                <Check size={14} className="mr-1.5" />
-              )}
+              <Check size={14} className="mr-1.5" />
               Mark Ready
             </Button>
           )}
@@ -144,13 +147,8 @@ export function OrderCard({
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 h-9 font-black"
               onClick={() => handleUpdate("completed")}
-              disabled={updating}
             >
-              {updating ? (
-                <Loader2 size={14} className="animate-spin mr-1.5" />
-              ) : (
-                <Navigation size={14} className="mr-1.5" />
-              )}
+              <Navigation size={14} className="mr-1.5" />
               Serve Dishes
             </Button>
           )}
@@ -161,7 +159,6 @@ export function OrderCard({
               size="sm"
               className="border-zinc-200 text-zinc-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 font-bold uppercase tracking-widest text-[9px] px-3 py-1.5 rounded-xl transition-all h-9"
               onClick={() => handleUpdate("cancelled")}
-              disabled={updating}
             >
               <XCircle size={14} className="mr-1.5" />
               Cancel

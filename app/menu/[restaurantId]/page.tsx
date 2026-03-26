@@ -68,6 +68,7 @@ export default function CustomerMenuPage() {
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [showDirectOptions, setShowDirectOptions] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState("");
 
   useEffect(() => {
     const ua = navigator.userAgent || "";
@@ -258,7 +259,8 @@ export default function CustomerMenuPage() {
           tableNumber,
           items: Object.entries(cart).map(([id, quantity]) => ({ id, quantity })),
           transactionId: null,
-          paymentMethod
+          paymentMethod,
+          customerPhone: customerPhone.trim() || null
         }),
       });
 
@@ -560,9 +562,32 @@ export default function CustomerMenuPage() {
                       <span className="text-[10px] font-black uppercase tracking-widest">Pay in Cash</span>
                     </button>
                   </div>
-                </div>
-
-                <Button 
+                 </div>
+ 
+                 {/* WhatsApp Opt-in */}
+                 <div className="space-y-3">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 ml-1">WhatsApp Receipt (Optional)</p>
+                   <div className="relative group">
+                     <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                       <span className="text-zinc-400 font-black text-xs">+91</span>
+                     </div>
+                     <input 
+                       type="tel"
+                       placeholder="Enter Mobile Number"
+                       value={customerPhone}
+                       onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                       className="w-full h-16 bg-zinc-50 border-2 border-zinc-100 rounded-2xl pl-14 pr-6 text-sm font-black tracking-tight focus:border-zinc-900 focus:bg-white transition-all outline-none"
+                     />
+                     <div className="absolute inset-y-0 right-5 flex items-center">
+                        <Smartphone size={18} className="text-zinc-300" />
+                     </div>
+                   </div>
+                   <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-[0.1em] ml-1">
+                     Receive your digital bill and order updates instantly on WhatsApp.
+                   </p>
+                 </div>
+ 
+                 <Button 
                    onClick={() => {
                      if (paymentMethod === "CASH") {
                        handleConfirmPaymentSent(); // We'll update this to handle the method

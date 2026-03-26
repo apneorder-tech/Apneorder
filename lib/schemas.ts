@@ -60,6 +60,7 @@ export const OrderCreateSchema = z.object({
     items: z.array(OrderItemSchema).min(1, "Order must have at least one item"),
     transactionId: z.string().optional().nullable(),
     paymentMethod: z.enum(["CASH", "ONLINE"]).optional().default("ONLINE"),
+    customerPhone: z.string().optional().nullable(),
 });
 
 // --- Tables ---
