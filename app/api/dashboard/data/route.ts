@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+
 import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
 import { z } from "zod";
 
@@ -100,10 +101,14 @@ export async function GET(request: Request) {
     }
 
     // Full fetch (for backwards compatibility or specific needs)
-    // ... existing full fetch logic ...
+    if (!(prisma as any).subscription) {
+      console.error("Prisma subscription model NOT FOUND. Available models:", Object.keys(prisma));
+    }
+
     const [
       restaurant,
       salesAnnualArr,
+      subscriptionData,
       preparedTodayCount,
       topItemsAgg,
       completedOrders,
@@ -138,6 +143,10 @@ export async function GET(request: Request) {
       prisma.order.findMany({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: oneYearAgo } },
         select: { totalAmount: true, createdAt: true }
+      }),
+      (prisma as any).subscription.findUnique({
+        where: { managerId: effectiveManagerId },
+        select: { status: true, currentPeriodEnd: true }
       }),
       prisma.order.count({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
@@ -177,10 +186,10 @@ export async function GET(request: Request) {
       return { name: meta?.name || "Unknown", count: item._sum.quantity || 0, type: meta?.type || "veg" };
     });
 
-    const salesDaily = salesAnnualArr.filter(o => o.createdAt >= todayStart).reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    const salesWeekly = salesAnnualArr.filter(o => o.createdAt >= sevenDaysAgo).reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    const salesMonthly = salesAnnualArr.filter(o => o.createdAt >= thirtyDaysAgo).reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    const salesYearly = salesAnnualArr.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    const salesDaily = salesAnnualArr.filter(o => o.createdAt >= todayStart).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    const salesWeekly = salesAnnualArr.filter(o => o.createdAt >= sevenDaysAgo).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    const salesMonthly = salesAnnualArr.filter(o => o.createdAt >= thirtyDaysAgo).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    const salesYearly = salesAnnualArr.reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
 
     // Chart logic
     const chartOrders = salesAnnualArr;
@@ -188,14 +197,14 @@ export async function GET(request: Request) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const start = new Date(d); start.setHours(0,0,0,0);
       const end = new Date(d); end.setHours(23,59,59,999);
-      const val = chartOrders.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s, o) => s + Number(o.totalAmount), 0);
+      const val = chartOrders.filter((o: any) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
       return { date: start.toLocaleDateString('en-IN', { weekday: 'short' }), sales: val };
     }).reverse();
 
     const chartMonth = Array.from({ length: 4 }).map((_, i) => {
       const start = new Date(); start.setDate(start.getDate() - (i + 1) * 7);
       const end = new Date(); end.setDate(end.getDate() - i * 7);
-      const val = chartOrders.filter(o => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s, o) => s + Number(o.totalAmount), 0);
+      const val = chartOrders.filter((o: any) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
       return { date: `Week ${4-i}`, sales: val };
     }).reverse();
 
@@ -203,13 +212,13 @@ export async function GET(request: Request) {
     const chartYear = Array.from({ length: 12 }).map((_, i) => {
       const start = new Date(currentYearNum, i, 1);
       const end = new Date(currentYearNum, i + 1, 0, 23, 59, 59, 999);
-      const val = chartOrders.filter(o => { const d = new Date(o.createdAt); return d >= start && d <= end; }).reduce((s, o) => s + Number(o.totalAmount), 0);
+      const val = chartOrders.filter((o: any) => { const d = new Date(o.createdAt); return d >= start && d <= end; }).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
       return { date: start.toLocaleDateString('en-IN', { month: 'short' }), sales: val };
     });
 
-    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed").map(o => ({ ...o, items: o.orderItems.map(oi => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
-    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed").map(o => ({ ...o, items: o.orderItems.map(oi => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
-    const historyOrders = completedOrders.map(o => ({ ...o, items: o.orderItems.map(oi => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
+    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed").map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
+    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed").map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
+    const historyOrders = completedOrders.map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
 
     return NextResponse.json({ 
       success: true, 
@@ -231,7 +240,8 @@ export async function GET(request: Request) {
         activeOrdersCount: activeOrders.length,
         timeframes: { week: { chartData: chartWeek, topItems }, month: { chartData: chartMonth, topItems }, year: { chartData: chartYear, topItems } }
       },
-      tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl }))
+      tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
+      subscription: subscriptionData
     });
 
   } catch (error: unknown) {

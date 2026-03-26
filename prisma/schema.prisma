@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/client"
 }
 
 datasource db {
@@ -10,13 +9,14 @@ datasource db {
 }
 
 model Manager {
-  id         String      @id @default(cuid())
-  phone      String      @unique
-  name       String?
-  isVerified Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  restaurant Restaurant?
+  id           String        @id @default(cuid())
+  phone        String        @unique
+  name         String?
+  isVerified   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  restaurant   Restaurant?
+  subscription Subscription?
 }
 
 model Restaurant {
@@ -127,4 +127,19 @@ model AuditLog {
 
   @@index([managerId])
   @@index([timestamp])
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  managerId            String   @unique
+  status               String   @default("INACTIVE") // ACTIVE, INACTIVE, PAST_DUE, CANCELED
+  planId               String   @default("MONTHLY_1499")
+  currentPeriodStart   DateTime @default(now())
+  currentPeriodEnd     DateTime
+  cashfreeSubscriptionId String? @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  manager              Manager  @relation(fields: [managerId], references: [id])
+
+  @@index([managerId])
 }

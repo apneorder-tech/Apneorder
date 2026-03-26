@@ -14,6 +14,7 @@ export function DashboardHeader({
   onAddCategory,
   activeOrdersCount,
   setMobileMenuOpen,
+  subscriptionStatus,
 }: {
   activeView: string;
   realtimeStatus: string;
@@ -24,6 +25,7 @@ export function DashboardHeader({
   onAddCategory: () => void;
   activeOrdersCount: number;
   setMobileMenuOpen: (open: boolean) => void;
+  subscriptionStatus?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 bg-[#f8f9fa]/80 backdrop-blur-xl border-b border-zinc-100 lg:border-none">
@@ -50,6 +52,11 @@ export function DashboardHeader({
                       : activeView === "settings"
                         ? "Settings"
                         : "Analytics"}
+                {subscriptionStatus === "ACTIVE" && (
+                  <Badge className="ml-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white border-none text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg shadow-lg shadow-amber-100">
+                    Premium
+                  </Badge>
+                )}
               </h1>
               <p className="text-[10px] sm:text-xs md:text-sm text-zinc-400 font-medium hidden sm:block">
                 {activeView === "orders"

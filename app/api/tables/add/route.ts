@@ -66,7 +66,25 @@ export async function POST(request: Request) {
         const origin = `${protocol}://${host}`;
         const qrCodeUrl = `${origin}/menu/${restaurantId}?table=${encodeURIComponent(tableNumber.trim())}`;
 
-        // 3. Create the new table
+        // 2. Check Subscription & Table Limit
+    const [manager, tableCount] = await Promise.all([
+      prisma.manager.findUnique({
+        where: { id: restaurant.managerId }, // Corrected: Use restaurant.managerId to find the manager
+        include: { subscription: true }
+      }),
+      prisma.table.count({ where: { restaurantId } })
+    ]);
+
+    // If no active subscription and already have 3 tables, deny.
+    if ((!manager?.subscription || manager.subscription.status !== "ACTIVE") && tableCount >= 3) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Table limit reached", 
+        message: "Free plan is limited to 3 tables. Upgrade to Premium for unlimited tables!" 
+      }, { status: 403 });
+    }
+
+    // 3. Create the table
         const newTable = await prisma.table.create({
             data: {
                 restaurantId,

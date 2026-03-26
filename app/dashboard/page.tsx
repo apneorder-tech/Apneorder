@@ -88,6 +88,7 @@ export default function DashboardPage() {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("DISCONNECTED");
+  const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string } | null>(null);
 
   // Dialog states
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -146,6 +147,7 @@ export default function DashboardPage() {
         setRestaurantId(data.restaurantId);
         setUpiId(data.upiId || "");
         setTempUpiId(data.upiId || "");
+        if (data.subscription) setSubscription(data.subscription);
       }
 
       if (essentialsOnly) {
@@ -500,6 +502,7 @@ export default function DashboardPage() {
               onAddCategory={() => setIsAddingCategory(true)} 
               activeOrdersCount={activeOrders.length}
               setMobileMenuOpen={setMobileMenuOpen}
+              subscriptionStatus={subscription?.status}
             />
 
             {activeView === "orders" && (
@@ -642,6 +645,7 @@ export default function DashboardPage() {
                 onUpdateUpi={handleUpdateUpi} 
                 menuCategories={menuCategories} 
                 tables={tables} 
+                subscription={subscription || undefined}
               />
             )}
           </div>

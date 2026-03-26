@@ -6,7 +6,7 @@ export async function proxy(request: NextRequest) {
     const response = NextResponse.next();
 
     // 1. Add Security Headers
-    response.headers.set("X-Frame-Options", "DENY");
+    // response.headers.set("X-Frame-Options", "DENY");
     response.headers.set("X-Content-Type-Options", "nosniff");
     response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     response.headers.set("X-XSS-Protection", "1; mode=block");
@@ -21,17 +21,17 @@ export async function proxy(request: NextRequest) {
     // 2. Content Security Policy (Advanced Fortification)
     const cspHeader = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://apis.google.com https://*.supabase.co;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.supabase.co wss://*.supabase.co;
-        img-src 'self' blob: data: https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com;
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-        font-src 'self' https://fonts.gstatic.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.firebaseapp.com https://*.googleapis.com https://apis.google.com https://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com https://*.google.com https://*.gstatic.com;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.supabase.co wss://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com https://*.google.com https://*.gstatic.com;
+        img-src 'self' blob: data: https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com https://*.cashfree.com https://*.google.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.cashfree.com;
+        font-src 'self' https://fonts.gstatic.com https://*.cashfree.com;
         media-src 'self' https://assets.mixkit.co;
-        frame-src 'self' https://*.firebaseapp.com;
+        frame-src 'self' https://*.firebaseapp.com https://*.cashfree.com https://*.google.com https://*.gstatic.com;
         object-src 'none';
         base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'none';
+        form-action 'self' https://*.cashfree.com;
+        frame-ancestors 'self';
         upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
 
