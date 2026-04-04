@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +14,12 @@ export async function GET(request: Request) {
 
     const categories = await prisma.category.findMany({
       where: { restaurantId },
-      include: { menuItems: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        menuItems: {
+          where: { isDeleted: false } as any,
+          orderBy: { createdAt: 'asc' }
+        }
+      },
       orderBy: { createdAt: 'asc' }
     });
 

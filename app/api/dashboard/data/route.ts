@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
 import { z } from "zod";
@@ -99,7 +101,16 @@ export async function GET(request: Request) {
         where: { managerId: effectiveManagerId },
         select: { 
           id: true, name: true, upiId: true,
-          categories: { select: { id: true, name: true } },
+          categories: { 
+            select: { 
+              id: true, 
+              name: true,
+              menuItems: {
+                where: { isDeleted: false } as any,
+                select: { id: true, name: true, price: true, type: true, isAvailable: true }
+              }
+            } 
+          },
           tables: {
             select: {
               id: true, tableNumber: true, qrCodeUrl: true,
@@ -172,7 +183,7 @@ export async function GET(request: Request) {
               id: true, 
               name: true,
               menuItems: {
-                where: { isDeleted: false },
+                where: { isDeleted: false } as any,
                 select: { id: true, name: true, price: true, type: true, isAvailable: true }
               }
             } 

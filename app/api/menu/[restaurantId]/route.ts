@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { redis, CACHE_KEYS, CACHE_TTL } from "@/lib/redis-new";
 import { z } from "zod";
 

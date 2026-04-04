@@ -32,7 +32,9 @@ export async function POST(request: Request) {
     let totalAmount = 0;
     const orderItemsData = [];
     for (const item of items) {
-        const menuItem = await prisma.menuItem.findUnique({ where: { id: item.id } });
+        const menuItem = await (prisma.menuItem as any).findFirst({ 
+            where: { id: item.id, isDeleted: false } 
+        });
         if (menuItem) {
             const subtotal = Number(menuItem.price) * item.quantity;
             totalAmount += subtotal;
