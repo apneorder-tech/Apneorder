@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { auth } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
 import { 
@@ -120,6 +120,7 @@ export default function DashboardPage() {
   const [isMenuLoaded, setIsMenuLoaded] = useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
   const [isEssentialsLoaded, setIsEssentialsLoaded] = useState(false);
+  const pendingUpdatesRef = useRef<Set<string>>(new Set());
 
   // ─── Data Fetching ───
   const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false, subscriptionOnly = false) => {
@@ -280,35 +281,59 @@ export default function DashboardPage() {
   }, [fetchDashboardData]);
 
   useEffect(() => {
-    if (!restaurantId || !managerId) return;
-    console.log("Supabase: Initializing channel for restaurant:", restaurantId);
-    
     const channel = supabase.channel(`dashboard-${restaurantId}`)
       .on("postgres_changes", { 
         event: "*", 
         schema: "public", 
         table: "Order", 
-        filter: `restaurantId=eq.${restaurantId}` 
       }, async (payload: any) => {
-        console.log("Supabase: Realtime event received!", payload.eventType, payload.new?.id);
-        const idToken = await auth.currentUser?.getIdToken();
+        console.log("Supabase: Raw Payload Received:", payload);
         
-        // Refresh orders and essentials data
-        fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`, {
-          headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.success) {
-              setOrders(data.orders);
-              if (payload.eventType === "INSERT") {
-                console.log("Supabase: New order play sound effect");
-                new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(e => console.error("Audio error:", e));
-                toast.success("New Order Received!", { icon: <Bell className="text-purple-500 animate-bounce" /> });
-              }
-            }
+        const orderId = payload.new?.id || payload.old?.id;
+        const incomingRestaurantId = payload.new?.restaurantId || payload.old?.restaurantId;
+
+        // 🚀 LOCAL FILTERING: Ensure the event belongs to this restaurant
+        // If incomingRestaurantId is undefined, it means REPLICA IDENTITY FULL is not enabled yet.
+        if (incomingRestaurantId && incomingRestaurantId !== restaurantId) {
+          console.log("Supabase: Event for a different restaurant. Ignoring.");
+          return;
+        }
+
+        console.log("Supabase: Processing event for order:", orderId);
+        
+        // 🚀 FLICKER-GUARD: If we just updated this order locally, ignore the reflection for 2 seconds
+        if (payload.eventType === "UPDATE" && pendingUpdatesRef.current.has(orderId)) {
+          console.log("Supabase: Ignoring reflected update for pending order:", orderId);
+          return;
+        }
+
+        if (payload.eventType === "UPDATE") {
+          // 🚀 SMART MERGE: Just update the specific order status directly in state
+          // This avoids a full network re-fetch for simple status changes!
+          setOrders((currentOrders) => 
+            currentOrders.map((o) => 
+              o.id === orderId ? { ...o, ...payload.new } : o
+            )
+          );
+        } else {
+          // For INSERT (New Order), do a full re-fetch to get nested items
+          const idToken = await auth.currentUser?.getIdToken();
+          fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`, {
+            headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
           })
-          .catch(err => console.error("Realtime fetch error:", err));
+            .then((r) => r.json())
+            .then((data) => {
+              if (data.success) {
+                setOrders(data.orders);
+                if (payload.eventType === "INSERT") {
+                  console.log("Supabase: New order play sound effect");
+                  new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(e => console.error("Audio error:", e));
+                  toast.success("New Order Received!", { icon: <Bell className="text-purple-500 animate-bounce" /> });
+                }
+              }
+            })
+            .catch(err => console.error("Realtime fetch error:", err));
+        }
       })
       .subscribe((status: string, err?: Error) => {
         console.log("Supabase: Channel status change:", status, err || "");
@@ -325,6 +350,10 @@ export default function DashboardPage() {
   }, [restaurantId, managerId, fetchDashboardData]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order["status"]) => {
+    // 🚀 Register as pending to activate flicker-guard
+    pendingUpdatesRef.current.add(orderId);
+    setTimeout(() => pendingUpdatesRef.current.delete(orderId), 2000);
+
     const prev = orders.find((o) => o.id === orderId);
     setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, status } : o)));
     try {
