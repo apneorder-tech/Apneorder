@@ -141,7 +141,10 @@ export async function GET(request: Request) {
         restaurantId: (restaurant as any).id,
         restaurantName: (restaurant as any).name,
         upiId: (restaurant as any).upiId,
-        menuCategories: (restaurant as any).categories,
+        menuCategories: (restaurant as any).categories.map((cat: any) => ({
+          ...cat,
+          menuItems: (cat.menuItems || []).filter((item: any) => !item.isDeleted)
+        })),
         tables: (restaurant as any).tables?.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
         stats: null
       });
@@ -164,7 +167,16 @@ export async function GET(request: Request) {
         where: { managerId: effectiveManagerId },
         select: {
           id: true, name: true, upiId: true, themeColor: true,
-          categories: { select: { id: true } },
+          categories: { 
+            select: { 
+              id: true, 
+              name: true,
+              menuItems: {
+                where: { isDeleted: false },
+                select: { id: true, name: true, price: true, type: true, isAvailable: true }
+              }
+            } 
+          },
           tables: {
             select: {
               id: true, tableNumber: true, qrCodeUrl: true,
@@ -212,6 +224,10 @@ export async function GET(request: Request) {
       }),
       prisma.order.count({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" }
+      }),
+      (prisma as any).menuItem.findMany({
+        where: { category: { restaurant: { managerId: effectiveManagerId } }, isDeleted: false },
+        select: { id: true, name: true, price: true, categoryId: true }
       })
     ]);
 

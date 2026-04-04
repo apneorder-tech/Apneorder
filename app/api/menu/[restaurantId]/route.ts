@@ -45,6 +45,7 @@ export async function GET(
                   id: true,
                   name: true,
                   menuItems: {
+                      where: { isDeleted: false } as any,
                       select: {
                           id: true,
                           name: true,

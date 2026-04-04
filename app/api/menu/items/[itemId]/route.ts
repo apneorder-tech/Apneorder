@@ -29,17 +29,17 @@ export async function PATCH(
         if (!auth.authenticated) return unauthorizedResponse(auth.error);
 
         // 2. Verify Authorization
-        const item = await prisma.menuItem.findUnique({
-            where: { id: itemId },
+        const item = await (prisma.menuItem as any).findFirst({
+            where: { id: itemId, isDeleted: false },
             include: { category: { select: { restaurant: { select: { managerId: true } } } } }
         });
 
         if (!item) return NextResponse.json({ success: false, error: "Item not found" }, { status: 404 });
-        if (item.category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+        if ((item as any).category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
             return forbiddenResponse();
         }
 
-        const updatedItem = await prisma.menuItem.update({
+        const updatedItem = await (prisma.menuItem as any).update({
             where: { id: itemId },
             data: {
                 ...(name && { name }),
@@ -86,8 +86,8 @@ export async function DELETE(
         if (!auth.authenticated) return unauthorizedResponse(auth.error);
 
         // 2. Fetch to get restaurantId before deletion and check auth
-        const item = await prisma.menuItem.findUnique({
-            where: { id: itemId },
+        const item = await (prisma.menuItem as any).findFirst({
+            where: { id: itemId, isDeleted: false },
             include: {
                 category: {
                     select: { 
@@ -99,12 +99,13 @@ export async function DELETE(
         });
 
         if (!item) return NextResponse.json({ success: true }); // Already gone
-        if (item.category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
+        if ((item as any).category.restaurant.managerId !== auth.uid && auth.uid !== "ADMIN_UID") {
             return forbiddenResponse();
         }
 
-        await prisma.menuItem.delete({
-            where: { id: itemId }
+        await (prisma.menuItem as any).update({
+            where: { id: itemId },
+            data: { isDeleted: true }
         });
 
         // 3. Audit Log
@@ -119,7 +120,7 @@ export async function DELETE(
 
         // 4. Invalidate Redis Cache
         if (item) {
-            await redis.del(CACHE_KEYS.menu(item.category.restaurantId));
+            await redis.del(CACHE_KEYS.menu((item as any).category.restaurantId));
         }
 
         return NextResponse.json({ success: true });
