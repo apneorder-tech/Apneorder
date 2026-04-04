@@ -287,19 +287,13 @@ export default function DashboardPage() {
         schema: "public", 
         table: "Order", 
       }, async (payload: any) => {
-        console.log("Supabase: Raw Payload Received:", payload);
-        
         const orderId = payload.new?.id || payload.old?.id;
         const incomingRestaurantId = payload.new?.restaurantId || payload.old?.restaurantId;
 
         // 🚀 LOCAL FILTERING: Ensure the event belongs to this restaurant
-        // If incomingRestaurantId is undefined, it means REPLICA IDENTITY FULL is not enabled yet.
         if (incomingRestaurantId && incomingRestaurantId !== restaurantId) {
-          console.log("Supabase: Event for a different restaurant. Ignoring.");
           return;
         }
-
-        console.log("Supabase: Processing event for order:", orderId);
         
         // 🚀 FLICKER-GUARD: If we just updated this order locally, ignore the reflection for 2 seconds
         if (payload.eventType === "UPDATE" && pendingUpdatesRef.current.has(orderId)) {
