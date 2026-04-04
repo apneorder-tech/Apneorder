@@ -12,10 +12,10 @@ export const UpdateUpiSchema = z.object({
 export const OnboardingSaveSchema = z.object({
   managerId: z.string(),
   phone: z.string().optional(),
-  restaurantName: z.string().min(2, "Name too short"),
-  ownerName: z.string().min(2, "Owner name too short"),
-  city: z.string().min(2),
-  address: z.string().min(5),
+  restaurantName: z.string().min(1, "Name required"),
+  ownerName: z.string().min(1, "Owner name required"),
+  city: z.string().min(1, "City required"),
+  address: z.string().min(1, "Address required"),
   upiId: z.string().optional(),
   themeColor: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
   menuCategories: z.array(z.object({

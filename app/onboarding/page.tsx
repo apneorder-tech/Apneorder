@@ -65,6 +65,7 @@ export default function OnboardingPage() {
     menuCategories: [{ name: 'Coffee', items: [{ name: 'Espresso', price: '120', type: 'veg' }] }],
     tableCount: '10',
     managerId: '',
+    restaurantId: '', // PRISMA CUID (Crucial for Realtime)
   });
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -116,7 +117,8 @@ export default function OnboardingPage() {
                   type: i.type
                 }))
               })),
-              tableCount: r.tables.length.toString()
+              tableCount: r.tables.length.toString(),
+              restaurantId: r.id // Set the existing Prisma ID
             });
 
             // Determine missing steps
@@ -157,16 +159,19 @@ export default function OnboardingPage() {
         });
         const result = await res.json();
         if (result.success) {
-          // Generate a sample QR for table 1
+          // Use the restaurantId returned from the server (Prisma CUID)
+          setData(prev => ({ ...prev, restaurantId: result.restaurantId }));
           const url = await generateQR(`${window.location.origin}/menu/${result.restaurantId}?table=1`);
           setQrCodeUrl(url);
           setStep(s);
         } else {
-          throw new Error(result.error);
+          console.error("Validation Error Details:", result.details);
+          const errorMsg = result.details ? JSON.stringify(result.details) : result.error;
+          throw new Error(errorMsg);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Save Error:", error);
-        alert("Failed to save your setup. Please try again.");
+        alert(`Failed to save setup: ${error.message}`);
       } finally {
         setIsLoading(false);
       }
@@ -184,8 +189,9 @@ export default function OnboardingPage() {
     for (let i = 1; i <= count; i++) {
       if (i > 1) doc.addPage();
 
-      // Use restaurantId if we have it from the managerId logic or just the managerId for now
-      const qrData = `${window.location.origin}/menu/${data.managerId}?table=${i}`;
+      // Use the Prisma CUID (restaurantId) NOT the managerId
+      const targetId = data.restaurantId || data.managerId;
+      const qrData = `${window.location.origin}/menu/${targetId}?table=${i}`;
       const qrImage = await generateQR(qrData);
 
       doc.setFontSize(28);

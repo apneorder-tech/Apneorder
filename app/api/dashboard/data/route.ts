@@ -99,7 +99,7 @@ export async function GET(request: Request) {
         where: { managerId: effectiveManagerId },
         select: { 
           id: true, name: true, upiId: true,
-          categories: { select: { id: true } },
+          categories: { select: { id: true, name: true } },
           tables: {
             select: {
               id: true, tableNumber: true, qrCodeUrl: true,
@@ -123,21 +123,26 @@ export async function GET(request: Request) {
 
       if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
-      const allOrders = restaurant.tables.flatMap(t => t.orders).map((o: any) => ({
+      const allOrders = ((restaurant as any).tables || []).flatMap((t: any) => t.orders || []).map((o: any) => ({
         ...o,
-        items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })),
-        tableNumber: o.table.tableNumber
+        items: (o.orderItems || []).map((oi: any) => ({ 
+          id: oi.id, 
+          name: oi.menuItem.name, 
+          quantity: oi.quantity, 
+          price: Number(oi.menuItem.price) 
+        })),
+        tableNumber: o.table?.tableNumber
       }));
 
       return NextResponse.json({
         success: true,
-        orders: allOrders.filter(o => o.status !== "completed"),
-        completedOrders: allOrders.filter(o => o.status === "completed").slice(0, 10),
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        upiId: restaurant.upiId,
-        menuCategories: restaurant.categories,
-        tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
+        orders: allOrders.filter((o: any) => o.status !== "completed"),
+        completedOrders: allOrders.filter((o: any) => o.status === "completed").slice(0, 10),
+        restaurantId: (restaurant as any).id,
+        restaurantName: (restaurant as any).name,
+        upiId: (restaurant as any).upiId,
+        menuCategories: (restaurant as any).categories,
+        tables: (restaurant as any).tables?.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
         stats: null
       });
     }

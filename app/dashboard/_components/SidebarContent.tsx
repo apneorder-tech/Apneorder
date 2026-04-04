@@ -1,5 +1,6 @@
 import { UtensilsCrossed, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { NAV_ITEMS } from "./constants";
 
 export function SidebarContent({
@@ -8,6 +9,9 @@ export function SidebarContent({
   restaurantName,
   subscriptionStatus,
   loading,
+  onSendTestOrder,
+  onLogout,
+  subscription,
 }: {
   activeView: string;
   setActiveView: (
@@ -16,6 +20,9 @@ export function SidebarContent({
   restaurantName: string;
   subscriptionStatus?: string;
   loading?: boolean;
+  onSendTestOrder?: () => void;
+  onLogout?: () => void;
+  subscription?: any;
 }) {
   const isActive = subscriptionStatus === "ACTIVE";
   return (
@@ -60,12 +67,34 @@ export function SidebarContent({
       </nav>
 
       {/* Store info */}
-      <div className="mt-auto p-3 bg-zinc-50 rounded-xl border border-zinc-100">
-        <div className="flex items-center min-w-0">
-          <div className="min-w-0">
-            <p className="text-sm font-bold truncate">{restaurantName}</p>
+      <div className="mt-auto space-y-2">
+        {onSendTestOrder && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full border-dashed border-zinc-300 hover:border-zinc-500 hover:bg-zinc-50 text-[10px] font-black uppercase tracking-widest text-zinc-500"
+            onClick={onSendTestOrder}
+          >
+            Send Test Order
+          </Button>
+        )}
+        <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 italic">
+          <div className="flex items-center min-w-0">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold truncate text-zinc-400">Store: {restaurantName}</p>
+            </div>
           </div>
         </div>
+        {onLogout && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full text-zinc-400 hover:text-red-500 font-bold text-xs"
+            onClick={onLogout}
+          >
+            Logout
+          </Button>
+        )}
       </div>
     </div>
   );

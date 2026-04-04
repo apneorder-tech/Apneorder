@@ -281,9 +281,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!restaurantId || !managerId) return;
+    console.log("Supabase: Initializing channel for restaurant:", restaurantId);
+    
     const channel = supabase.channel(`dashboard-${restaurantId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "Order", filter: `restaurantId=eq.${restaurantId}` }, async (payload: any) => {
+      .on("postgres_changes", { 
+        event: "*", 
+        schema: "public", 
+        table: "Order", 
+        filter: `restaurantId=eq.${restaurantId}` 
+      }, async (payload: any) => {
+        console.log("Supabase: Realtime event received!", payload.eventType, payload.new?.id);
         const idToken = await auth.currentUser?.getIdToken();
+        
+        // Refresh orders and essentials data
         fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`, {
           headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
         })
@@ -292,14 +302,27 @@ export default function DashboardPage() {
             if (data.success) {
               setOrders(data.orders);
               if (payload.eventType === "INSERT") {
-                new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(() => {});
+                console.log("Supabase: New order play sound effect");
+                new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(e => console.error("Audio error:", e));
                 toast.success("New Order Received!", { icon: <Bell className="text-purple-500 animate-bounce" /> });
               }
             }
-          });
-      }).subscribe((status: string) => setRealtimeStatus(status));
-    return () => { supabase.removeChannel(channel); };
-  }, [restaurantId, managerId]);
+          })
+          .catch(err => console.error("Realtime fetch error:", err));
+      })
+      .subscribe((status: string, err?: Error) => {
+        console.log("Supabase: Channel status change:", status, err || "");
+        setRealtimeStatus(status);
+        if (status === "CHANNEL_ERROR") {
+          toast.error("Realtime connection issue. Trying to reconnect...");
+        }
+      });
+
+    return () => { 
+      console.log("Supabase: Cleaning up channel:", restaurantId);
+      supabase.removeChannel(channel); 
+    };
+  }, [restaurantId, managerId, fetchDashboardData]);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order["status"]) => {
     const prev = orders.find((o) => o.id === orderId);
@@ -358,6 +381,27 @@ export default function DashboardPage() {
         toast.success("Table added!");
       }
     } finally { setIsAddingTable(false); }
+  };
+
+  const handleSendTestOrder = async () => {
+    if (!restaurantId) return;
+    toast.promise(
+      fetch("/api/orders/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantId,
+          tableNumber: "1",
+          items: [{ id: menuCategories[0]?.menuItems[0]?.id || "test", quantity: 1 }],
+          paymentMethod: "CASH"
+        }),
+      }).then(r => r.json()),
+      {
+        loading: "Sending test order...",
+        success: "Test order sent! Check your dashboard.",
+        error: "Failed to send test order."
+      }
+    );
   };
 
   const handleDeleteTable = async (tableId: string) => {
@@ -509,6 +553,9 @@ export default function DashboardPage() {
               setActiveView={(v) => { setActiveView(v); setMobileMenuOpen(false); }} 
               restaurantName={restaurantName} 
               subscriptionStatus={subscription?.status}
+              onLogout={() => auth.signOut()}
+              subscription={subscription}
+              onSendTestOrder={handleSendTestOrder}
               loading={loading}
             />
           </SheetContent>
@@ -652,14 +699,14 @@ export default function DashboardPage() {
 
             {activeView === "tables" && (
               (subscription?.status === "ACTIVE" || loading) ? (
-                <TablesView 
-                  tables={tables} 
-                  restaurantId={restaurantId} 
-                  upiId={upiId} 
-                  onAddTable={() => setIsAddTableDialogOpen(true)} 
-                  onDeleteTable={setDeletingTable} 
-                  onDownloadQR={downloadQR} 
-                  onDownloadAllQRs={downloadAllQRs} 
+                <TablesView
+                  tables={tables}
+                  restaurantId={restaurantId}
+                  upiId={upiId}
+                  onAddTable={() => setIsAddTableDialogOpen(true)}
+                  onDeleteTable={setDeletingTable}
+                  onDownloadQR={downloadQR}
+                  onDownloadAllQRs={downloadAllQRs}
                   loading={loading}
                 />
               ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />

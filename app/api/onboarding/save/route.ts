@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const result = OnboardingSaveSchema.safeParse(body);
 
     if (!result.success) {
+      console.error("Onboarding Validation Error Details:", JSON.stringify(result.error.format(), null, 2));
       return NextResponse.json({ 
         success: false, 
         error: "Invalid onboarding data", 
