@@ -22,7 +22,7 @@ export async function PATCH(
             }, { status: 400 });
         }
 
-        const { name, price, isAvailable } = result.data;
+        const { name, price, isAvailable, prepTimeMinutes, costPrice } = result.data;
 
         // 1. Verify Authentication
         const auth = await verifyManagerSession(request);
@@ -45,6 +45,8 @@ export async function PATCH(
                 ...(name && { name }),
                 ...(price !== undefined && { price }),
                 ...(isAvailable !== undefined && { isAvailable }),
+                ...(prepTimeMinutes !== undefined && { prepTimeMinutes: prepTimeMinutes ?? null }),
+                ...(costPrice !== undefined && { costPrice: costPrice ?? null }),
             },
             include: {
                 category: {

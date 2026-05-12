@@ -28,12 +28,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Table not found" }, { status: 404 });
     }
 
-    // 2. Calculate Total
+    // 2. Calculate Total & build order items (with optional special instructions)
     let totalAmount = 0;
     const orderItemsData = [];
     for (const item of items) {
-        const menuItem = await (prisma.menuItem as any).findFirst({ 
-            where: { id: item.id, isDeleted: false } 
+        const menuItem = await (prisma.menuItem as any).findFirst({
+            where: { id: item.id, isDeleted: false }
         });
         if (menuItem) {
             const subtotal = Number(menuItem.price) * item.quantity;
@@ -41,7 +41,9 @@ export async function POST(request: Request) {
             orderItemsData.push({
                 menuItemId: item.id,
                 quantity: item.quantity,
-                subtotal: subtotal
+                subtotal: subtotal,
+                // Sanitise: trim whitespace, collapse to null if empty
+                notes: item.notes?.trim() || null,
             });
         }
     }
@@ -73,7 +75,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, orderId: order.id });
 
   } catch (error: unknown) {
-    console.error("Order Creation Error:", error);
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Order Creation Error:", message, error);
+    return NextResponse.json({ success: false, error: "Internal server error", _detail: message }, { status: 500 });
   }
 }

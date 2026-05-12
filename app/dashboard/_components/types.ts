@@ -12,6 +12,7 @@ export interface Order {
     name: string;
     quantity: number;
     price: number;
+    notes?: string | null;  // Special instructions e.g. "Extra spicy, no onions"
   }[];
 }
 
@@ -19,9 +20,22 @@ export interface ManageMenuItem {
   id: string;
   name: string;
   price: number;
+  costPrice?: number | null;
   isAvailable: boolean;
   type: "veg" | "non-veg";
   description?: string;
+  prepTimeMinutes?: number | null;
+}
+
+export interface ItemProfitData {
+  id: string;
+  name: string;
+  type: string;
+  price: number;
+  costPrice: number;
+  margin: number;           // 0–100 %
+  quantitySold: number;
+  profitContribution: number; // (price - costPrice) × quantitySold
 }
 
 export interface ManageCategory {
@@ -34,6 +48,14 @@ export interface ManageTable {
   id: string;
   tableNumber: string;
   restaurantId: string;
+}
+
+export interface WaiterCall {
+  id: string;
+  restaurantId: string;
+  tableNumber: string;
+  isAcknowledged: boolean;
+  createdAt: string;
 }
 
 export interface DashboardStats {
@@ -51,4 +73,11 @@ export interface DashboardStats {
     month: { chartData: { date: string; sales: number }[]; topItems: { name: string; count: number; type: string }[] };
     year: { chartData: { date: string; sales: number }[]; topItems: { name: string; count: number; type: string }[] };
   };
+  profitData: {
+    items: ItemProfitData[];
+    totalProfitWeek: number;
+    topProfitItem: ItemProfitData | null;
+    lossLeaders: ItemProfitData[];
+    itemsWithoutCost: number;
+  } | null;
 }

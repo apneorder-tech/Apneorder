@@ -22,7 +22,7 @@ export async function POST(
             }, { status: 400 });
         }
 
-        const { name, price, type } = result.data;
+        const { name, price, type, prepTimeMinutes } = result.data;
 
         // 1. Verify Authentication
         const auth = await verifyManagerSession(request);
@@ -42,13 +42,14 @@ export async function POST(
             return forbiddenResponse();
         }
 
-        const newItem = await prisma.menuItem.create({
+        const newItem = await (prisma.menuItem as any).create({
             data: {
                 categoryId,
                 name,
                 price,
                 type,
-                isAvailable: true
+                isAvailable: true,
+                ...(prepTimeMinutes != null && { prepTimeMinutes }),
             },
             include: {
                 category: {

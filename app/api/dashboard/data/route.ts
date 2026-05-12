@@ -107,9 +107,9 @@ export async function GET(request: Request) {
               name: true,
               menuItems: {
                 where: { isDeleted: false } as any,
-                select: { id: true, name: true, price: true, type: true, isAvailable: true }
+                select: { id: true, name: true, price: true, costPrice: true, type: true, isAvailable: true }
               }
-            } 
+            }
           },
           tables: {
             select: {
@@ -136,11 +136,12 @@ export async function GET(request: Request) {
 
       const allOrders = ((restaurant as any).tables || []).flatMap((t: any) => t.orders || []).map((o: any) => ({
         ...o,
-        items: (o.orderItems || []).map((oi: any) => ({ 
-          id: oi.id, 
-          name: oi.menuItem.name, 
-          quantity: oi.quantity, 
-          price: Number(oi.menuItem.price) 
+        items: (o.orderItems || []).map((oi: any) => ({
+          id: oi.id,
+          name: oi.menuItem.name,
+          quantity: oi.quantity,
+          price: Number(oi.menuItem.price),
+          notes: oi.notes || null,
         })),
         tableNumber: o.table?.tableNumber
       }));
@@ -172,21 +173,22 @@ export async function GET(request: Request) {
       preparedTodayCount,
       topItemsAgg,
       completedOrders,
-      totalCompletedCount
+      totalCompletedCount,
+      allItemsSoldWeek,
     ] = await Promise.all([
       prisma.restaurant.findUnique({
         where: { managerId: effectiveManagerId },
         select: {
           id: true, name: true, upiId: true, themeColor: true,
-          categories: { 
-            select: { 
-              id: true, 
+          categories: {
+            select: {
+              id: true,
               name: true,
               menuItems: {
                 where: { isDeleted: false } as any,
-                select: { id: true, name: true, price: true, type: true, isAvailable: true }
+                select: { id: true, name: true, price: true, costPrice: true, type: true, isAvailable: true }
               }
-            } 
+            }
           },
           tables: {
             select: {
@@ -236,10 +238,18 @@ export async function GET(request: Request) {
       prisma.order.count({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" }
       }),
-      (prisma as any).menuItem.findMany({
-        where: { category: { restaurant: { managerId: effectiveManagerId } }, isDeleted: false },
-        select: { id: true, name: true, price: true, categoryId: true }
-      })
+      // Quantity sold per item in the last 7 days — used for profit contribution
+      prisma.orderItem.groupBy({
+        by: ["menuItemId"],
+        _sum: { quantity: true },
+        where: {
+          order: {
+            table: { restaurant: { managerId: effectiveManagerId } },
+            status: "completed",
+            createdAt: { gte: sevenDaysAgo },
+          },
+        },
+      }),
     ]);
 
     if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
@@ -254,6 +264,30 @@ export async function GET(request: Request) {
       const meta = topItemsMeta.find(m => m.id === item.menuItemId);
       return { name: meta?.name || "Unknown", count: item._sum.quantity || 0, type: meta?.type || "veg" };
     });
+
+    // ── Profit Margin Computation ──────────────────────────────
+    const allMenuItems = (restaurant as any).categories.flatMap((c: any) => c.menuItems);
+    const itemsWithoutCost = allMenuItems.filter((i: any) => i.costPrice == null).length;
+
+    const profitItems = allMenuItems
+      .filter((item: any) => item.costPrice != null)
+      .map((item: any) => {
+        const price = Number(item.price);
+        const costPrice = Number(item.costPrice);
+        const margin = price > 0 ? ((price - costPrice) / price) * 100 : 0;
+        const soldEntry = allItemsSoldWeek.find((s: any) => s.menuItemId === item.id);
+        const quantitySold = soldEntry?._sum?.quantity ?? 0;
+        const profitContribution = (price - costPrice) * quantitySold;
+        return { id: item.id, name: item.name, type: item.type, price, costPrice, margin: Math.round(margin * 10) / 10, quantitySold, profitContribution };
+      })
+      .sort((a: any, b: any) => b.profitContribution - a.profitContribution);
+
+    const totalProfitWeek = profitItems.reduce((sum: number, i: any) => sum + i.profitContribution, 0);
+    const lossLeaders = profitItems.filter((i: any) => i.margin < 20);
+    const profitData = profitItems.length > 0
+      ? { items: profitItems, totalProfitWeek, topProfitItem: profitItems[0] ?? null, lossLeaders, itemsWithoutCost }
+      : null;
+    // ────────────────────────────────────────────────────────────
 
     const salesDaily = salesAnnualArr.filter(o => o.createdAt >= todayStart).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
     const salesWeekly = salesAnnualArr.filter(o => o.createdAt >= sevenDaysAgo).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
@@ -285,9 +319,16 @@ export async function GET(request: Request) {
       return { date: start.toLocaleDateString('en-IN', { month: 'short' }), sales: val };
     });
 
-    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed").map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
-    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed").map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
-    const historyOrders = completedOrders.map((o: any) => ({ ...o, items: o.orderItems.map((oi: any) => ({ id: oi.id, name: oi.menuItem.name, quantity: oi.quantity, price: Number(oi.menuItem.price) })), tableNumber: o.table.tableNumber }));
+    const mapItems = (oi: any) => ({
+      id: oi.id,
+      name: oi.menuItem.name,
+      quantity: oi.quantity,
+      price: Number(oi.menuItem.price),
+      notes: oi.notes || null,
+    });
+    const activeOrders = restaurant.tables.flatMap(t => t.orders).filter(o => o.status !== "completed").map((o: any) => ({ ...o, items: o.orderItems.map(mapItems), tableNumber: o.table.tableNumber }));
+    const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed").map((o: any) => ({ ...o, items: o.orderItems.map(mapItems), tableNumber: o.table.tableNumber }));
+    const historyOrders = completedOrders.map((o: any) => ({ ...o, items: o.orderItems.map(mapItems), tableNumber: o.table.tableNumber }));
 
     return NextResponse.json({ 
       success: true, 
@@ -307,7 +348,8 @@ export async function GET(request: Request) {
         preparedTodayCount,
         tablesFilled: `${restaurant.tables.filter(t => t.orders.length > 0).length}/${restaurant.tables.length}`,
         activeOrdersCount: activeOrders.length,
-        timeframes: { week: { chartData: chartWeek, topItems }, month: { chartData: chartMonth, topItems }, year: { chartData: chartYear, topItems } }
+        timeframes: { week: { chartData: chartWeek, topItems }, month: { chartData: chartMonth, topItems }, year: { chartData: chartYear, topItems } },
+        profitData,
       },
       tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
       subscription: subscription

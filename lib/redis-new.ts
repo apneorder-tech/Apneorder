@@ -17,8 +17,9 @@ export const CACHE_KEYS = {
   /**
    * Menu cache for a specific restaurant.
    * Includes categories and items.
+   * v2 — added prepTimeMinutes to cached payload (bump version on any schema change)
    */
-  menu: (restaurantId: string) => `menu:${restaurantId}`,
+  menu: (restaurantId: string) => `menu_v2:${restaurantId}`,
   
   /**
    * Dashboard statistics cache (optional future use).

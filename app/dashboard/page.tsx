@@ -49,7 +49,8 @@ const DeleteTableAlert = dynamic(() => import("./_components/TableDialogs").then
 
 // Utils & Constants & Types
 import { formatCurrency } from "./_components/utils";
-import { Order, ManageCategory, ManageTable, DashboardStats } from "./_components/types";
+import { Order, ManageCategory, ManageTable, DashboardStats, WaiterCall } from "./_components/types";
+import { WaiterCallAlert } from "./_components/WaiterCallAlert";
 
 export default function DashboardPage() {
   // State
@@ -78,6 +79,7 @@ export default function DashboardPage() {
       month: { chartData: [], topItems: [] },
       year: { chartData: [], topItems: [] },
     },
+    profitData: null,
   });
   const [activeView, setActiveView] = useState<"orders" | "menu" | "tables" | "analytics" | "settings" | "plans">("orders");
   const [menuCategories, setMenuCategories] = useState<ManageCategory[]>([]);
@@ -112,10 +114,17 @@ export default function DashboardPage() {
   const [isShowingPreview, setIsShowingPreview] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
+  // Waiter call state
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
+
   // Derived state
   const verifyingOrders = useMemo(() => (orders || []).filter((o) => o.status === "payment_pending"), [orders]);
   const activeOrders = useMemo(() => (orders || []).filter((o) => o.status !== "completed" && o.status !== "cancelled" && o.status !== "payment_pending"), [orders]);
-  const displayedOrders = activeTab === "verifying" ? verifyingOrders : activeTab === "active" ? activeOrders : completedOrders;
+  // Memoized so AnimatePresence receives a stable array reference between unrelated renders
+  const displayedOrders = useMemo(
+    () => activeTab === "verifying" ? verifyingOrders : activeTab === "active" ? activeOrders : completedOrders,
+    [activeTab, verifyingOrders, activeOrders, completedOrders]
+  );
 
   const [isMenuLoaded, setIsMenuLoaded] = useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
@@ -302,12 +311,19 @@ export default function DashboardPage() {
         }
 
         if (payload.eventType === "UPDATE") {
-          // 🚀 SMART MERGE: Just update the specific order status directly in state
-          // This avoids a full network re-fetch for simple status changes!
-          setOrders((currentOrders) => 
-            currentOrders.map((o) => 
-              o.id === orderId ? { ...o, ...payload.new } : o
-            )
+          // 🚀 SMART MERGE: Only update the specific fields that can change via status update.
+          // Spreading the raw payload.new causes all unknown DB columns to pollute our
+          // typed Order object, which triggers unnecessary re-renders of every card.
+          setOrders((currentOrders) =>
+            currentOrders.map((o) => {
+              if (o.id !== orderId) return o;
+              return {
+                ...o,
+                status: payload.new.status ?? o.status,
+                paymentMethod: payload.new.paymentMethod ?? o.paymentMethod,
+                transactionId: payload.new.transactionId ?? o.transactionId,
+              };
+            })
           );
         } else {
           // For INSERT (New Order), do a full re-fetch to get nested items
@@ -343,26 +359,145 @@ export default function DashboardPage() {
     };
   }, [restaurantId, managerId, fetchDashboardData]);
 
+  // ─── Waiter Call: Supabase Realtime + Polling Fallback ───
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    // Initial fetch of any unacknowledged calls that arrived before page load
+    const fetchExistingCalls = async () => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/waiter-call?restaurantId=${restaurantId}`, {
+          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        });
+        const data = await res.json();
+        if (data.success) setWaiterCalls(data.waiterCalls);
+      } catch (err) {
+        console.error("Waiter call fetch error:", err);
+      }
+    };
+    fetchExistingCalls();
+
+    // Supabase Realtime — listen for new WaiterCall inserts
+    const waiterChannel = supabase
+      .channel(`waiter-calls-${restaurantId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "WaiterCall" },
+        (payload: any) => {
+          const incomingRestaurantId = payload.new?.restaurantId;
+          if (incomingRestaurantId !== restaurantId) return;
+
+          const newCall: WaiterCall = {
+            id: payload.new.id,
+            restaurantId: payload.new.restaurantId,
+            tableNumber: payload.new.tableNumber,
+            isAcknowledged: payload.new.isAcknowledged ?? false,
+            createdAt: payload.new.createdAt,
+          };
+
+          setWaiterCalls((prev) => {
+            // Guard against duplicate inserts
+            if (prev.some((c) => c.id === newCall.id)) return prev;
+            return [...prev, newCall];
+          });
+
+          // Bell sound + toast
+          new Audio(
+            "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
+          )
+            .play()
+            .catch(() => {});
+          toast(`Table ${newCall.tableNumber} is calling for assistance!`, {
+            icon: <Bell size={16} className="text-amber-500 animate-bounce" />,
+            duration: 6000,
+          });
+        }
+      )
+      .subscribe();
+
+    // Polling fallback — every 30 seconds to catch any missed Realtime events
+    const pollInterval = setInterval(async () => {
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/waiter-call?restaurantId=${restaurantId}`, {
+          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        });
+        const data = await res.json();
+        if (data.success) {
+          setWaiterCalls((prev) => {
+            // Merge: keep any in prev that aren't in the new list (they may be mid-acknowledge)
+            // but add any new ones from the server
+            const existingIds = new Set(prev.map((c) => c.id));
+            const newCalls = (data.waiterCalls as WaiterCall[]).filter(
+              (c) => !existingIds.has(c.id)
+            );
+            return [...prev, ...newCalls];
+          });
+        }
+      } catch (err) {
+        console.error("Waiter call poll error:", err);
+      }
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(waiterChannel);
+      clearInterval(pollInterval);
+    };
+  }, [restaurantId]);
+
+  // ─── Acknowledge a waiter call ───
+  const handleAcknowledgeWaiterCall = useCallback(
+    async (id: string) => {
+      // Optimistic: remove from UI immediately
+      setWaiterCalls((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, isAcknowledged: true } : c))
+      );
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        await fetch(`/api/waiter-call/${id}/acknowledge`, {
+          method: "PATCH",
+          headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+        });
+      } catch (err) {
+        console.error("Acknowledge waiter call error:", err);
+      }
+    },
+    []
+  );
+
   const updateOrderStatus = useCallback(async (orderId: string, status: Order["status"]) => {
-    // 🚀 Register as pending to activate flicker-guard
+    // 🚀 Register as pending to activate Realtime flicker-guard
     pendingUpdatesRef.current.add(orderId);
     setTimeout(() => pendingUpdatesRef.current.delete(orderId), 2000);
 
-    const prev = orders.find((o) => o.id === orderId);
-    setOrders((p) => p.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    // Capture prev inside the setter so we don't need `orders` in the dep array.
+    // Without this fix, every order state change recreated this callback, causing
+    // ALL OrderCards to re-render simultaneously even when only one changed.
+    let prevOrder: Order | undefined;
+    setOrders((p) => {
+      prevOrder = p.find((o) => o.id === orderId);
+      return p.map((o) => (o.id === orderId ? { ...o, status } : o));
+    });
+
     try {
       const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok && prev) setOrders((p) => p.map((o) => (o.id === orderId ? prev : o)));
-    } catch { if (prev) setOrders((p) => p.map((o) => (o.id === orderId ? prev : o))); }
-  }, [orders]);
+      // Rollback on failure
+      if (!res.ok && prevOrder) {
+        setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder! : o)));
+      }
+    } catch {
+      if (prevOrder) setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder! : o)));
+    }
+  }, []); // ✅ Stable reference — no deps needed since prev is captured in the setter
 
   const handleUpdateUpi = async () => {
     if (!restaurantId || !tempUpiId.trim() || !tempUpiId.includes("@")) return;
@@ -588,17 +723,23 @@ export default function DashboardPage() {
         <main className="flex-1 min-w-0 relative">
           <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-10 space-y-8 sm:space-y-10 lg:space-y-12">
             
-            <DashboardHeader 
-              activeView={activeView} 
-              realtimeStatus={realtimeStatus} 
-              loading={!isEssentialsLoaded} 
-              onRefresh={() => managerId && fetchDashboardData(managerId, true)} 
-              onDownloadAllQRs={downloadAllQRs} 
-              onShowPreview={() => setIsShowingPreview(true)} 
-              onAddCategory={() => setIsAddingCategory(true)} 
+            <DashboardHeader
+              activeView={activeView}
+              realtimeStatus={realtimeStatus}
+              loading={!isEssentialsLoaded}
+              onRefresh={() => managerId && fetchDashboardData(managerId, true)}
+              onDownloadAllQRs={downloadAllQRs}
+              onShowPreview={() => setIsShowingPreview(true)}
+              onAddCategory={() => setIsAddingCategory(true)}
               activeOrdersCount={activeOrders.length}
               setMobileMenuOpen={setMobileMenuOpen}
               subscriptionStatus={subscription?.status}
+            />
+
+            {/* Waiter Call Alerts — shown above all content, non-dismissable */}
+            <WaiterCallAlert
+              calls={waiterCalls}
+              onAcknowledge={handleAcknowledgeWaiterCall}
             />
 
             {activeView === "orders" && (
@@ -679,17 +820,60 @@ export default function DashboardPage() {
                     setIsUpdating(id);
                     try {
                       const idToken = await auth.currentUser?.getIdToken();
-                      const res = await fetch(`/api/menu/items/${id}`, { 
-                        method: "PATCH", 
-                        headers: { 
+                      const res = await fetch(`/api/menu/items/${id}`, {
+                        method: "PATCH",
+                        headers: {
                           "Content-Type": "application/json",
                           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-                        }, 
-                        body: JSON.stringify({ price }) 
+                        },
+                        body: JSON.stringify({ price })
                       });
                       if (res.ok) setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, price } : i) })));
                     } catch { toast.error("Failed to update price"); } finally { setIsUpdating(null); }
-                  }} 
+                  }}
+                  onUpdateCostPrice={async (id, costPrice) => {
+                    setIsUpdating(id);
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                        },
+                        body: JSON.stringify({ costPrice }),
+                      });
+                      if (res.ok) {
+                        setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, costPrice } : i) })));
+                        toast.success(costPrice != null ? `Cost price set to ₹${costPrice}` : "Cost price cleared");
+                      } else { toast.error("Failed to update cost price"); }
+                    } catch { toast.error("Failed to update cost price"); } finally { setIsUpdating(null); }
+                  }}
+                  onUpdatePrepTime={async (id, prepTimeMinutes) => {
+                    setIsUpdating(id);
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const res = await fetch(`/api/menu/items/${id}`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                        },
+                        body: JSON.stringify({ prepTimeMinutes }),
+                      });
+                      if (res.ok) {
+                        setMenuCategories(menuCategories.map(cat => ({
+                          ...cat,
+                          menuItems: cat.menuItems.map(i =>
+                            i.id === id ? { ...i, prepTimeMinutes } : i
+                          ),
+                        })));
+                        toast.success(prepTimeMinutes ? `Prep time set to ${prepTimeMinutes} min` : "Prep time cleared");
+                      } else {
+                        toast.error("Failed to update prep time");
+                      }
+                    } catch { toast.error("Failed to update prep time"); } finally { setIsUpdating(null); }
+                  }}
                   onToggleAvailability={async (id, current) => {
                     setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: !current } : i) })));
                     try {

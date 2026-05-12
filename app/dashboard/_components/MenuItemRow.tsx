@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Trash2, AlertTriangle } from "lucide-react";
+import { Trash2, AlertTriangle, Clock, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -21,6 +21,8 @@ export function MenuItemRow({
   isUpdating,
   onUpdateName,
   onUpdatePrice,
+  onUpdateCostPrice,
+  onUpdatePrepTime,
   onToggleAvailability,
   onDelete,
 }: {
@@ -28,10 +30,23 @@ export function MenuItemRow({
   isUpdating: boolean;
   onUpdateName: (id: string, name: string) => void;
   onUpdatePrice: (id: string, price: number) => void;
+  onUpdateCostPrice: (id: string, costPrice: number | null) => void;
+  onUpdatePrepTime: (id: string, mins: number | null) => void;
   onToggleAvailability: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [prepInput, setPrepInput] = useState(
+    item.prepTimeMinutes != null ? String(item.prepTimeMinutes) : ""
+  );
+  const [costInput, setCostInput] = useState(
+    item.costPrice != null ? String(item.costPrice) : ""
+  );
+
+  const margin =
+    item.costPrice != null && item.price > 0
+      ? Math.round(((item.price - item.costPrice) / item.price) * 1000) / 10
+      : null;
 
   return (
     <>
@@ -58,6 +73,7 @@ export function MenuItemRow({
               placeholder="Dish Name"
             />
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              {/* Selling Price */}
               <div className="flex items-center">
                 <span className="text-[10px] sm:text-xs font-black text-zinc-400 mr-0.5">₹</span>
                 <input
@@ -71,12 +87,88 @@ export function MenuItemRow({
                   }}
                 />
               </div>
+              {/* Cost Price + margin pill */}
+              <div className={cn(
+                "flex items-center gap-1 rounded-lg px-2 py-0.5 border transition-colors group/cost",
+                item.costPrice != null
+                  ? margin !== null && margin < 20
+                    ? "bg-red-50 border-red-200 hover:border-red-300"
+                    : "bg-green-50 border-green-200 hover:border-green-300"
+                  : "bg-zinc-100 border-zinc-200 hover:border-zinc-300"
+              )}>
+                <TrendingUp className={cn(
+                  "w-2.5 h-2.5 shrink-0",
+                  item.costPrice != null
+                    ? margin !== null && margin < 20 ? "text-red-400" : "text-green-500"
+                    : "text-zinc-400"
+                )} />
+                <span className="text-[9px] font-bold text-zinc-400 mr-0.5">₹</span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="cost"
+                  value={costInput}
+                  onChange={(e) => setCostInput(e.target.value)}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === "") {
+                      if (item.costPrice != null) onUpdateCostPrice(item.id, null);
+                      return;
+                    }
+                    const val = parseFloat(raw);
+                    if (!isNaN(val) && val >= 0 && val !== item.costPrice) {
+                      onUpdateCostPrice(item.id, val);
+                    } else {
+                      setCostInput(item.costPrice != null ? String(item.costPrice) : "");
+                    }
+                  }}
+                  className="w-10 sm:w-12 bg-transparent border-none p-0 text-[10px] sm:text-[11px] font-black text-zinc-600 focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                {margin !== null && (
+                  <span className={cn(
+                    "text-[8px] font-black whitespace-nowrap",
+                    margin < 20 ? "text-red-500" : margin < 40 ? "text-amber-500" : "text-green-600"
+                  )}>
+                    {margin}%
+                  </span>
+                )}
+              </div>
+              {/* Type badge */}
               <Badge
                 variant="secondary"
                 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider"
               >
                 {item.type}
               </Badge>
+              {/* Prep time input */}
+              <div className="flex items-center gap-1 bg-zinc-100 rounded-lg px-2 py-0.5 border border-zinc-200 hover:border-zinc-300 transition-colors group/prep">
+                <Clock className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                <input
+                  type="number"
+                  min={1}
+                  max={180}
+                  placeholder="--"
+                  value={prepInput}
+                  onChange={(e) => setPrepInput(e.target.value)}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === "") {
+                      // Cleared → remove prep time
+                      if (item.prepTimeMinutes != null) onUpdatePrepTime(item.id, null);
+                      return;
+                    }
+                    const mins = parseInt(raw, 10);
+                    if (!isNaN(mins) && mins >= 1 && mins <= 180 && mins !== item.prepTimeMinutes) {
+                      onUpdatePrepTime(item.id, mins);
+                    } else {
+                      // Revert bad input to current value
+                      setPrepInput(item.prepTimeMinutes != null ? String(item.prepTimeMinutes) : "");
+                    }
+                  }}
+                  className="w-7 sm:w-8 bg-transparent border-none p-0 text-[10px] sm:text-[11px] font-black text-zinc-600 focus:ring-0 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="text-[9px] font-bold text-zinc-400 whitespace-nowrap">min</span>
+              </div>
             </div>
           </div>
         </div>

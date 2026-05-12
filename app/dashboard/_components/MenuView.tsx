@@ -14,6 +14,8 @@ export function MenuView({
   onDeleteCategory,
   onUpdateItemName,
   onUpdatePrice,
+  onUpdateCostPrice,
+  onUpdatePrepTime,
   onToggleAvailability,
   onDeleteItem,
   loading = false,
@@ -26,6 +28,8 @@ export function MenuView({
   onDeleteCategory: (category: { id: string; name: string }) => void;
   onUpdateItemName: (id: string, name: string) => void;
   onUpdatePrice: (id: string, price: number) => void;
+  onUpdateCostPrice: (id: string, costPrice: number | null) => void;
+  onUpdatePrepTime: (id: string, mins: number | null) => void;
   onToggleAvailability: (id: string, current: boolean) => void;
   onDeleteItem: (id: string) => void;
   loading?: boolean;
@@ -140,6 +144,8 @@ export function MenuView({
                   isUpdating={isUpdating === item.id}
                   onUpdateName={onUpdateItemName}
                   onUpdatePrice={onUpdatePrice}
+                  onUpdateCostPrice={onUpdateCostPrice}
+                  onUpdatePrepTime={onUpdatePrepTime}
                   onToggleAvailability={onToggleAvailability}
                   onDelete={onDeleteItem}
                 />

@@ -1,11 +1,15 @@
 import React, { useMemo, useState } from "react";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Clock, 
+import {
+  BarChart3,
+  TrendingUp,
+  Clock,
   ShoppingBag,
   Check,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  Coins,
+  Trophy,
+  Info,
 } from "lucide-react";
 import { 
   Card, 
@@ -412,6 +416,169 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
           </div>
         </Card>
       </div>
+
+      {/* ── Profit Margins ── */}
+      {stats.profitData ? (
+        <div className="space-y-4 sm:space-y-5">
+          {/* Section header */}
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
+              <Coins className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Profit Margins</h3>
+              <p className="text-[10px] text-zinc-400 font-medium">Last 7 days · based on cost prices you set</p>
+            </div>
+            {stats.profitData.itemsWithoutCost > 0 && (
+              <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1.5">
+                <Info className="w-3 h-3 text-amber-500 shrink-0" />
+                <span className="text-[10px] font-bold text-amber-700">
+                  {stats.profitData.itemsWithoutCost} dish{stats.profitData.itemsWithoutCost > 1 ? "es" : ""} missing cost price
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Summary row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Card className="bg-emerald-900 text-white border-none rounded-2xl shadow-lg shadow-emerald-900/20 overflow-hidden">
+              <CardContent className="p-4 sm:p-5">
+                <p className="text-emerald-400 text-[9px] font-black uppercase tracking-widest mb-1">Estimated Profit</p>
+                <p className="text-xl sm:text-2xl font-black tracking-tight">{formatCurrency(stats.profitData.totalProfitWeek)}</p>
+                <p className="text-emerald-500 text-[9px] font-bold mt-0.5">this week (dishes with cost set)</p>
+              </CardContent>
+            </Card>
+            {stats.profitData.topProfitItem && (
+              <Card className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Trophy className="w-3 h-3 text-amber-500" />
+                    <p className="text-zinc-400 text-[9px] font-black uppercase tracking-widest">Top Earner</p>
+                  </div>
+                  <p className="text-sm font-black text-zinc-900 leading-tight truncate">{stats.profitData.topProfitItem.name}</p>
+                  <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
+                    +{formatCurrency(stats.profitData.topProfitItem.profitContribution)} profit
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            {stats.profitData.lossLeaders.length > 0 && (
+              <Card className="bg-red-50 border border-red-100 rounded-2xl shadow-sm overflow-hidden">
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlertTriangle className="w-3 h-3 text-red-500" />
+                    <p className="text-red-400 text-[9px] font-black uppercase tracking-widest">Low Margin</p>
+                  </div>
+                  <p className="text-sm font-black text-red-700 leading-tight">{stats.profitData.lossLeaders.length} dish{stats.profitData.lossLeaders.length > 1 ? "es" : ""}</p>
+                  <p className="text-[10px] font-bold text-red-500 mt-0.5">below 20% margin</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Loss-leader alerts */}
+          {stats.profitData.lossLeaders.length > 0 && (
+            <div className="space-y-2">
+              {stats.profitData.lossLeaders.map((item: any) => (
+                <div key={item.id} className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-black text-red-800 truncate block">&quot;{item.name}&quot;</span>
+                    <span className="text-[10px] font-bold text-red-500">
+                      Only {item.margin}% margin — selling at ₹{item.price}, costs ₹{item.costPrice}. Consider repricing.
+                    </span>
+                  </div>
+                  <span className="text-xs font-black text-red-600 bg-red-100 px-2 py-1 rounded-lg shrink-0">{item.margin}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Per-item margin bars */}
+          <Card className="border border-zinc-100/80 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="flex items-center justify-between mb-5">
+                <h4 className="text-xs sm:text-sm font-black text-zinc-900 uppercase tracking-tight">Margin per Dish</h4>
+                <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{"<"}20%</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />20–50%</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />{">"}50%</span>
+                </div>
+              </div>
+              <div className="space-y-3 sm:space-y-4">
+                <AnimatePresence mode="popLayout">
+                  {stats.profitData.items.map((item: any, i: number) => {
+                    const barColor =
+                      item.margin < 20 ? "bg-red-400"
+                      : item.margin < 50 ? "bg-amber-400"
+                      : "bg-emerald-500";
+                    const textColor =
+                      item.margin < 20 ? "text-red-600"
+                      : item.margin < 50 ? "text-amber-600"
+                      : "text-emerald-600";
+
+                    return (
+                      <motion.div
+                        layout
+                        key={item.id}
+                        initial={{ opacity: 0, x: 16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, delay: i * 0.03 }}
+                        className="space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", item.type === "veg" ? "bg-green-500" : "bg-red-500")} />
+                            <span className="text-xs font-black text-zinc-800 truncate">{item.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-bold text-zinc-400">
+                              ₹{item.costPrice}→₹{item.price}
+                            </span>
+                            {item.quantitySold > 0 && (
+                              <span className="text-[9px] font-bold text-zinc-400">
+                                · {item.quantitySold}× = {formatCurrency(item.profitContribution)}
+                              </span>
+                            )}
+                            <span className={cn("text-[10px] font-black w-10 text-right", textColor)}>
+                              {item.margin}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min(item.margin, 100)}%` }}
+                            transition={{ duration: 0.6, delay: i * 0.04, ease: "easeOut" }}
+                            className={cn("h-full rounded-full", barColor)}
+                          />
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        /* No cost prices set yet — prompt */
+        <Card className="border border-dashed border-zinc-200 bg-zinc-50/50 rounded-2xl sm:rounded-[28px]">
+          <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
+              <Coins className="w-5 h-5 text-emerald-500" />
+            </div>
+            <div className="text-center sm:text-left">
+              <h4 className="text-sm font-black text-zinc-800 uppercase tracking-tight mb-1">Unlock Profit Analytics</h4>
+              <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                Add a cost price to your dishes in the <span className="font-black text-zinc-700">Menu</span> tab.
+                You&apos;ll see margin %, your most profitable dish, and low-margin alerts here.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

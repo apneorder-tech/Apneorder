@@ -53,7 +53,8 @@ export async function GET(
                           name: true,
                           price: true,
                           type: true,
-                          isAvailable: true
+                          isAvailable: true,
+                          prepTimeMinutes: true,
                       }
                   }
               }

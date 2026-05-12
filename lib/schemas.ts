@@ -40,18 +40,25 @@ export const MenuItemCreateSchema = z.object({
     price: z.number().nonnegative(),
     type: z.enum(["veg", "non-veg"]),
     description: z.string().optional(),
+    // Prep time in whole minutes, 1–180 range; omit to leave unset
+    prepTimeMinutes: z.number().int().min(1).max(180).optional().nullable(),
 });
 
 export const MenuItemUpdateSchema = z.object({
     name: z.string().optional(),
     price: z.number().nonnegative().optional(),
     isAvailable: z.boolean().optional(),
+    // Allow clearing (null) or setting a new prep time
+    prepTimeMinutes: z.number().int().min(1).max(180).optional().nullable(),
+    // Cost of goods sold — null clears the value
+    costPrice: z.number().nonnegative().optional().nullable(),
 });
 
 // --- Orders ---
 export const OrderItemSchema = z.object({
     id: z.string(),
     quantity: z.number().int().positive(),
+    notes: z.string().max(80, "Notes must be 80 characters or fewer").optional().nullable(),
 });
 
 export const OrderCreateSchema = z.object({
@@ -61,6 +68,12 @@ export const OrderCreateSchema = z.object({
     transactionId: z.string().optional().nullable(),
     paymentMethod: z.enum(["CASH", "ONLINE"]).optional().default("ONLINE"),
     customerPhone: z.string().optional().nullable(),
+});
+
+// --- Waiter Calls ---
+export const WaiterCallSchema = z.object({
+    restaurantId: z.string().min(1),
+    tableNumber: z.string().min(1),
 });
 
 // --- Tables ---

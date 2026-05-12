@@ -20,21 +20,22 @@ model Manager {
 }
 
 model Restaurant {
-  id         String     @id @default(cuid())
-  name       String
-  ownerName  String
-  city       String
-  address    String
-  logoUrl    String?
-  upiId      String
-  themeColor String     @default("#000000")
-  managerId  String     @unique
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  categories Category[]
-  manager    Manager    @relation(fields: [managerId], references: [id])
-  tables     Table[]
-  orders     Order[]
+  id          String        @id @default(cuid())
+  name        String
+  ownerName   String
+  city        String
+  address     String
+  logoUrl     String?
+  upiId       String
+  themeColor  String        @default("#000000")
+  managerId   String        @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  categories  Category[]
+  manager     Manager       @relation(fields: [managerId], references: [id])
+  tables      Table[]
+  orders      Order[]
+  waiterCalls WaiterCall[]
 }
 
 model Category {
@@ -50,18 +51,20 @@ model Category {
 }
 
 model MenuItem {
-  id          String      @id @default(cuid())
-  name        String
-  price       Decimal
-  type        String
-  imageUrl    String?
-  isAvailable Boolean     @default(true)
-  isDeleted   Boolean     @default(false)
-  categoryId  String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  category    Category    @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
+  id              String      @id @default(cuid())
+  name            String
+  price           Decimal
+  costPrice       Decimal?    // Cost of goods sold — used for margin analytics
+  type            String
+  imageUrl        String?
+  isAvailable     Boolean     @default(true)
+  isDeleted       Boolean     @default(false)
+  prepTimeMinutes Int?        // Estimated prep time in minutes e.g. 12
+  categoryId      String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  category        Category    @relation(fields: [categoryId], references: [id])
+  orderItems      OrderItem[]
 
   @@index([categoryId])
   @@index([isDeleted])
@@ -109,6 +112,7 @@ model OrderItem {
   menuItemId String
   quantity   Int
   subtotal   Decimal
+  notes      String?  // Optional special instructions (max 80 chars) e.g. "Extra spicy, no onions"
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
@@ -129,6 +133,19 @@ model AuditLog {
 
   @@index([managerId])
   @@index([timestamp])
+}
+
+model WaiterCall {
+  id             String     @id @default(cuid())
+  restaurantId   String
+  tableNumber    String
+  isAcknowledged Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([isAcknowledged])
 }
 
 model Subscription {

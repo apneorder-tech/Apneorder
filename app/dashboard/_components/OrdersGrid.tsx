@@ -25,15 +25,30 @@ export function OrdersGrid({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
-      <AnimatePresence>
+      {/*
+        mode="popLayout" is the key fix for grid flicker:
+        — Exiting card is immediately pulled out of the layout flow and rendered
+          as an absolute overlay, so it animates out without pushing other cards.
+        — Remaining cards use their `layout` prop to spring into their new
+          grid positions cleanly, with no "cards sliding through a ghost" effect.
+      */}
+      <AnimatePresence mode="popLayout">
         {orders.map((order) => (
           <motion.div
             key={order.id}
-            layout
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
+            layout="position"          // only animate x/y, never width/height
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{
+              // Entering card slides up smoothly
+              opacity: { duration: 0.18 },
+              y: { type: "spring", stiffness: 320, damping: 28 },
+              // Exiting card fades + shrinks quickly so the gap closes fast
+              scale: { duration: 0.15 },
+              // Remaining cards spring into their new positions
+              layout: { type: "spring", stiffness: 280, damping: 30, mass: 0.85 },
+            }}
           >
             <OrderCard order={order} onStatusUpdate={onStatusUpdate} />
           </motion.div>

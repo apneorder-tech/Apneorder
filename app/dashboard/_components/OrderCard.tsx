@@ -1,16 +1,17 @@
 import React, { useState, useCallback } from "react";
-import { 
-  Clock, 
-  ChefHat, 
-  Check, 
-  XCircle, 
+import {
+  Clock,
+  ChefHat,
+  Check,
+  XCircle,
   Banknote,
   Navigation,
   CheckCircle2,
   ExternalLink,
   ChevronRight,
   Loader2,
-  MessageCircle
+  MessageCircle,
+  StickyNote,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -177,18 +178,33 @@ export function OrderCard({
             {(order.items || []).reduce((acc, item) => acc + item.quantity, 0)} Items
           </span>
         </div>
-        <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
           {(order.items || []).map((item, idx) => (
-            <div key={idx} className="flex justify-between items-start group/item">
-              <div className="flex gap-2.5 min-w-0">
-                <span className="text-sm font-black text-zinc-900 mt-0.5 min-w-[1.2rem]">
+            <div key={idx} className="flex justify-between items-start gap-3 group/item">
+              {/* Left: quantity + name + optional note */}
+              <div className="flex gap-2.5 min-w-0 flex-1">
+                <span className="text-sm font-black text-zinc-900 mt-0.5 min-w-[1.2rem] shrink-0">
                   {item.quantity}×
                 </span>
-                <p className="text-sm font-bold text-zinc-600 leading-tight group-hover/item:text-zinc-900 transition-colors truncate">
-                  {item.name}
-                </p>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-zinc-600 leading-tight group-hover/item:text-zinc-900 transition-colors">
+                    {item.name}
+                  </p>
+                  {item.notes && (
+                    <div className="flex items-start gap-1 mt-1">
+                      <StickyNote
+                        size={10}
+                        className="text-amber-500 shrink-0 mt-[2px]"
+                      />
+                      <p className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-1.5 py-0.5 leading-snug italic break-words">
+                        {item.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <span className="text-xs font-black text-zinc-900/40 italic whitespace-nowrap ml-4">
+              {/* Right: subtotal */}
+              <span className="text-xs font-black text-zinc-900/40 italic whitespace-nowrap shrink-0">
                 {formatCurrency(item.price * item.quantity)}
               </span>
             </div>
