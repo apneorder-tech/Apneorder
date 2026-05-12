@@ -58,7 +58,7 @@ export async function PATCH(
         // 3. Audit Log
         const { logAction, AuditAction } = await import("@/lib/logger");
         await logAction(
-            auth.uid, 
+            auth.uid!, 
             AuditAction.UPDATE_ITEM, 
             "MenuItem", 
             itemId, 
@@ -113,7 +113,7 @@ export async function DELETE(
         // 3. Audit Log
         const { logAction, AuditAction } = await import("@/lib/logger");
         await logAction(
-            auth.uid, 
+            auth.uid!, 
             AuditAction.DELETE_ITEM, 
             "MenuItem", 
             itemId, 
