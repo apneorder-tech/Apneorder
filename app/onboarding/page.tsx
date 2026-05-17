@@ -242,7 +242,7 @@ export default function OnboardingPage() {
     <div>
       <div className="mb-7">
         <h2 className="text-2xl font-black text-zinc-900 tracking-tight">Create your account</h2>
-        <p className="text-sm text-zinc-400 mt-1">Start your free trial — no credit card required</p>
+        <p className="text-sm text-zinc-400 mt-1">Create your restaurant setup for the standard plan</p>
       </div>
 
       <div className="space-y-4">
@@ -647,9 +647,11 @@ export default function OnboardingPage() {
       {/* ─── Left sidebar (desktop) ─── */}
       <aside className="hidden lg:flex w-72 xl:w-80 flex-col bg-zinc-900 text-white p-8 sticky top-0 h-screen">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 mb-12">
-          <img src="/logo.png" alt="ApneOrder" className="w-8 h-8 object-contain brightness-0 invert" />
-          <span className="font-black text-white tracking-tight">ApneOrder</span>
+        <Link href="/" className="flex items-center gap-3 mb-12">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-white shadow-lg shadow-black/20 ring-1 ring-white/10 overflow-hidden">
+            <img src="/logo.png" alt="ApneOrder" className="h-8 w-8 object-contain" />
+          </span>
+          <span className="font-black text-white tracking-tight text-lg">ApneOrder</span>
         </Link>
 
         {/* Step list */}

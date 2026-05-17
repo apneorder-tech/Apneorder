@@ -206,7 +206,7 @@ export default function Home() {
                       text-white font-black text-[15px]
                       flex items-center justify-center gap-2
                       shadow-[0_18px_34px_rgba(4,120,87,0.24)]">
-                      Start Free - Takes 10 Minutes
+                      Book Setup - Takes 10 Minutes
                       <ArrowRight size={15} />
                     </button>
                   </Link>
@@ -250,7 +250,7 @@ export default function Home() {
                     <Link href="/onboarding">
                       <button className="h-12 px-7 rounded-[12px] bg-emerald-700 hover:bg-emerald-800 text-white
                         font-bold text-sm transition-all flex items-center gap-2 shadow-[0_14px_30px_rgba(4,120,87,0.18)]">
-                        Start Free Trial <ArrowRight size={15} />
+                        Book Setup <ArrowRight size={15} />
                       </button>
                     </Link>
                     <a href="#how-it-works">
@@ -852,11 +852,11 @@ export default function Home() {
         </section>
 
         {/* ─────────────────── HOW IT WORKS ─────────────────── */}
-        <section id="how-it-works" className="py-14 lg:py-32 bg-zinc-50 border-y border-zinc-100">
+        <section id="how-it-works" className="py-14 lg:py-32 bg-zinc-50 border-y border-zinc-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-5 lg:px-10">
             <motion.div
               initial="hidden" whileInView="visible" viewport={{ once: true }}
-              variants={fadeUp(0)} className="text-center mb-10 lg:mb-16"
+              variants={fadeUp(0)} className="text-center mb-10 lg:mb-14"
             >
               <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">How It Works</span>
               <h2 className="text-[28px] sm:text-4xl lg:text-5xl font-black tracking-tight mt-3 mb-4">
@@ -864,7 +864,33 @@ export default function Home() {
               </h2>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
+            <div className="relative max-w-5xl mx-auto">
+              <svg
+                className="pointer-events-none absolute left-[16.6%] right-[16.6%] top-4 hidden h-12 w-[66.8%] md:block"
+                viewBox="0 0 720 48"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path d="M8 24 H712" stroke="#e4e4e7" strokeWidth="2" strokeLinecap="round" />
+                <motion.path
+                  d="M8 24 H712"
+                  stroke="#10b981"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray="54 650"
+                  animate={{ strokeDashoffset: [704, 0] }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: "linear" }}
+                />
+              </svg>
+
+              <div className="absolute left-[29px] top-14 bottom-28 w-px bg-zinc-200 md:hidden" />
+              <motion.div
+                className="absolute left-[29px] top-14 h-16 w-px bg-gradient-to-b from-transparent via-emerald-500 to-transparent md:hidden"
+                animate={{ y: [0, 230, 0] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: "linear" }}
+              />
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-10">
               {[
                 {
                   step: '01',
@@ -891,11 +917,12 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: i * 0.15 }}
-                  className="flex items-start gap-4 md:flex-col md:items-center md:text-center bg-white md:bg-transparent
-                    rounded-2xl md:rounded-none border border-zinc-100 md:border-0 p-4 md:p-0"
+                  className="relative z-10 flex items-start gap-4 rounded-[20px] border border-zinc-100 bg-white p-4 shadow-[0_12px_34px_rgba(24,24,27,0.04)] md:flex-col md:items-center md:text-center md:border-0 md:bg-transparent md:p-0 md:shadow-none"
                 >
                   <div className="relative w-14 h-14 md:w-20 md:h-20 bg-white rounded-2xl md:rounded-3xl
-                    border border-zinc-200 shadow-sm flex items-center justify-center flex-shrink-0 md:mb-5">
+                    border border-zinc-200 shadow-[0_12px_28px_rgba(24,24,27,0.06)] flex items-center justify-center flex-shrink-0 md:mb-5">
+                    <span className="absolute -left-1 top-1/2 hidden h-2 w-2 -translate-y-1/2 rounded-full border-2 border-white bg-zinc-300 md:block" />
+                    <span className="absolute -right-1 top-1/2 hidden h-2 w-2 -translate-y-1/2 rounded-full border-2 border-white bg-zinc-300 md:block" />
                     {s.icon}
                     <div className="absolute -top-2 -right-2 w-6 h-6 md:w-7 md:h-7 bg-zinc-900 rounded-full
                       flex items-center justify-center shadow-sm">
@@ -903,17 +930,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Connector (desktop only) */}
-                  {i < 2 && (
-                    <div className="hidden md:block absolute top-10 left-[calc(33.33%+40px)] w-[calc(33.33%-80px)] h-px bg-zinc-200" />
-                  )}
-
                   <div>
                     <h3 className="text-[15px] md:text-lg font-black text-zinc-900 mb-1 md:mb-2">{s.title}</h3>
                     <p className="text-sm text-zinc-500 leading-relaxed md:max-w-[260px]">{s.desc}</p>
                   </div>
                 </motion.div>
               ))}
+              </div>
             </div>
 
             <motion.div
@@ -945,90 +968,64 @@ export default function Home() {
                 Simple, transparent pricing.
               </h2>
               <p className="text-zinc-500 text-lg max-w-md mx-auto">
-                Start free. Upgrade when you need more.
+                One standard plan for restaurants that want QR ordering, UPI payments, and live operations.
               </p>
             </motion.div>
 
-            <div className="grid md:grid-cols-2 gap-5 max-w-2xl mx-auto">
-              {[
-                {
-                  name: 'Starter',
-                  price: '₹0',
-                  period: 'forever free',
-                  desc: 'Perfect for trying it out',
-                  features: ['1 restaurant', 'Up to 10 tables', 'QR menu & ordering', 'UPI payments', 'Basic dashboard'],
-                  cta: 'Get Started Free',
-                  href: '/onboarding',
-                  highlight: false,
-                },
-                {
-                  name: 'Pro',
-                  price: '₹1,499',
-                  period: 'per month',
-                  desc: 'For growing restaurants',
-                  features: ['Unlimited tables', 'Advanced analytics', 'Waiter call system', 'Priority support', 'Custom branding'],
-                  cta: 'Start Free Trial',
-                  href: '/onboarding',
-                  highlight: true,
-                },
-              ].map((plan, i) => (
-                <motion.div
-                  key={plan.name}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: i * 0.1 }}
-                  className={`relative rounded-2xl p-7 border-2 ${
-                    plan.highlight
-                      ? 'bg-zinc-900 border-zinc-900 text-white'
-                      : 'bg-white border-zinc-200'
-                  }`}
-                >
-                  {plan.highlight && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2
-                      bg-emerald-500 text-white text-[11px] font-black uppercase
-                      tracking-widest px-4 py-1 rounded-full whitespace-nowrap">
-                      Most Popular
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45 }}
+              className="relative max-w-sm mx-auto rounded-[28px] bg-zinc-900 border border-zinc-900 text-white p-7 sm:p-8 overflow-hidden shadow-[0_28px_80px_rgba(24,24,27,0.18)]"
+            >
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+              <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
+
+              <div className="relative">
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-emerald-400">
+                      Standard Plan
+                    </p>
+                    <div className="mt-4 flex items-baseline gap-1.5">
+                      <span className="text-5xl font-black tracking-tight text-white">₹1,499</span>
+                      <span className="text-sm text-zinc-400">/month</span>
                     </div>
-                  )}
-
-                  <p className={`text-xs font-bold mb-1 ${plan.highlight ? 'text-emerald-400' : 'text-zinc-400'}`}>
-                    {plan.name}
-                  </p>
-                  <div className="flex items-baseline gap-1.5 mb-1">
-                    <span className={`text-4xl font-black ${plan.highlight ? 'text-white' : 'text-zinc-900'}`}>
-                      {plan.price}
-                    </span>
-                    <span className={`text-sm ${plan.highlight ? 'text-zinc-400' : 'text-zinc-400'}`}>
-                      /{plan.period}
-                    </span>
+                    <p className="mt-3 text-sm text-zinc-400">
+                      Everything needed to run QR ordering for one restaurant.
+                    </p>
                   </div>
-                  <p className={`text-sm mb-7 ${plan.highlight ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                    {plan.desc}
-                  </p>
+                  <div className="w-fit rounded-full bg-emerald-500/15 px-3 py-1.5 text-[11px] font-black text-emerald-300 ring-1 ring-emerald-400/10">
+                    One clear price
+                  </div>
+                </div>
 
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map(f => (
-                      <li key={f} className="flex items-center gap-2.5 text-sm">
-                        <CheckCircle2 size={14}
-                          className={`flex-shrink-0 ${plan.highlight ? 'text-emerald-400' : 'text-emerald-500'}`} />
-                        <span className={plan.highlight ? 'text-zinc-300' : 'text-zinc-600'}>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="my-8 h-px bg-white/10" />
 
-                  <Link href={plan.href} className="block">
-                    <button className={`w-full h-11 rounded-xl font-bold text-sm transition-all ${
-                      plan.highlight
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-white'
-                        : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-                    }`}>
-                      {plan.cta}
-                    </button>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
+                <ul className="space-y-3.5">
+                  {[
+                    'Unlimited tables',
+                    'QR menu & ordering',
+                    'Direct UPI payments',
+                    'Live order dashboard',
+                    'Waiter call system',
+                    'Analytics & branding',
+                  ].map((feature) => (
+                    <li key={feature} className="flex items-center gap-2.5 text-sm">
+                      <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+                      <span className="text-zinc-300">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href="/onboarding" className="block mt-8">
+                  <button className="w-full h-12 rounded-[14px] bg-emerald-500 hover:bg-emerald-400 text-white font-black text-sm transition-all shadow-[0_16px_34px_rgba(16,185,129,0.22)]">
+                    Start Standard Plan
+                  </button>
+                </Link>
+              </div>
+            </motion.div>
           </div>
         </section>
 
@@ -1050,16 +1047,16 @@ export default function Home() {
             </h2>
             <p className="text-zinc-400 text-lg mb-10 max-w-md mx-auto leading-relaxed">
               {launchPositioning.finalCta} Setup takes 10 minutes.
-              No credit card required.
+              Start with the standard plan when your restaurant is ready.
             </p>
             <Link href="/onboarding">
               <button className="h-14 px-10 rounded-2xl bg-emerald-500 hover:bg-emerald-400
                 text-white font-black text-lg transition-all
                 shadow-2xl shadow-emerald-950/60 flex items-center gap-3 mx-auto">
-                Start for Free <ArrowRight size={20} />
+                Book Setup <ArrowRight size={20} />
               </button>
             </Link>
-            <p className="text-xs text-zinc-600 mt-5">No credit card · Cancel anytime · Go live in 10 min</p>
+            <p className="text-xs text-zinc-600 mt-5">Standard plan · Cancel anytime · Go live in 10 min</p>
           </motion.div>
         </section>
 
