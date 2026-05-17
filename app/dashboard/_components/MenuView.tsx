@@ -38,7 +38,7 @@ export function MenuView({
     return (
       <div className="space-y-6 sm:space-y-8 pb-10">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white rounded-3xl p-8 border border-zinc-100 shadow-sm space-y-6">
+          <div key={i} className="rounded-3xl p-8 border border-zinc-200/50 shadow-sm space-y-6">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-4">
                 <Skeleton className="w-12 h-12 rounded-xl" />
@@ -88,7 +88,7 @@ export function MenuView({
       {menuCategories.map((cat) => (
         <div
           key={cat.id}
-          className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 lg:p-8 border border-zinc-100 shadow-sm"
+          className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 lg:p-8 border border-zinc-200/50 shadow-sm"
         >
           {/* Category Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">

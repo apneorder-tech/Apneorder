@@ -55,10 +55,23 @@ export async function GET(request: Request) {
     const isSubscriptionOnly = searchParams.get("subscriptionOnly") === "true";
 
     // 2.5 Fetch Subscription Status First (Pre-flight Security)
-    const subscription = await (prisma as any).subscription.findUnique({
+    let subscription = await (prisma as any).subscription.findUnique({
       where: { managerId: effectiveManagerId },
       select: { status: true, currentPeriodEnd: true }
     });
+
+    // Auto-expire: if DB says ACTIVE but currentPeriodEnd has passed, mark it EXPIRED
+    if (
+      subscription?.status === "ACTIVE" &&
+      subscription?.currentPeriodEnd &&
+      new Date(subscription.currentPeriodEnd) < new Date()
+    ) {
+      await (prisma as any).subscription.update({
+        where: { managerId: effectiveManagerId },
+        data: { status: "EXPIRED" }
+      });
+      subscription = { ...subscription, status: "EXPIRED" };
+    }
 
     // 2.6 Quick Subscription Check mode
     if (isSubscriptionOnly) {
@@ -113,7 +126,7 @@ export async function GET(request: Request) {
           },
           tables: {
             select: {
-              id: true, tableNumber: true, qrCodeUrl: true,
+              id: true, tableNumber: true, qrCodeUrl: true, isOccupied: true,
               orders: {
                 where: {
                   OR: [
@@ -157,7 +170,7 @@ export async function GET(request: Request) {
           ...cat,
           menuItems: (cat.menuItems || []).filter((item: any) => !item.isDeleted)
         })),
-        tables: (restaurant as any).tables?.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
+        tables: (restaurant as any).tables?.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl, isOccupied: t.isOccupied })),
         stats: null
       });
     }
@@ -192,7 +205,7 @@ export async function GET(request: Request) {
           },
           tables: {
             select: {
-              id: true, tableNumber: true, qrCodeUrl: true,
+              id: true, tableNumber: true, qrCodeUrl: true, isOccupied: true,
               orders: {
                 where: {
                   status: { notIn: ["cancelled"] },
@@ -346,12 +359,12 @@ export async function GET(request: Request) {
         salesMonthly,
         salesYearly,
         preparedTodayCount,
-        tablesFilled: `${restaurant.tables.filter(t => t.orders.length > 0).length}/${restaurant.tables.length}`,
+        tablesFilled: `${restaurant.tables.filter((t: any) => t.isOccupied).length}/${restaurant.tables.length}`,
         activeOrdersCount: activeOrders.length,
         timeframes: { week: { chartData: chartWeek, topItems }, month: { chartData: chartMonth, topItems }, year: { chartData: chartYear, topItems } },
         profitData,
       },
-      tables: restaurant.tables.map(t => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl })),
+      tables: restaurant.tables.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl, isOccupied: t.isOccupied })),
       subscription: subscription
     });
 

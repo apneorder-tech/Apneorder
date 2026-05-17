@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { Trash2, AlertTriangle, Clock, TrendingUp } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { Trash2, AlertTriangle, Clock, TrendingUp, ImagePlus, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ManageMenuItem } from "./types";
 import { formatCurrency } from "./utils";
+import { supabase } from "@/lib/supabase";
 
 export function MenuItemRow({
   item,
@@ -25,6 +26,7 @@ export function MenuItemRow({
   onUpdatePrepTime,
   onToggleAvailability,
   onDelete,
+  onUpdateImage,
 }: {
   item: ManageMenuItem;
   isUpdating: boolean;
@@ -34,6 +36,7 @@ export function MenuItemRow({
   onUpdatePrepTime: (id: string, mins: number | null) => void;
   onToggleAvailability: (id: string, current: boolean) => void;
   onDelete: (id: string) => void;
+  onUpdateImage?: (id: string, url: string | null) => void;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [prepInput, setPrepInput] = useState(
@@ -42,15 +45,128 @@ export function MenuItemRow({
   const [costInput, setCostInput] = useState(
     item.costPrice != null ? String(item.costPrice) : ""
   );
+  const [imageUploading, setImageUploading] = useState(false);
+  const [localImageUrl, setLocalImageUrl] = useState<string | null | undefined>(item.imageUrl);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const margin =
     item.costPrice != null && item.price > 0
       ? Math.round(((item.price - item.costPrice) / item.price) * 1000) / 10
       : null;
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageUploading(true);
+    try {
+      const path = `${item.id}/${Date.now()}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("menu-images")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError || !uploadData) {
+        console.error("Image upload error:", uploadError);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("menu-images")
+        .getPublicUrl(uploadData.path);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/menu/items/${item.id}/image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ imageUrl: publicUrl }),
+      });
+
+      if (res.ok) {
+        setLocalImageUrl(publicUrl);
+        onUpdateImage?.(item.id, publicUrl);
+      }
+    } catch (err) {
+      console.error("Image upload failed:", err);
+    } finally {
+      setImageUploading(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`/api/menu/items/${item.id}/image`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        setLocalImageUrl(null);
+        onUpdateImage?.(item.id, null);
+      }
+    } catch (err) {
+      console.error("Image delete failed:", err);
+    }
+  };
+
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 md:p-5 bg-zinc-50/50 hover:bg-white rounded-xl sm:rounded-2xl border border-transparent hover:border-zinc-100 transition-all group/item gap-3 sm:gap-4 shadow-sm hover:shadow-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 md:p-5 bg-[#F1F5F1]/60 hover:bg-[#F7FAF7] rounded-xl sm:rounded-2xl border border-transparent hover:border-zinc-200/50 transition-all group/item gap-3 sm:gap-4 shadow-sm hover:shadow-md">
+
+        {/* Image Thumbnail */}
+        <div className="shrink-0 self-start sm:self-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-zinc-100 border border-zinc-200 group/img cursor-pointer"
+            onClick={() => !imageUploading && fileInputRef.current?.click()}
+          >
+            {imageUploading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-zinc-300 border-t-emerald-600 rounded-full animate-spin" />
+              </div>
+            ) : localImageUrl ? (
+              <>
+                <img
+                  src={localImageUrl}
+                  alt={item.name}
+                  className="w-full h-full object-cover"
+                />
+                {/* Overlay on hover: change image */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                  <ImagePlus className="w-4 h-4 text-white" />
+                </div>
+                {/* X button to remove */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteImage();
+                  }}
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                >
+                  <XIcon className="w-2.5 h-2.5" />
+                </button>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity">
+                <ImagePlus className="w-4 h-4 text-zinc-400" />
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Left: Info */}
         <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
           <div

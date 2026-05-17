@@ -48,7 +48,13 @@ export async function POST(request: Request) {
         }
     }
 
-    // 3. Create the Order
+    // 3. Mark table as occupied
+    await prisma.table.update({
+      where: { id: table.id },
+      data: { isOccupied: true }
+    });
+
+    // 4. Create the Order
     const order = await prisma.order.create({
       data: {
         tableId: table.id,

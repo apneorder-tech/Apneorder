@@ -24,6 +24,7 @@ interface MenuItem {
   isAvailable: boolean;
   description?: string;
   prepTimeMinutes?: number | null;
+  imageUrl?: string | null;
 }
 
 interface Category {
@@ -705,411 +706,565 @@ export default function CustomerMenuPage() {
 
   return (
     <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans pb-32"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-[#F1F5F1] dark:bg-zinc-950 font-sans"
     >
-      {/* Header */}
-      <div className="relative">
+      {/* ─── Hero Header ─── */}
+      <div className="relative bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 overflow-hidden">
+
+        {/* Decorative blobs using themeColor as accent */}
         <div
-            className="h-72 relative flex items-end p-8"
-            style={{ backgroundColor: restaurant.themeColor }}
-        >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="relative text-white z-10 w-full">
-            <div className="flex justify-between items-start mb-4">
-                <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Welcome to</p>
-                    <h1 className="text-4xl font-black leading-none tracking-tighter uppercase italic">{restaurant.name}</h1>
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* Dark mode toggle */}
-                  <button
-                    onClick={() => setIsDark((d) => !d)}
-                    className="bg-white/10 backdrop-blur-xl border border-white/20 w-10 h-10 rounded-2xl flex items-center justify-center shadow-2xl transition-all hover:bg-white/20 active:scale-90"
-                    aria-label="Toggle dark mode"
-                  >
-                    {isDark ? (
-                      <Sun size={16} className="text-yellow-300" />
-                    ) : (
-                      <Moon size={16} className="text-white" />
-                    )}
-                  </button>
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl">
-                    Table {tableNumber}
-                  </div>
-                </div>
+          className="absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-[0.12] dark:opacity-[0.08] blur-2xl pointer-events-none"
+          style={{ backgroundColor: restaurant.themeColor }}
+        />
+        <div
+          className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-[0.08] dark:opacity-[0.05] blur-xl pointer-events-none"
+          style={{ backgroundColor: restaurant.themeColor }}
+        />
+
+        <div className="relative z-10 px-5 pt-4 pb-5 sm:px-8 sm:pt-6 sm:pb-6">
+
+          {/* Top row: dark mode + table */}
+          <div className="flex items-center justify-end gap-2 mb-5 sm:mb-6">
+            <button
+              onClick={() => setIsDark((d) => !d)}
+              className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition-all"
+              aria-label="Toggle dark mode"
+            >
+              {isDark ? <Sun size={15} className="text-yellow-400" /> : <Moon size={15} className="text-zinc-500" />}
+            </button>
+            <div
+              className="h-9 px-4 rounded-xl flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-md"
+              style={{ backgroundColor: restaurant.themeColor }}
+            >
+              Table {tableNumber}
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full"><MapPin size={12} /> {restaurant.address.split(',')[0]}</span>
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 text-black rounded-full"><Star size={12} strokeWidth={3} /> 4.9</span>
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 rounded-full"><Clock size={12} /> 15-20m</span>
+          </div>
+
+          {/* Restaurant identity */}
+          <div className="flex items-center gap-4">
+            {/* Initial avatar */}
+            <div
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-white text-2xl sm:text-3xl font-black shrink-0 shadow-lg"
+              style={{ backgroundColor: restaurant.themeColor }}
+            >
+              {restaurant.name.charAt(0).toUpperCase()}
             </div>
+
+            <div className="min-w-0">
+              <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 dark:text-zinc-500 mb-0.5">Welcome to</p>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-none tracking-tighter uppercase dark:text-white truncate">
+                {restaurant.name}
+              </h1>
             </div>
+          </div>
+
+          {/* Info chips */}
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full text-[10px] font-black uppercase tracking-wider">
+              <MapPin size={11} className="shrink-0" />
+              {restaurant.address.split(',')[0]}
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 text-zinc-900 rounded-full text-[10px] font-black uppercase tracking-wider">
+              <Star size={11} strokeWidth={3} className="shrink-0" />
+              4.9
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-wider">
+              <Clock size={11} className="shrink-0" />
+              15–20m
+            </span>
+          </div>
+
         </div>
       </div>
 
-      {/* Categories Bar + Search - Sticky */}
-      <div className="sticky top-0 z-40 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-800">
-        {/* Search input */}
-        <div className="max-w-2xl mx-auto px-4 pt-3 pb-2">
-          <div className="relative flex items-center">
-            <Search
-              size={15}
-              className="absolute left-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none shrink-0"
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search dishes…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-9 pr-9 text-sm font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-                className="absolute right-3 text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
-        </div>
+      {/* ─── Content wrapper ─── */}
+      <div className="lg:flex lg:items-start">
 
-        {/* Category pills — hidden when searching */}
-        {!searchQuery && (
-          <div className="max-w-2xl mx-auto px-4 pb-3 overflow-x-auto no-scrollbar scroll-smooth flex gap-3">
-              {restaurant.categories.map((cat) => (
-                  <button
-                      key={cat.id}
-                      onClick={() => scrollToCategory(cat.id)}
-                      className={cn(
-                          "whitespace-nowrap px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all border shrink-0",
-                          activeCategory === cat.id
-                              ? "text-white border-transparent shadow-lg"
-                              : "bg-white dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-100 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600"
-                      )}
-                      style={activeCategory === cat.id
-                        ? { backgroundColor: restaurant.themeColor, borderColor: restaurant.themeColor }
-                        : undefined
-                      }
-                  >
-                      {cat.name}
-                  </button>
-              ))}
-          </div>
-        )}
+        {/* ─── Desktop Sidebar ─── */}
+        <aside className="hidden lg:block w-64 xl:w-72 shrink-0">
+          <div className="sticky top-0 h-screen flex flex-col bg-white dark:bg-zinc-900 border-r border-emerald-100/60 dark:border-zinc-800 overflow-hidden">
+            {/* Restaurant info */}
+            <div className="px-5 py-4 border-b border-emerald-100/40 dark:border-zinc-800">
+              <h2 className="font-black text-base text-zinc-900 dark:text-white truncate uppercase tracking-tight">{restaurant.name}</h2>
+              <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Table {tableNumber}</p>
+            </div>
 
-        {/* Search result summary */}
-        {searchQuery && (
-          <div className="max-w-2xl mx-auto px-4 pb-2.5 flex items-center gap-2">
-            <span className="text-[11px] font-black text-zinc-400 dark:text-zinc-500">
-              {totalFilteredItems === 0
-                ? "No dishes found"
-                : `${totalFilteredItems} dish${totalFilteredItems !== 1 ? "es" : ""} found`}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ─── Live Order Tracking Section ──────────────────────────── */}
-      {liveOrders.filter((o) => !dismissedOrderIds.has(o.id)).length > 0 && (
-        <div className="max-w-2xl mx-auto px-4 pt-5 space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <UtensilsCrossed size={12} className="text-zinc-400 dark:text-zinc-500" />
-            <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
-              Your Active Orders
-            </span>
-          </div>
-          <AnimatePresence mode="popLayout">
-            {liveOrders
-              .filter((o) => !dismissedOrderIds.has(o.id))
-              .map((order) => (
-                <LiveOrderCard
-                  key={order.id}
-                  order={order}
-                  onDismiss={dismissLiveOrder}
+            {/* Search (desktop sidebar) */}
+            <div className="px-4 py-3 border-b border-emerald-100/40 dark:border-zinc-800">
+              <div className="relative flex items-center">
+                <Search size={14} className="absolute left-3 text-zinc-400 pointer-events-none shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search dishes…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 bg-[#F1F5F1] dark:bg-zinc-800 border border-emerald-100/60 dark:border-zinc-700 rounded-xl pl-8 pr-8 text-sm font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-emerald-300 dark:focus:border-emerald-700 transition-colors"
                 />
-              ))}
-          </AnimatePresence>
-        </div>
-      )}
-      {/* ──────────────────────────────────────────────────────────── */}
-
-      {/* ─── Quick Reorder Section ─────────────────────────────── */}
-      <AnimatePresence>
-        {!quickReorderDismissed && !isOrderSuccess && !isOrderRejected && !placedOrderId && (
-          <motion.div
-            key="quick-reorder"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10, scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="max-w-2xl mx-auto px-4 pt-5"
-          >
-            {/* Phone input card */}
-            {!historyChecked && (
-              <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                  <div className="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
-                    <History size={14} className="text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider leading-none">
-                      Ordered here before?
-                    </p>
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
-                      Enter your number to reorder in one tap
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setQuickReorderDismissed(true)}
-                    className="text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1"
-                  >
-                    <X size={14} />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery("")} className="absolute right-2.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
+                    <X size={13} />
                   </button>
-                </div>
-                <div className="px-4 pb-4">
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-[11px] font-black text-zinc-400 dark:text-zinc-500 pointer-events-none select-none">
-                      +91
+                )}
+              </div>
+            </div>
+
+            {/* Category list */}
+            <nav className="flex-1 overflow-y-auto py-2 px-2">
+              {restaurant.categories.map((cat) => {
+                const isActive = activeCategory === cat.id && !searchQuery;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => { setSearchQuery(""); scrollToCategory(cat.id); }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-xl mb-0.5 text-left transition-all",
+                      isActive
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
+                        : "text-zinc-500 dark:text-zinc-400 hover:bg-[#F1F5F1] dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    <span className="text-sm font-bold truncate">{cat.name}</span>
+                    <span className={cn("text-[10px] font-black ml-2 shrink-0", isActive ? "text-emerald-500" : "text-zinc-300 dark:text-zinc-600")}>
+                      {cat.menuItems.filter(i => i.isAvailable).length}
                     </span>
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="10-digit mobile number"
-                      value={quickPhone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                        setQuickPhone(val);
-                        if (val.length === 10) checkOrderHistory(val);
-                      }}
-                      className="w-full h-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-10 text-sm font-bold text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800 transition-all outline-none"
-                    />
-                    {isCheckingHistory && (
-                      <Loader2 size={15} className="absolute right-3.5 text-zinc-400 dark:text-zinc-500 animate-spin" />
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Waiter call at bottom of sidebar */}
+            <div className="p-4 border-t border-emerald-100/40 dark:border-zinc-800">
+              <button
+                onClick={handleCallWaiter}
+                disabled={isCallingWaiter || (waiterCallCooldownUntil != null && Date.now() < waiterCallCooldownUntil)}
+                className={cn(
+                  "w-full h-10 rounded-xl font-black text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all",
+                  waiterCallFeedback === "sent"
+                    ? "bg-green-500 text-white"
+                    : waiterCallFeedback === "cooldown"
+                    ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed"
+                    : "bg-[#F1F5F1] dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-400 border border-emerald-100/60 dark:border-zinc-700"
+                )}
+              >
+                {waiterCallFeedback === "sent" ? <Check size={14} strokeWidth={3} /> : <Bell size={14} />}
+                {waiterCallFeedback === "sent" ? "Notified!" : waiterCallFeedback === "cooldown" ? "Please Wait..." : "Call Waiter"}
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* ─── Main Content ─── */}
+        <div className="flex-1 min-w-0 pb-36 sm:pb-32">
+
+          {/* Mobile-only sticky header (search + pills) */}
+          <div className="lg:hidden sticky top-0 z-40 bg-[#F1F5F1]/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-emerald-100/60 dark:border-zinc-800">
+            {/* Search input */}
+            <div className="max-w-2xl mx-auto px-4 pt-3 pb-2">
+              <div className="relative flex items-center">
+                <Search
+                  size={15}
+                  className="absolute left-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none shrink-0"
+                />
+                <input
+                  type="text"
+                  placeholder="Search dishes…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-9 pr-9 text-sm font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-500 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                    className="absolute right-3 text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Category pills — hidden when searching */}
+            {!searchQuery && (
+              <div className="max-w-2xl mx-auto px-4 pb-3 overflow-x-auto scrollbar-hide scroll-smooth flex gap-2 sm:gap-3">
+                {restaurant.categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => scrollToCategory(cat.id)}
+                    className={cn(
+                      "whitespace-nowrap px-4 py-1.5 sm:px-6 sm:py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-all border shrink-0",
+                      activeCategory === cat.id
+                        ? "text-white border-transparent shadow-lg"
+                        : "bg-white dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-100 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600"
                     )}
-                    {quickPhone.length === 10 && !isCheckingHistory && (
-                      <Check size={15} strokeWidth={3} className="absolute right-3.5 text-green-500" />
-                    )}
-                  </div>
-                </div>
+                    style={activeCategory === cat.id
+                      ? { backgroundColor: restaurant.themeColor, borderColor: restaurant.themeColor }
+                      : undefined
+                    }
+                  >
+                    {cat.name}
+                  </button>
+                ))}
               </div>
             )}
 
-            {/* Welcome back card */}
-            {historyChecked && orderHistory && (() => {
-              const availableItems = orderHistory.items.filter((i) => i.isAvailable);
-              const unavailableItems = orderHistory.items.filter((i) => !i.isAvailable);
-              const reorderTotal = availableItems.reduce(
-                (sum, i) => sum + i.price * i.quantity, 0
-              );
-              return (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.97 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 320, damping: 28 }}
-                  className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden"
-                >
-                  {/* Header */}
-                  <div className="bg-emerald-600 px-4 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
-                        <RotateCcw size={13} className="text-white" />
+            {/* Search result summary */}
+            {searchQuery && (
+              <div className="max-w-2xl mx-auto px-4 pb-2.5 flex items-center gap-2">
+                <span className="text-[11px] font-black text-zinc-400 dark:text-zinc-500">
+                  {totalFilteredItems === 0
+                    ? "No dishes found"
+                    : `${totalFilteredItems} dish${totalFilteredItems !== 1 ? "es" : ""} found`}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ─── Live Order Tracking Section ─── */}
+          {liveOrders.filter((o) => !dismissedOrderIds.has(o.id)).length > 0 && (
+            <div className="max-w-3xl mx-auto px-4 lg:px-8 xl:px-10 pt-5 space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <UtensilsCrossed size={12} className="text-zinc-400 dark:text-zinc-500" />
+                <span className="text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                  Your Active Orders
+                </span>
+              </div>
+              <AnimatePresence mode="popLayout">
+                {liveOrders
+                  .filter((o) => !dismissedOrderIds.has(o.id))
+                  .map((order) => (
+                    <LiveOrderCard
+                      key={order.id}
+                      order={order}
+                      onDismiss={dismissLiveOrder}
+                    />
+                  ))}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* ─── Quick Reorder Section ─── */}
+          <AnimatePresence>
+            {!quickReorderDismissed && !isOrderSuccess && !isOrderRejected && !placedOrderId && (
+              <motion.div
+                key="quick-reorder"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                className="max-w-3xl mx-auto px-4 lg:px-8 xl:px-10 pt-5"
+              >
+                {/* Phone input card */}
+                {!historyChecked && (
+                  <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                      <div className="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
+                        <History size={14} className="text-white" />
                       </div>
-                      <div>
-                        <p className="text-white font-black text-sm leading-none">
-                          Welcome back! 👋
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider leading-none">
+                          Ordered here before?
                         </p>
-                        <p className="text-zinc-400 text-[10px] font-bold mt-0.5 uppercase tracking-wider">
-                          Last order · {timeAgoShort(orderHistory.createdAt)}
+                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium mt-0.5">
+                          Enter your number to reorder in one tap
                         </p>
+                      </div>
+                      <button
+                        onClick={() => setQuickReorderDismissed(true)}
+                        className="text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="px-4 pb-4">
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3.5 text-[11px] font-black text-zinc-400 dark:text-zinc-500 pointer-events-none select-none">
+                          +91
+                        </span>
+                        <input
+                          type="tel"
+                          inputMode="numeric"
+                          placeholder="10-digit mobile number"
+                          value={quickPhone}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            setQuickPhone(val);
+                            if (val.length === 10) checkOrderHistory(val);
+                          }}
+                          className="w-full h-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-10 text-sm font-bold text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800 transition-all outline-none"
+                        />
+                        {isCheckingHistory && (
+                          <Loader2 size={15} className="absolute right-3.5 text-zinc-400 dark:text-zinc-500 animate-spin" />
+                        )}
+                        {quickPhone.length === 10 && !isCheckingHistory && (
+                          <Check size={15} strokeWidth={3} className="absolute right-3.5 text-green-500" />
+                        )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => setQuickReorderDismissed(true)}
-                      className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                  </div>
+                )}
+
+                {/* Welcome back card */}
+                {historyChecked && orderHistory && (() => {
+                  const availableItems = orderHistory.items.filter((i) => i.isAvailable);
+                  const unavailableItems = orderHistory.items.filter((i) => !i.isAvailable);
+                  const reorderTotal = availableItems.reduce(
+                    (sum, i) => sum + i.price * i.quantity, 0
+                  );
+                  return (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.97 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                      className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden"
                     >
-                      <X size={14} />
-                    </button>
+                      {/* Header */}
+                      <div className="bg-emerald-600 px-4 py-3.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
+                            <RotateCcw size={13} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="text-white font-black text-sm leading-none">
+                              Welcome back! 👋
+                            </p>
+                            <p className="text-zinc-400 text-[10px] font-bold mt-0.5 uppercase tracking-wider">
+                              Last order · {timeAgoShort(orderHistory.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setQuickReorderDismissed(true)}
+                          className="text-zinc-500 hover:text-zinc-300 transition-colors p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      {/* Item list */}
+                      <div className="px-4 py-3 space-y-2.5">
+                        {orderHistory.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "flex items-center justify-between gap-3",
+                              !item.isAvailable && "opacity-40"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div
+                                className={cn(
+                                  "w-1.5 h-1.5 rounded-full shrink-0",
+                                  item.type === "veg" ? "bg-green-500" : "bg-red-500"
+                                )}
+                              />
+                              <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate">
+                                {item.quantity}× {item.name}
+                              </span>
+                              {!item.isAvailable && (
+                                <span className="text-[9px] font-black uppercase tracking-wider text-red-400 bg-red-50 dark:bg-red-950/50 px-1.5 py-0.5 rounded-md shrink-0">
+                                  Sold Out
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-black text-zinc-400 dark:text-zinc-500 italic shrink-0">
+                              ₹{item.price * item.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Unavailable warning */}
+                      {unavailableItems.length > 0 && availableItems.length > 0 && (
+                        <div className="mx-4 mb-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-100 dark:border-amber-900/50">
+                          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                            {unavailableItems.length} item{unavailableItems.length > 1 ? "s" : ""} currently
+                            sold out — only available items will be added.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* CTA */}
+                      <div className="px-4 pb-4">
+                        {availableItems.length > 0 ? (
+                          <button
+                            onClick={handleReorder}
+                            className="w-full h-12 bg-white text-emerald-700 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-50 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200"
+                          >
+                            <RotateCcw size={14} />
+                            Reorder {availableItems.length} item{availableItems.length > 1 ? "s" : ""}
+                            <span className="text-zinc-400 dark:text-zinc-500 font-bold normal-case tracking-normal">
+                              · ₹{reorderTotal}
+                            </span>
+                          </button>
+                        ) : (
+                          <div className="text-center py-2">
+                            <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500">
+                              All your previous items are currently sold out.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ─── Menu Items ─── */}
+          <div className="px-4 lg:px-8 xl:px-10 pt-6 lg:pt-8">
+
+            {/* Search empty state */}
+            {searchQuery && totalFilteredItems === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center justify-center py-20 text-center"
+              >
+                <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
+                  <Search size={24} className="text-zinc-300 dark:text-zinc-600" />
+                </div>
+                <p className="text-zinc-500 dark:text-zinc-400 font-black text-sm uppercase tracking-wider">
+                  No dishes found
+                </p>
+                <p className="text-zinc-300 dark:text-zinc-600 text-xs font-medium mt-1">
+                  Try a different name
+                </p>
+                <button
+                  onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                  className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-100"
+                >
+                  Clear Search
+                </button>
+              </motion.div>
+            )}
+
+            {/* Category sections */}
+            <div className="space-y-0">
+              {filteredCategories.map((cat) => (
+                <div key={cat.id} id={cat.id} data-category-id={cat.id} className="scroll-mt-[110px] lg:scroll-mt-8 mb-12">
+                  {/* Category header */}
+                  <div className="flex items-center gap-4 mb-5">
+                    <h2 className="text-base lg:text-lg font-black uppercase tracking-[0.2em] whitespace-nowrap dark:text-white">{cat.name}</h2>
+                    <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-700" />
+                    <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest shrink-0">{cat.menuItems.length} dishes</span>
                   </div>
 
-                  {/* Item list */}
-                  <div className="px-4 py-3 space-y-2.5">
-                    {orderHistory.items.map((item) => (
+                  {/* Items grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+                    {cat.menuItems.map((item) => (
                       <div
                         key={item.id}
                         className={cn(
-                          "flex items-center justify-between gap-3",
-                          !item.isAvailable && "opacity-40"
+                          "bg-[#F7FAF7] dark:bg-zinc-900 rounded-2xl border border-zinc-200/50 dark:border-zinc-800 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group",
+                          !item.isAvailable && "opacity-70"
                         )}
                       >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <div
-                            className={cn(
-                              "w-1.5 h-1.5 rounded-full shrink-0",
-                              item.type === "veg" ? "bg-green-500" : "bg-red-500"
+                        {/* Mobile: horizontal layout — content left, image right */}
+                        {/* sm+: vertical layout — image top, content below */}
+                        <div className="flex sm:flex-col">
+
+                          {/* Card body — left on mobile, bottom on sm+ */}
+                          <div className="flex-1 min-w-0 p-3 sm:p-3.5 order-first sm:order-last flex flex-col justify-between gap-2">
+                            <div>
+                              {/* Veg/non-veg + name */}
+                              <div className="flex items-start gap-1.5 mb-1">
+                                <div className={cn(
+                                  "w-4 h-4 sm:w-5 sm:h-5 rounded border-2 bg-white flex items-center justify-center shrink-0 mt-0.5",
+                                  item.type === "veg" ? "border-green-600" : "border-red-600"
+                                )}>
+                                  <div className={cn(
+                                    "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full",
+                                    item.type === "veg" ? "bg-green-600" : "bg-red-600"
+                                  )} />
+                                </div>
+                                <h3 className="font-black text-sm text-zinc-900 dark:text-white uppercase tracking-tight leading-tight">
+                                  <HighlightText text={item.name} query={searchQuery} />
+                                </h3>
+                              </div>
+                              <p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium line-clamp-2 sm:line-clamp-2 leading-relaxed">
+                                {item.description || "Crafted with the finest ingredients and authentic family recipes."}
+                              </p>
+                              {/* Prep time on mobile */}
+                              {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
+                                <div className="flex items-center gap-1 mt-1 sm:hidden">
+                                  <Clock size={9} className="text-zinc-400" />
+                                  <span className="text-[9px] font-bold text-zinc-400">~{item.prepTimeMinutes}m</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Price + cart controls */}
+                            <div className="flex items-center justify-between gap-2 mt-1">
+                              <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-white tracking-tighter">₹{item.price}</span>
+
+                              {!item.isAvailable ? (
+                                <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Sold Out</span>
+                              ) : cart[item.id] ? (
+                                <div className="flex items-center gap-1 sm:gap-1.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl px-1.5 sm:px-2 py-1.5 shadow-lg">
+                                  <button onClick={() => removeFromCart(item.id)} className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white/10 dark:hover:bg-black/10 rounded-lg transition-colors">
+                                    <Minus size={11} />
+                                  </button>
+                                  <span className="font-black text-xs sm:text-sm w-4 sm:w-5 text-center">{cart[item.id]}</span>
+                                  <button onClick={() => addToCart(item.id)} className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center hover:bg-white/10 dark:hover:bg-black/10 rounded-lg transition-colors">
+                                    <Plus size={11} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => addToCart(item.id)}
+                                  className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-md shadow-emerald-100 active:scale-95 transition-all duration-200"
+                                >
+                                  <Plus size={11} />
+                                  Add
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Image — right on mobile (fixed width), top on sm+ (square-ish aspect ratio) */}
+                          <div className="relative w-36 shrink-0 sm:w-full sm:aspect-[4/3] lg:aspect-square min-h-[120px] sm:min-h-0 order-last sm:order-first overflow-hidden bg-emerald-50 dark:bg-zinc-800">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <UtensilsCrossed className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-100 dark:text-zinc-700" />
+                              </div>
                             )}
-                          />
-                          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate">
-                            {item.quantity}× {item.name}
-                          </span>
-                          {!item.isAvailable && (
-                            <span className="text-[9px] font-black uppercase tracking-wider text-red-400 bg-red-50 dark:bg-red-950/50 px-1.5 py-0.5 rounded-md shrink-0">
-                              Sold Out
-                            </span>
-                          )}
+                            {/* Sold out overlay */}
+                            {!item.isAvailable && (
+                              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                                <span className="bg-black/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full">Sold Out</span>
+                              </div>
+                            )}
+                            {/* Prep time badge — only on sm+ (mobile shows inline) */}
+                            {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
+                              <div className="hidden sm:flex absolute bottom-2 right-2 items-center gap-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-black px-2 py-1 rounded-full">
+                                <Clock size={9} />
+                                ~{item.prepTimeMinutes}m
+                              </div>
+                            )}
+                          </div>
+
                         </div>
-                        <span className="text-xs font-black text-zinc-400 dark:text-zinc-500 italic shrink-0">
-                          ₹{item.price * item.quantity}
-                        </span>
                       </div>
                     ))}
                   </div>
-
-                  {/* Unavailable warning */}
-                  {unavailableItems.length > 0 && availableItems.length > 0 && (
-                    <div className="mx-4 mb-2 px-3 py-2 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-100 dark:border-amber-900/50">
-                      <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">
-                        {unavailableItems.length} item{unavailableItems.length > 1 ? "s" : ""} currently
-                        sold out — only available items will be added.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* CTA */}
-                  <div className="px-4 pb-4">
-                    {availableItems.length > 0 ? (
-                      <button
-                        onClick={handleReorder}
-                        className="w-full h-12 bg-white text-emerald-700 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-50 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200"
-                      >
-                        <RotateCcw size={14} />
-                        Reorder {availableItems.length} item{availableItems.length > 1 ? "s" : ""}
-                        <span className="text-zinc-400 dark:text-zinc-500 font-bold normal-case tracking-normal">
-                          · ₹{reorderTotal}
-                        </span>
-                      </button>
-                    ) : (
-                      <div className="text-center py-2">
-                        <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500">
-                          All your previous items are currently sold out.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })()}
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* ──────────────────────────────────────────────────────── */}
-
-      <div className="max-w-2xl mx-auto px-4 pt-8">
-        {/* Search empty state */}
-        {searchQuery && totalFilteredItems === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
-            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-4">
-              <Search size={24} className="text-zinc-300 dark:text-zinc-600" />
+                </div>
+              ))}
             </div>
-            <p className="text-zinc-500 dark:text-zinc-400 font-black text-sm uppercase tracking-wider">
-              No dishes found
-            </p>
-            <p className="text-zinc-300 dark:text-zinc-600 text-xs font-medium mt-1">
-              Try a different name
-            </p>
-            <button
-              onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-              className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-100"
-            >
-              Clear Search
-            </button>
-          </motion.div>
-        )}
-
-        <div className="space-y-16">
-          {filteredCategories.map((cat) => (
-            <div key={cat.id} id={cat.id} data-category-id={cat.id} className="space-y-8 scroll-mt-24">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-black uppercase tracking-[0.25em] whitespace-nowrap dark:text-white">{cat.name}</h2>
-                <div className="h-[1px] w-full bg-zinc-200 dark:bg-zinc-700" />
-              </div>
-
-              <div className="grid gap-8">
-                {cat.menuItems.map((item) => (
-                  <div key={item.id} className="relative group">
-                    <div className="flex justify-between items-start gap-6">
-                      <div className={cn("flex-1 space-y-2", !item.isAvailable && "opacity-40")}>
-                        {/* Name row */}
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn("w-2 h-2 rounded-full ring-4 ring-zinc-50 dark:ring-zinc-900 shadow-sm shrink-0", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} />
-                          <h3 className="font-black text-xl tracking-tight leading-none uppercase italic dark:text-white">
-                            <HighlightText text={item.name} query={searchQuery} />
-                          </h3>
-                        </div>
-
-                        {/* Prep-time */}
-                        {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
-                          <div className="flex items-center gap-1.5 pl-0.5">
-                            <Clock size={12} className="text-amber-500 shrink-0" />
-                            <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 tracking-wide">
-                              Ready in ~{item.prepTimeMinutes} mins
-                            </span>
-                          </div>
-                        )}
-
-                        <p className="text-zinc-400 dark:text-zinc-500 text-sm font-medium leading-relaxed italic">{item.description || "Crafted with the finest ingredients and authentic family recipes."}</p>
-                        <p className="text-2xl font-black tracking-tighter dark:text-white">₹{item.price}</p>
-                      </div>
-
-                      <div className="shrink-0 pt-1">
-                        {!item.isAvailable ? (
-                           <div className="px-4 py-2 bg-zinc-100 dark:bg-zinc-800 rounded-2xl text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700">
-                             Sold Out
-                           </div>
-                        ) : cart[item.id] ? (
-                          <div className="flex flex-col items-center bg-zinc-950 text-white rounded-3xl p-1 gap-1 shadow-2xl border border-white/10 group-hover:scale-105 transition-transform duration-300">
-                            <button
-                              onClick={() => addToCart(item.id)}
-                              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-2xl mb-1"
-                            >
-                              <Plus size={16} />
-                            </button>
-                            <span className="font-black text-lg h-6 flex items-center justify-center">{cart[item.id]}</span>
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="w-10 h-10 flex items-center justify-center hover:bg-white/10 rounded-2xl mt-1"
-                            >
-                              <Minus size={16} />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => addToCart(item.id)}
-                            className="hover:bg-black text-white rounded-2xl flex flex-col items-center justify-center w-12 h-16 shadow-xl hover:scale-110 active:scale-90 transition-all duration-300 group"
-                            style={{ backgroundColor: restaurant.themeColor }}
-                          >
-                            <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                            <span className="text-[9px] font-black uppercase mt-1">Add</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+          </div>
         </div>
       </div>
 
-      {/* Floating Bag Bar */}
+      {/* ─── Floating Bag Bar ─── */}
       <AnimatePresence>
         {getTotalItems() > 0 && !isBagOpen && (
           <motion.div
@@ -1147,7 +1302,7 @@ export default function CustomerMenuPage() {
         )}
       </AnimatePresence>
 
-      {/* Floating Call Waiter Button */}
+      {/* Floating Call Waiter Button — mobile only (lg:hidden) */}
       <AnimatePresence>
         {!isBagOpen && !showPayment && !isOrderSuccess && !isOrderRejected && (
           <motion.div
@@ -1157,7 +1312,7 @@ export default function CustomerMenuPage() {
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ type: "spring", stiffness: 400, damping: 28 }}
             className={cn(
-              "fixed right-4 z-50 transition-all duration-300",
+              "fixed right-4 z-50 transition-all duration-300 lg:hidden",
               getTotalItems() > 0 ? "bottom-36" : "bottom-8"
             )}
           >
@@ -1229,7 +1384,7 @@ export default function CustomerMenuPage() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8 no-scrollbar">
+              <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8 scrollbar-hide">
                 <div className="space-y-6">
                     {Object.entries(cart).map(([id, qty]) => {
                     const item = restaurant.categories.flatMap(c => c.menuItems).find(i => i.id === id);

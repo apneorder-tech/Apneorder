@@ -37,7 +37,7 @@ export function OrdersEmptyState({
   const c = config[activeTab];
 
   return (
-    <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 lg:py-24 text-center bg-white rounded-2xl sm:rounded-3xl border border-dashed border-zinc-200 px-6">
+    <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 lg:py-24 text-center bg-[#F7FAF7] rounded-2xl sm:rounded-3xl border border-dashed border-emerald-200/60 px-6">
       <div
         className={cn(
           "w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-3xl flex items-center justify-center mb-4 sm:mb-6",

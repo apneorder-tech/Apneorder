@@ -25,6 +25,7 @@ export interface ManageMenuItem {
   type: "veg" | "non-veg";
   description?: string;
   prepTimeMinutes?: number | null;
+  imageUrl?: string | null;
 }
 
 export interface ItemProfitData {
@@ -48,6 +49,7 @@ export interface ManageTable {
   id: string;
   tableNumber: string;
   restaurantId: string;
+  isOccupied: boolean;
 }
 
 export interface WaiterCall {

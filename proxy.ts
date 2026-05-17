@@ -21,13 +21,13 @@ export async function proxy(request: NextRequest) {
     // 2. Content Security Policy (Advanced Fortification)
     const cspHeader = `
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.firebaseapp.com https://*.googleapis.com https://apis.google.com https://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com https://*.google.com https://*.gstatic.com;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.supabase.co wss://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com https://*.google.com https://*.gstatic.com;
-        img-src 'self' blob: data: https://*.googleusercontent.com https://*.supabase.co https://api.qrserver.com https://*.cashfree.com https://*.google.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com;
+        connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.cashfree.com https://js.sentry-cdn.com;
+        img-src 'self' blob: data: https://*.supabase.co https://api.qrserver.com https://*.cashfree.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.cashfree.com;
         font-src 'self' https://fonts.gstatic.com https://*.cashfree.com;
         media-src 'self' https://assets.mixkit.co;
-        frame-src 'self' https://*.firebaseapp.com https://*.cashfree.com https://*.google.com https://*.gstatic.com;
+        frame-src 'self' https://*.cashfree.com;
         object-src 'none';
         base-uri 'self';
         form-action 'self' https://*.cashfree.com;

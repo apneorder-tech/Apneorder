@@ -49,11 +49,11 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.965 0.008 145);  /* Sage Mist #F1F5F1 */
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(0.978 0.006 145);        /* Light sage #F7FAF7 — elevated above background */
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.978 0.006 145);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.596 0.145 163.225); /* Emerald-600 #059669 */
   --primary-foreground: oklch(1 0 0);    /* white */
@@ -73,7 +73,7 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: oklch(1 0 0);               /* Sidebar stays pure white */
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);

@@ -1,28 +1,20 @@
 import React from "react";
-import { Plus, Loader2, AlertTriangle, Pencil } from "lucide-react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
+import { Plus, Loader2, AlertTriangle, Pencil, FolderPlus, Utensils, Tag } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
   DialogTitle,
-  DialogClose
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 export function AddCategoryDialog({
@@ -50,80 +42,90 @@ export function AddCategoryDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">
-            Create New Category
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            Add a new section to your menu like Starters, Desserts, etc.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-3 sm:py-4">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl p-0 gap-0 overflow-hidden border-zinc-200/60">
+        <DialogTitle className="sr-only">Create Category</DialogTitle>
+        <DialogDescription className="sr-only">Add a new section to your menu</DialogDescription>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-5 border-b border-zinc-100">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+              <FolderPlus size={18} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-zinc-900 tracking-tight leading-none">Create Category</h2>
+              <p className="text-xs text-zinc-400 font-medium mt-0.5">Add a new section like Starters, Desserts</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5">
+          {/* Category name */}
           <div className="space-y-2">
-            <Label htmlFor="catName" className="text-xs sm:text-sm">
-              Category Name
-            </Label>
-            <Input
-              id="catName"
+            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">
+              Category Name <span className="text-emerald-500">*</span>
+            </label>
+            <input
+              type="text"
               placeholder="e.g. Signature Pizzas"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               autoFocus
-              className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+              onKeyDown={(e) => { if (e.key === "Enter" && newCategoryName.trim()) onAdd(); }}
+              className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
             />
           </div>
-          <Separator />
-          <p className="text-[10px] sm:text-xs text-zinc-400 font-medium">
-            Optional: Add your first dish
-          </p>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="firstDish" className="text-xs sm:text-sm">
-                Dish Name
-              </Label>
-              <Input
-                id="firstDish"
+
+          {/* Optional divider */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-100" />
+            <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest px-1">Optional — First Dish</span>
+            <div className="h-px flex-1 bg-zinc-100" />
+          </div>
+
+          {/* First dish */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Dish Name</label>
+              <input
+                type="text"
                 placeholder="e.g. Margherita"
                 value={initialDishName}
                 onChange={(e) => setInitialDishName(e.target.value)}
-                className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+                className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
               />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="firstPrice" className="text-xs sm:text-sm">
-                Price (₹)
-              </Label>
-              <Input
-                id="firstPrice"
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Price (₹)</label>
+              <input
                 type="number"
                 placeholder="199"
                 value={initialDishPrice}
                 onChange={(e) => setInitialDishPrice(e.target.value)}
-                className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+                className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
               />
             </div>
           </div>
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3">
           <DialogClose asChild>
-            <Button variant="outline" className="rounded-lg sm:rounded-xl">
+            <button className="flex-1 h-11 rounded-xl border border-zinc-200 text-sm font-black text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-all">
               Cancel
-            </Button>
+            </button>
           </DialogClose>
-          <Button
+          <button
             onClick={onAdd}
             disabled={isUpdating || !newCategoryName.trim()}
-            className="bg-zinc-900 rounded-lg sm:rounded-xl"
+            className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md shadow-emerald-100"
           >
-            {isUpdating ? (
-              <Loader2 size={16} className="animate-spin mr-2" />
-            ) : (
-              <Plus size={16} className="mr-2" />
-            )}
+            {isUpdating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
             Create
-          </Button>
-        </DialogFooter>
+          </button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );
@@ -160,100 +162,125 @@ export function AddItemDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">
-            Add New Dish
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            Adding to <span className="font-bold">{categoryName}</span>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-xs sm:text-sm">Dish Name</Label>
-              <Input
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl p-0 gap-0 overflow-hidden border-zinc-200/60">
+        <DialogTitle className="sr-only">Add New Dish</DialogTitle>
+        <DialogDescription className="sr-only">Add a new dish to the menu category</DialogDescription>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-5 border-b border-zinc-100">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+              <Utensils size={17} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-zinc-900 tracking-tight leading-none">Add New Dish</h2>
+              <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                Adding to <span className="text-emerald-600 font-bold">{categoryName}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+
+          {/* Name + Price */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">
+                Dish Name <span className="text-emerald-500">*</span>
+              </label>
+              <input
+                type="text"
                 placeholder="e.g. Butter Chicken"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 autoFocus
-                className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+                className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
               />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label className="text-xs sm:text-sm">Price (₹)</Label>
-              <Input
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">
+                Price (₹) <span className="text-emerald-500">*</span>
+              </label>
+              <input
                 type="number"
                 placeholder="299"
                 value={newItemPrice}
                 onChange={(e) => setNewItemPrice(e.target.value)}
-                className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+                className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
               />
             </div>
           </div>
-          <div className="space-y-1.5 sm:space-y-2">
-            <Label className="text-xs sm:text-sm">
-              Description (optional)
-            </Label>
-            <Input
-              placeholder="A short description of the dish..."
+
+          {/* Description */}
+          <div className="space-y-2">
+            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Description <span className="text-zinc-300 normal-case font-medium tracking-normal">— optional</span></label>
+            <input
+              type="text"
+              placeholder="A short description of the dish…"
               value={newItemDescription}
               onChange={(e) => setNewItemDescription(e.target.value)}
-              className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+              className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
             />
           </div>
-          <div className="space-y-1.5 sm:space-y-2">
-            <Label className="text-xs sm:text-sm">Type</Label>
-            <div className="flex gap-2">
-              <Button
+
+          {/* Type toggle */}
+          <div className="space-y-2">
+            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Type</label>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-100 rounded-xl">
+              <button
                 type="button"
-                variant={newItemType === "veg" ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "flex-1 h-10 rounded-lg sm:rounded-xl",
-                  newItemType === "veg" && "bg-green-600 hover:bg-green-700"
-                )}
                 onClick={() => setNewItemType("veg")}
-              >
-                <span className="w-2 h-2 rounded-full bg-green-300 mr-2" />
-                Veg
-              </Button>
-              <Button
-                type="button"
-                variant={newItemType === "non-veg" ? "default" : "outline"}
-                size="sm"
                 className={cn(
-                  "flex-1 h-10 rounded-lg sm:rounded-xl",
-                  newItemType === "non-veg" && "bg-red-600 hover:bg-red-700"
+                  "h-10 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all",
+                  newItemType === "veg"
+                    ? "bg-white text-green-700 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-600"
                 )}
-                onClick={() => setNewItemType("non-veg")}
               >
-                <span className="w-2 h-2 rounded-full bg-red-300 mr-2" />
+                <div className={cn("w-3 h-3 rounded border-2 flex items-center justify-center", newItemType === "veg" ? "border-green-600" : "border-zinc-300")}>
+                  <div className={cn("w-1.5 h-1.5 rounded-full", newItemType === "veg" ? "bg-green-600" : "bg-zinc-300")} />
+                </div>
+                Veg
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewItemType("non-veg")}
+                className={cn(
+                  "h-10 rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all",
+                  newItemType === "non-veg"
+                    ? "bg-white text-red-600 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-600"
+                )}
+              >
+                <div className={cn("w-3 h-3 rounded border-2 flex items-center justify-center", newItemType === "non-veg" ? "border-red-600" : "border-zinc-300")}>
+                  <div className={cn("w-1.5 h-1.5 rounded-full", newItemType === "non-veg" ? "bg-red-600" : "bg-zinc-300")} />
+                </div>
                 Non-Veg
-              </Button>
+              </button>
             </div>
           </div>
+
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3">
           <DialogClose asChild>
-            <Button variant="outline" className="rounded-lg sm:rounded-xl">
+            <button className="flex-1 h-11 rounded-xl border border-zinc-200 text-sm font-black text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-all">
               Cancel
-            </Button>
+            </button>
           </DialogClose>
-          <Button
+          <button
             onClick={onAdd}
             disabled={isUpdating || !newItemName.trim() || !newItemPrice.trim()}
-            className="bg-zinc-900 rounded-lg sm:rounded-xl"
+            className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md shadow-emerald-100"
           >
-            {isUpdating ? (
-              <Loader2 size={16} className="animate-spin mr-2" />
-            ) : (
-              <Plus size={16} className="mr-2" />
-            )}
+            {isUpdating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
             Add to Menu
-          </Button>
-        </DialogFooter>
+          </button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );
@@ -274,38 +301,53 @@ export function RenameCategoryDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-base sm:text-lg">
-            Rename Category
-          </DialogTitle>
-        </DialogHeader>
-        <div className="py-3 sm:py-4">
-          <Input
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm rounded-2xl p-0 gap-0 overflow-hidden border-zinc-200/60">
+        <DialogTitle className="sr-only">Rename Category</DialogTitle>
+        <DialogDescription className="sr-only">Enter a new name for this category</DialogDescription>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-5 border-b border-zinc-100">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">
+              <Tag size={16} className="text-zinc-600" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-zinc-900 tracking-tight leading-none">Rename Category</h2>
+              <p className="text-xs text-zinc-400 font-medium mt-0.5">Enter a new name below</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          <input
+            type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="Category name"
             autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") onRename();
-            }}
-            className="h-10 sm:h-11 rounded-lg sm:rounded-xl"
+            onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) onRename(); }}
+            className="w-full h-11 px-4 rounded-xl border border-zinc-200 bg-[#F7FAF7] text-sm font-medium text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
           />
         </div>
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3">
           <DialogClose asChild>
-            <Button variant="outline" className="rounded-lg sm:rounded-xl">
+            <button className="flex-1 h-11 rounded-xl border border-zinc-200 text-sm font-black text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-all">
               Cancel
-            </Button>
+            </button>
           </DialogClose>
-          <Button
+          <button
             onClick={onRename}
             disabled={!value.trim()}
-            className="bg-zinc-900 rounded-lg sm:rounded-xl"
+            className="flex-1 h-11 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
           >
-            Save
-          </Button>
-        </DialogFooter>
+            <Pencil size={14} />
+            Save Name
+          </button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );
@@ -324,28 +366,48 @@ export function DeleteCategoryAlert({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg rounded-2xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <AlertTriangle size={18} className="text-red-500 shrink-0" />
-            Delete &quot;{categoryName}&quot;?
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-xs sm:text-sm">
-            This will permanently delete this category and ALL its menu
-            items. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-          <AlertDialogCancel className="rounded-xl">
-            Cancel
+      <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl p-0 gap-0 overflow-hidden border-zinc-200/60">
+        <AlertDialogTitle className="sr-only">Delete Category</AlertDialogTitle>
+        <AlertDialogDescription className="sr-only">Permanently delete this category and all its items</AlertDialogDescription>
+
+        {/* Header */}
+        <div className="px-6 pt-6 pb-5 border-b border-red-50">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} className="text-red-500" />
+            </div>
+            <div>
+              <h2 className="text-base font-black text-zinc-900 tracking-tight leading-none">Delete Category?</h2>
+              <p className="text-xs text-zinc-400 font-medium mt-0.5">This action cannot be undone</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+            <p className="text-sm text-red-700 font-medium leading-relaxed">
+              You are about to permanently delete{" "}
+              <span className="font-black">&quot;{categoryName}&quot;</span>{" "}
+              and <span className="font-black">all its menu items</span>. Once deleted, there is no way to recover them.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 pb-6 flex gap-3">
+          <AlertDialogCancel className="flex-1 h-11 rounded-xl border border-zinc-200 text-sm font-black text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-all bg-transparent shadow-none">
+            Keep It
           </AlertDialogCancel>
           <AlertDialogAction
-            className="bg-red-600 hover:bg-red-700 rounded-xl"
             onClick={onDelete}
+            className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-black flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md shadow-red-100"
           >
-            Delete Category
+            <AlertTriangle size={14} />
+            Delete Forever
           </AlertDialogAction>
-        </AlertDialogFooter>
+        </div>
+
       </AlertDialogContent>
     </AlertDialog>
   );

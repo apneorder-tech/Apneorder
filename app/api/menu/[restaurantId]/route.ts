@@ -55,6 +55,7 @@ export async function GET(
                           type: true,
                           isAvailable: true,
                           prepTimeMinutes: true,
+                          imageUrl: true,
                       }
                   }
               }

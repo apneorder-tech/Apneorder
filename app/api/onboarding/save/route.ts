@@ -17,10 +17,9 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const { 
-      managerId, 
-      phone,
-      restaurantName, 
+    const {
+      managerId,
+      restaurantName,
       ownerName, 
       city, 
       address, 
@@ -41,22 +40,14 @@ export async function POST(request: Request) {
 
     const trimmedUpiId = upiId ? upiId.trim() : "";
 
-    // 0. Verify Manager Exists (Robust Lookup)
-    let managerRecord = await prisma.manager.findUnique({
+    // 0. Verify Manager Exists
+    const managerRecord = await prisma.manager.findUnique({
         where: { id: managerId }
     });
 
-    if (!managerRecord && phone) {
-        // Fallback to phone lookup if ID fails (resolves CUID/UID mismatch)
-        const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
-        managerRecord = await prisma.manager.findUnique({
-            where: { phone: formattedPhone }
-        });
-    }
-
     if (!managerRecord) {
-        console.error(`Manager NOT found in DB. ID: ${managerId}, Phone: ${phone}`);
-        return NextResponse.json({ error: `Manager record not found for ID: ${managerId}. Please logout and login again.` }, { status: 400 });
+        console.error(`Manager NOT found in DB. ID: ${managerId}`);
+        return NextResponse.json({ error: `Manager record not found. Please logout and sign in again.` }, { status: 400 });
     }
 
     const verifiedManagerId = managerRecord.id;

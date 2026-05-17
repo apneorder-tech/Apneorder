@@ -1,10 +1,10 @@
-import React, { useState } from "react";
-import { Check, Sparkles, CreditCard, Loader2, Zap, RefreshCw, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Check, Sparkles, CreditCard, Loader2, Zap, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 
 export function SubscriptionCard({ 
   status, 
@@ -17,36 +17,60 @@ export function SubscriptionCard({
 }) {
   const [loading, setLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [activationDone, setActivationDone] = useState(false);
+  const [syncAttempts, setSyncAttempts] = useState(0);
+  const [syncTimedOut, setSyncTimedOut] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const MAX_ATTEMPTS = 15; // poll for ~30s (every 2s)
 
-  // Auto-sync when returning from payment
-  React.useEffect(() => {
+  // Auto-sync with polling when returning from payment
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("subscription") === "success") {
-      const syncStatus = async () => {
-        setIsSyncing(true);
-        try {
-          const idToken = await auth.currentUser?.getIdToken();
-          if (!idToken) return;
-          
-          const res = await fetch("/api/subscriptions/sync", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${idToken}` }
-          });
-          const data = await res.json();
-          if (data.success && data.status === "ACTIVE") {
-            toast.success("Subscription Active! Refreshing your dashboard...");
-            setTimeout(() => window.location.href = "/dashboard", 1500);
-          } else {
-            console.log("Sync result:", data);
-          }
-        } catch (e) {
-          console.error("Auto-sync error:", e);
-        } finally {
-          setIsSyncing(false);
+    if (params.get("subscription") !== "success") return;
+
+    setIsSyncing(true);
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts++;
+      setSyncAttempts(attempts);
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const idToken = session?.access_token;
+        if (!idToken) return;
+
+        const res = await fetch("/api/subscriptions/sync", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${idToken}` },
+        });
+        const data = await res.json();
+
+        if (data.success && data.status === "ACTIVE") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setActivationDone(true);
+          setTimeout(() => {
+            window.location.href = "/dashboard";
+          }, 2000);
+          return;
         }
-      };
-      syncStatus();
-    }
+      } catch (e) {
+        console.error("Sync poll error:", e);
+      }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setIsSyncing(false);
+        setSyncTimedOut(true);
+      }
+    };
+
+    poll(); // first attempt immediately
+    pollRef.current = setInterval(poll, 2000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   const handleSubscribe = async () => {
@@ -56,17 +80,15 @@ export function SubscriptionCard({
       return;
     }
 
-    if (!auth.currentUser) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       toast.error("Please login first");
       return;
     }
 
     setLoading(true);
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error("User not authenticated");
-
-      const idToken = await currentUser.getIdToken();
+      const idToken = session.access_token;
       const res = await fetch("/api/subscriptions/create", {
         method: "POST",
         headers: {
@@ -74,8 +96,8 @@ export function SubscriptionCard({
           "Authorization": `Bearer ${idToken}`,
         },
         body: JSON.stringify({
-          customerName: currentUser.displayName || "Restaurant Manager",
-          customerEmail: currentUser.email || `user_${currentUser.uid}@apneorder.com`,
+          customerName: session.user.user_metadata?.full_name || "Restaurant Manager",
+          customerEmail: session.user.email || `user_${session.user.id}@apneorder.com`,
         }),
       });
 
@@ -102,7 +124,8 @@ export function SubscriptionCard({
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const { data: { session } } = await supabase.auth.getSession();
+      const idToken = session?.access_token;
       if (!idToken) return;
       
       const res = await fetch("/api/subscriptions/sync", {
@@ -128,9 +151,105 @@ export function SubscriptionCard({
   const isActive = status === "ACTIVE";
   const isPastDue = status === "PAST_DUE";
 
+  // ── Full-page activation overlay (shown after returning from payment) ──
+  if (isSyncing || activationDone) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-[#F1F5F1] dark:bg-zinc-950 flex flex-col overflow-hidden">
+        {/* Fake top bar skeleton */}
+        <div className="h-14 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 flex items-center px-6 gap-4 shrink-0">
+          <div className="h-5 w-32 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
+          <div className="h-4 w-20 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse ml-2" />
+          <div className="ml-auto h-5 w-24 bg-zinc-100 dark:bg-zinc-800 rounded-lg animate-pulse" />
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Fake sidebar skeleton */}
+          <div className="hidden md:flex w-60 bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800 flex-col gap-3 p-4 shrink-0">
+            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+            <div className="h-10 w-3/4 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+            <div className="h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse mt-2" />
+            <div className="h-10 w-5/6 bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+            <div className="mt-auto h-10 w-full bg-zinc-100 dark:bg-zinc-800 rounded-xl animate-pulse" />
+          </div>
+
+          {/* Fake content skeleton */}
+          <div className="flex-1 p-6 space-y-4 overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-24 bg-white dark:bg-zinc-900 rounded-2xl animate-pulse border border-zinc-100 dark:border-zinc-800" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-40 bg-white dark:bg-zinc-900 rounded-2xl animate-pulse border border-zinc-100 dark:border-zinc-800" />
+              ))}
+            </div>
+            <div className="h-48 bg-white dark:bg-zinc-900 rounded-2xl animate-pulse border border-zinc-100 dark:border-zinc-800" />
+          </div>
+        </div>
+
+        {/* Activation status card — centred over the skeleton */}
+        <div className="absolute inset-0 flex items-center justify-center px-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl shadow-zinc-200/60 dark:shadow-zinc-950 border border-zinc-100 dark:border-zinc-800 p-8 w-full max-w-sm text-center">
+            {activationDone ? (
+              <>
+                <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-md shadow-emerald-100">
+                  <CheckCircle2 size={32} className="text-emerald-600" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight mb-1">You&apos;re all set!</h2>
+                <p className="text-sm text-zinc-400 font-medium">Subscription activated. Loading your dashboard…</p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-md shadow-emerald-100">
+                  <Sparkles size={28} className="text-emerald-600 animate-pulse" />
+                </div>
+                <h2 className="text-xl font-black text-zinc-900 dark:text-white tracking-tight mb-1">Activating your plan</h2>
+                <p className="text-sm text-zinc-400 font-medium mb-6">
+                  Verifying your payment and unlocking premium features…
+                </p>
+
+                {/* Animated dots */}
+                <div className="flex items-center justify-center gap-1.5 mb-6">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`h-1.5 rounded-full bg-emerald-400 transition-all duration-300 ${
+                        i < Math.min(syncAttempts, 5) ? "w-6 opacity-100" : "w-1.5 opacity-30"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                {syncTimedOut ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-amber-600 font-bold">Taking longer than expected.</p>
+                    <button
+                      onClick={handleManualSync}
+                      disabled={isSyncing}
+                      className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black flex items-center justify-center gap-2 transition-all"
+                    >
+                      <RefreshCw size={14} />
+                      Check Again
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-black text-zinc-300 dark:text-zinc-600 uppercase tracking-widest">
+                    This usually takes under 30 seconds
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading && !status) {
     return (
-      <Card className="border-zinc-100 shadow-2xl rounded-3xl p-8 bg-white animate-pulse">
+      <Card className="border-zinc-200/50 shadow-2xl rounded-3xl p-8 animate-pulse">
         <div className="h-8 bg-zinc-100 rounded-lg w-1/3 mb-4" />
         <div className="h-12 bg-zinc-100 rounded-xl w-1/2 mb-8" />
         <div className="space-y-4">
@@ -143,7 +262,7 @@ export function SubscriptionCard({
   }
 
   return (
-    <Card className="relative overflow-hidden border-zinc-100 shadow-2xl shadow-zinc-200/50 rounded-3xl p-8 bg-white group">
+    <Card className="relative overflow-hidden border-zinc-200/50 shadow-2xl shadow-zinc-200/50 rounded-3xl p-8 group">
       {/* Decorative Gradient */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700" />
       
@@ -205,7 +324,11 @@ export function SubscriptionCard({
                       <CreditCard size={18} className="text-zinc-400" />
                       <div className="space-y-0.5">
                          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 leading-none">Next Billing</p>
-                         <p className="text-sm font-black tracking-tight italic">{expiryDate || "N/A"}</p>
+                         <p className="text-sm font-black tracking-tight italic">
+                           {expiryDate
+                             ? new Date(expiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+                             : "N/A"}
+                         </p>
                       </div>
                    </div>
                 </div>

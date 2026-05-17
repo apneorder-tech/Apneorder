@@ -1,4 +1,4 @@
-import { adminAuth } from "./firebaseAdmin";
+import { supabaseAdmin } from "./supabase-admin";
 import { NextResponse } from "next/server";
 
 export async function verifyManagerSession(request: Request) {
@@ -8,13 +8,17 @@ export async function verifyManagerSession(request: Request) {
       return { authenticated: false, error: "Missing or invalid authorization header" };
     }
 
-    const idToken = authHeader.split("Bearer ")[1];
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    
-    return { 
-      authenticated: true, 
-      uid: decodedToken.uid,
-      phoneNumber: decodedToken.phone_number 
+    const token = authHeader.split("Bearer ")[1];
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+
+    if (error || !user) {
+      return { authenticated: false, error: "Unauthorized" };
+    }
+
+    return {
+      authenticated: true,
+      uid: user.id,
+      email: user.email,
     };
   } catch (error) {
     console.error("Auth Verification Error:", error);
@@ -22,16 +26,10 @@ export async function verifyManagerSession(request: Request) {
   }
 }
 
-/**
- * Helper to wrap common 401 response for API routes
- */
 export function unauthorizedResponse(message = "Unauthorized") {
   return NextResponse.json({ success: false, error: message }, { status: 401 });
 }
 
-/**
- * Helper for 403 Forbidden (Authenticated but not authorized for this resource)
- */
 export function forbiddenResponse(message = "Forbidden") {
   return NextResponse.json({ success: false, error: message }, { status: 403 });
 }

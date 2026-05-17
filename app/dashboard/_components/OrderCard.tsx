@@ -51,7 +51,7 @@ export function OrderCard({
   return (
     <Card
       className={cn(
-        "group relative flex flex-col h-full bg-white border-zinc-100 shadow-sm hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-500 overflow-hidden rounded-2xl sm:rounded-3xl",
+        "group relative flex flex-col h-full border-zinc-200/50 shadow-sm hover:shadow-xl hover:shadow-zinc-200/40 transition-all duration-500 overflow-hidden rounded-2xl sm:rounded-3xl",
         isVerifying && "ring-2 ring-purple-100 border-purple-200/50 shadow-purple-100/50"
       )}
     >
@@ -213,7 +213,7 @@ export function OrderCard({
       </div>
 
       {/* Footer */}
-      <div className="p-4 sm:p-6 bg-white mt-auto border-t border-zinc-100">
+      <div className="p-4 sm:p-6 mt-auto border-t border-zinc-200/60">
         <div className="flex justify-between items-end mb-3">
           <div className="space-y-1">
             <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest block leading-none">

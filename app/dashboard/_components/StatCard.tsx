@@ -14,7 +14,7 @@ export function StatCard({ label, value, icon: Icon }: StatCardProps) {
   return (
     <Card
       className={cn(
-        "border border-zinc-200/60 rounded-2xl bg-white",
+        "border border-zinc-200/50 rounded-2xl",
         "shadow-none hover:shadow-sm",
         "transition-all duration-200 ease-out",
         "hover:border-zinc-300/60"

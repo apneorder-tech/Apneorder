@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { auth } from "@/lib/firebase";
 import { supabase } from "@/lib/supabase";
-import { 
-  Loader2, 
-  Clock, 
-  ChefHat, 
-  Check, 
+import {
+  Loader2,
+  Clock,
+  ChefHat,
+  Check,
   Bell
 } from "lucide-react";
 import { toast } from "sonner";
-import { User } from "firebase/auth";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -112,7 +111,7 @@ export default function DashboardPage() {
   const [newTableNumber, setNewTableNumber] = useState("");
   const [isAddTableDialogOpen, setIsAddTableDialogOpen] = useState(false);
   const [isShowingPreview, setIsShowingPreview] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   // Waiter call state
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([]);
@@ -131,10 +130,15 @@ export default function DashboardPage() {
   const [isEssentialsLoaded, setIsEssentialsLoaded] = useState(false);
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
 
+  const getToken = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  }, []);
+
   // ─── Data Fetching ───
   const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false, subscriptionOnly = false) => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}&subscriptionOnly=${subscriptionOnly}`, {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
@@ -183,13 +187,13 @@ export default function DashboardPage() {
     } finally { 
       if (!essentialsOnly) setLoading(false);
     }
-  }, []);
+  }, [getToken]);
 
   const fetchMenuData = useCallback(async (rid: string) => {
     if (isMenuLoaded || isLoadingMenu) return;
     setIsLoadingMenu(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/menu/data?restaurantId=${rid}`, {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
@@ -204,7 +208,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoadingMenu(false);
     }
-  }, [isMenuLoaded, isLoadingMenu]);
+  }, [isMenuLoaded, isLoadingMenu, getToken]);
 
   useEffect(() => {
     if (activeView === "menu" && restaurantId) fetchMenuData(restaurantId);
@@ -215,7 +219,7 @@ export default function DashboardPage() {
     setIsLoadingMore(true);
     try {
       const nextPage = completedPage + 1;
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/dashboard/data?managerId=${managerId}&page=${nextPage}`, {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
@@ -226,7 +230,7 @@ export default function DashboardPage() {
         setCompletedPage(nextPage);
       }
     } catch (err) { console.error("Load More Error:", err); toast.error("Failed to load more orders"); } finally { setIsLoadingMore(false); }
-  }, [managerId, completedPage, isLoadingMore, hasMoreCompleted]);
+  }, [managerId, completedPage, isLoadingMore, hasMoreCompleted, getToken]);
 
   const [hasMounted, setHasMounted] = useState(false);
   
@@ -236,57 +240,57 @@ export default function DashboardPage() {
 
   // Use the new progressive fetch on mount
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        setUser(user);
-        
-        let idToUse = user.uid;
-        
-        // 1. Try to get cached managerId from localStorage first (VERY FAST)
-        if (typeof window !== "undefined") {
-          const cachedId = localStorage.getItem(`managerId_${user.uid}`);
-          if (cachedId) idToUse = cachedId;
-          
-          // Impersonation logic for ADMIN
-          if (user.uid === "ADMIN_UID") {
-            const impId = localStorage.getItem("IMPERSONATE_USER_ID");
-            if (impId) idToUse = impId;
-          }
-        }
+    const initDashboard = async (supabaseUser: SupabaseUser, token: string) => {
+      setUser(supabaseUser);
+      const uid = supabaseUser.id;
 
-        setManagerId(idToUse);
-        fetchDashboardData(idToUse, false, true); // Start with SUBSCRIPTION ONLY!
+      let idToUse = uid;
+      if (typeof window !== "undefined") {
+        const cachedId = localStorage.getItem(`managerId_${uid}`);
+        if (cachedId) idToUse = cachedId;
+      }
 
-        // Run sync in the background to ensure DB is up to date
-        try {
-          const idToken = await user.getIdToken();
-          fetch("/api/auth/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken }),
-          }).then(res => res.json()).then(syncData => {
-            if (syncData.success) {
-              if (typeof window !== "undefined") {
-                localStorage.setItem(`managerId_${user.uid}`, syncData.managerId);
-              }
-              
-              if (syncData.managerId !== idToUse) {
-                setManagerId(syncData.managerId);
-                fetchDashboardData(syncData.managerId, true);
-              }
-              if (!syncData.hasRestaurant) {
-                window.location.href = "/onboarding";
-              }
+      setManagerId(idToUse);
+      fetchDashboardData(idToUse, false, true);
+
+      // Background sync
+      try {
+        fetch("/api/auth/sync", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(res => res.json()).then(syncData => {
+          if (syncData.success) {
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`managerId_${uid}`, syncData.managerId);
             }
-          });
-        } catch (e) { 
-          console.error("Background sync error:", e); 
-        }
-      } else { 
-        window.location.href = "/login"; 
+            if (syncData.managerId !== idToUse) {
+              setManagerId(syncData.managerId);
+              fetchDashboardData(syncData.managerId, true);
+            }
+            if (!syncData.hasRestaurant) {
+              window.location.href = "/onboarding";
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Background sync error:", e);
+      }
+    };
+
+    // Check existing session first
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        initDashboard(session.user, session.access_token);
+      } else {
+        window.location.href = "/login";
       }
     });
-    return () => unsubscribe();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") window.location.href = "/login";
+    });
+
+    return () => subscription.unsubscribe();
   }, [fetchDashboardData]);
 
   useEffect(() => {
@@ -327,7 +331,7 @@ export default function DashboardPage() {
           );
         } else {
           // For INSERT (New Order), do a full re-fetch to get nested items
-          const idToken = await auth.currentUser?.getIdToken();
+          const idToken = await getToken();
           fetch(`/api/dashboard/data?managerId=${managerId}&essentials=true`, {
             headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
           })
@@ -366,7 +370,7 @@ export default function DashboardPage() {
     // Initial fetch of any unacknowledged calls that arrived before page load
     const fetchExistingCalls = async () => {
       try {
-        const idToken = await auth.currentUser?.getIdToken();
+        const idToken = await getToken();
         const res = await fetch(`/api/waiter-call?restaurantId=${restaurantId}`, {
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         });
@@ -419,7 +423,7 @@ export default function DashboardPage() {
     // Polling fallback — every 30 seconds to catch any missed Realtime events
     const pollInterval = setInterval(async () => {
       try {
-        const idToken = await auth.currentUser?.getIdToken();
+        const idToken = await getToken();
         const res = await fetch(`/api/waiter-call?restaurantId=${restaurantId}`, {
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
         });
@@ -454,7 +458,7 @@ export default function DashboardPage() {
         prev.map((c) => (c.id === id ? { ...c, isAcknowledged: true } : c))
       );
       try {
-        const idToken = await auth.currentUser?.getIdToken();
+        const idToken = await getToken();
         await fetch(`/api/waiter-call/${id}/acknowledge`, {
           method: "PATCH",
           headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
@@ -463,7 +467,7 @@ export default function DashboardPage() {
         console.error("Acknowledge waiter call error:", err);
       }
     },
-    []
+    [getToken]
   );
 
   const updateOrderStatus = useCallback(async (orderId: string, status: Order["status"]) => {
@@ -481,7 +485,7 @@ export default function DashboardPage() {
     });
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: "PATCH",
         headers: {
@@ -503,7 +507,7 @@ export default function DashboardPage() {
     if (!restaurantId || !tempUpiId.trim() || !tempUpiId.includes("@")) return;
     setIsUpdatingUpi(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch("/api/restaurant/update-upi", {
         method: "POST",
         headers: { 
@@ -522,7 +526,7 @@ export default function DashboardPage() {
     if (!restaurantId || isAddingTable || isNaN(tableNum) || tableNum <= 0) return;
     setIsAddingTable(true);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch("/api/tables/add", {
         method: "POST",
         headers: { 
@@ -543,10 +547,14 @@ export default function DashboardPage() {
 
   const handleSendTestOrder = async () => {
     if (!restaurantId) return;
+    const idToken = await getToken();
     toast.promise(
       fetch("/api/orders/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({
           restaurantId,
           tableNumber: "1",
@@ -564,7 +572,7 @@ export default function DashboardPage() {
 
   const handleDeleteTable = async (tableId: string) => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/tables/${tableId}`, { 
         method: "DELETE",
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
@@ -576,6 +584,25 @@ export default function DashboardPage() {
         toast.success("Table deleted");
       }
     } catch { toast.error("Failed to delete table"); }
+  };
+
+  const handleClearTable = async (table: ManageTable) => {
+    try {
+      const idToken = await getToken();
+      const res = await fetch(`/api/tables/${table.id}/clear`, {
+        method: "POST",
+        headers: idToken ? { "Authorization": `Bearer ${idToken}` } : {}
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTables((prev) => prev.map((t) => t.id === table.id ? { ...t, isOccupied: false } : t));
+        toast.success(`Table ${table.tableNumber} cleared`);
+      } else {
+        toast.error("Failed to clear table");
+      }
+    } catch {
+      toast.error("Failed to clear table");
+    }
   };
 
   const downloadQR = (table: ManageTable) => {
@@ -615,7 +642,7 @@ export default function DashboardPage() {
     if (!newCategoryName.trim() || !restaurantId) return;
     setIsUpdating("new-category");
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/menu/categories`, { 
         method: "POST", 
         headers: { 
@@ -650,7 +677,7 @@ export default function DashboardPage() {
     if (!newItemName.trim() || !newItemPrice.trim()) return;
     setIsUpdating(categoryId);
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/menu/categories/${categoryId}/items`, { 
         method: "POST", 
         headers: { 
@@ -671,7 +698,7 @@ export default function DashboardPage() {
   const handleDeleteCategory = async () => {
     if (!deletingCategory) return;
     try {
-      const idToken = await auth.currentUser?.getIdToken();
+      const idToken = await getToken();
       const res = await fetch(`/api/menu/categories/${deletingCategory.id}`, { 
         method: "DELETE",
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
@@ -690,15 +717,16 @@ export default function DashboardPage() {
   // Standard dashboard layout
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex min-h-screen bg-[#FDFDFD] font-sans text-zinc-900 selection:bg-zinc-900 selection:text-white">
+      <div className="flex min-h-screen bg-[#F1F5F1] font-sans text-zinc-900 selection:bg-emerald-600 selection:text-white">
         {/* Sidebar */}
-        <aside className="hidden lg:flex w-[280px] flex-col sticky top-0 h-screen border-r border-zinc-100 bg-white/50 backdrop-blur-xl z-50">
-          <SidebarContent 
-            activeView={activeView} 
-            setActiveView={setActiveView} 
-            restaurantName={restaurantName} 
+        <aside className="hidden lg:flex w-[280px] flex-col sticky top-0 h-screen border-r border-emerald-100/60 bg-white z-50">
+          <SidebarContent
+            activeView={activeView}
+            setActiveView={setActiveView}
+            restaurantName={restaurantName}
             subscriptionStatus={subscription?.status}
             loading={loading}
+            onLogout={() => supabase.auth.signOut().then(() => { window.location.href = "/login"; })}
           />
         </aside>
 
@@ -711,7 +739,7 @@ export default function DashboardPage() {
               setActiveView={(v) => { setActiveView(v); setMobileMenuOpen(false); }} 
               restaurantName={restaurantName} 
               subscriptionStatus={subscription?.status}
-              onLogout={() => auth.signOut()}
+              onLogout={() => supabase.auth.signOut().then(() => { window.location.href = "/login"; })}
               subscription={subscription}
               onSendTestOrder={handleSendTestOrder}
               loading={loading}
@@ -804,7 +832,7 @@ export default function DashboardPage() {
                   onDeleteCategory={setDeletingCategory} 
                   onUpdateItemName={async (id, name) => {
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, { 
                         method: "PATCH", 
                         headers: { 
@@ -819,7 +847,7 @@ export default function DashboardPage() {
                   onUpdatePrice={async (id, price) => {
                     setIsUpdating(id);
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, {
                         method: "PATCH",
                         headers: {
@@ -834,7 +862,7 @@ export default function DashboardPage() {
                   onUpdateCostPrice={async (id, costPrice) => {
                     setIsUpdating(id);
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, {
                         method: "PATCH",
                         headers: {
@@ -852,7 +880,7 @@ export default function DashboardPage() {
                   onUpdatePrepTime={async (id, prepTimeMinutes) => {
                     setIsUpdating(id);
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, {
                         method: "PATCH",
                         headers: {
@@ -877,7 +905,7 @@ export default function DashboardPage() {
                   onToggleAvailability={async (id, current) => {
                     setMenuCategories(menuCategories.map(cat => ({ ...cat, menuItems: cat.menuItems.map(i => i.id === id ? { ...i, isAvailable: !current } : i) })));
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, { 
                         method: "PATCH", 
                         headers: { 
@@ -891,7 +919,7 @@ export default function DashboardPage() {
                   }} 
                   onDeleteItem={async (id) => {
                     try {
-                      const idToken = await auth.currentUser?.getIdToken();
+                      const idToken = await getToken();
                       const res = await fetch(`/api/menu/items/${id}`, { 
                         method: "DELETE",
                         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
@@ -914,6 +942,7 @@ export default function DashboardPage() {
                   onDeleteTable={setDeletingTable}
                   onDownloadQR={downloadQR}
                   onDownloadAllQRs={downloadAllQRs}
+                  onClearTable={handleClearTable}
                   loading={loading}
                 />
               ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
@@ -957,7 +986,7 @@ export default function DashboardPage() {
         <RenameCategoryDialog open={!!renamingCategory} onOpenChange={(open) => !open && setRenamingCategory(null)} onRename={async () => {
           if (!renamingCategory) return;
           try {
-            const idToken = await auth.currentUser?.getIdToken();
+            const idToken = await getToken();
             const res = await fetch(`/api/menu/categories/${renamingCategory.id}`, { 
               method: "PATCH", 
               headers: { 

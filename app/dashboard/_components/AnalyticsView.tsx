@@ -83,7 +83,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
       {/* ── Revenue Summary Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
         {/* Daily */}
-        <Card className="bg-white border border-zinc-100/80 shadow-sm overflow-hidden group rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
+        <Card className="border border-zinc-200/50 shadow-sm overflow-hidden group rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
@@ -126,7 +126,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </Card>
 
         {/* Monthly */}
-        <Card className="bg-white border border-zinc-100/80 shadow-sm overflow-hidden rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
+        <Card className="border border-zinc-200/50 shadow-sm overflow-hidden rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
@@ -146,7 +146,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </Card>
 
         {/* Yearly */}
-        <Card className="bg-white border border-zinc-100/80 shadow-sm overflow-hidden rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
+        <Card className="border border-zinc-200/50 shadow-sm overflow-hidden rounded-2xl sm:rounded-[28px] hover:shadow-md transition-shadow">
           <CardContent className="p-4 sm:p-5 lg:p-6">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 shrink-0">
@@ -169,7 +169,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
       {/* ── Charts Row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8">
         {/* ── Sales Trend Bar Chart ── */}
-        <Card className="lg:col-span-3 border border-zinc-100/80 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+        <Card className="lg:col-span-3 border border-zinc-200/50 shadow-sm rounded-2xl sm:rounded-[28px] overflow-hidden">
           <div className="p-4 sm:p-6 lg:p-8">
             {/* Chart Header */}
             <div className="flex items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3">
@@ -314,7 +314,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </Card>
 
         {/* ── Top Dishes ── */}
-        <Card className="lg:col-span-2 border border-zinc-100/80 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden flex flex-col">
+        <Card className="lg:col-span-2 border border-zinc-200/50 shadow-sm rounded-2xl sm:rounded-[28px] overflow-hidden flex flex-col">
           <div className="p-4 sm:p-6 lg:p-8 flex flex-col h-full">
             {/* Header */}
             <div className="flex items-center justify-between mb-5 sm:mb-6 lg:mb-8 gap-2">
@@ -362,7 +362,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
                               ? "bg-zinc-200 text-zinc-600"
                               : i === 2
                                 ? "bg-emerald-100 text-emerald-700"
-                                : "bg-white border border-zinc-100 text-zinc-500"
+                                : "bg-[#F7FAF7] border border-zinc-200/50 text-zinc-500"
                         )}
                       >
                         {i + 1}
@@ -458,7 +458,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
 
             {/* Top earner card */}
             {stats.profitData.topProfitItem ? (
-              <Card className="bg-white border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+              <Card className="border border-zinc-200/50 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                 <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-6 h-6 bg-amber-50 rounded-lg flex items-center justify-center">
@@ -527,7 +527,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
               {stats.profitData.lossLeaders.map((item: any) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 sm:gap-4 bg-white border border-red-100 rounded-2xl px-4 py-3 sm:py-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all"
+                  className="flex items-center gap-3 sm:gap-4 bg-[#F7FAF7] border border-red-100 rounded-2xl px-4 py-3 sm:py-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all"
                 >
                   <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
                     <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
@@ -548,7 +548,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
           )}
 
           {/* Per-item margin bars */}
-          <Card className="border border-zinc-100 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+          <Card className="border border-zinc-200/50 shadow-sm rounded-2xl sm:rounded-[28px] overflow-hidden">
             <div className="p-4 sm:p-6 lg:p-8">
               {/* Chart header */}
               <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 mb-5 sm:mb-6">
@@ -636,7 +636,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </div>
       ) : (
         /* No cost prices set yet — prompt */
-        <Card className="border border-dashed border-zinc-200 bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+        <Card className="border border-dashed border-emerald-200/60 rounded-2xl sm:rounded-[28px] overflow-hidden">
           <CardContent className="p-6 sm:p-10 flex flex-col sm:flex-row items-center gap-5 sm:gap-8">
             <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-100">
               <Coins className="w-6 h-6 text-white" />
