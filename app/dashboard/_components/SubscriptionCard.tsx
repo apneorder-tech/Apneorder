@@ -145,7 +145,7 @@ export function SubscriptionCard({
   return (
     <Card className="relative overflow-hidden border-zinc-100 shadow-2xl shadow-zinc-200/50 rounded-3xl p-8 bg-white group">
       {/* Decorative Gradient */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-zinc-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700" />
+      <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-50 rounded-full -mr-32 -mt-32 transition-transform group-hover:scale-110 duration-700" />
       
       <div className="relative z-10 space-y-8">
         <div className="flex justify-between items-start">
@@ -165,7 +165,7 @@ export function SubscriptionCard({
             </div>
             <h3 className="text-3xl font-black italic tracking-tighter uppercase">Premium Monthly</h3>
           </div>
-          <div className="bg-zinc-900 w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-zinc-200">
+          <div className="bg-emerald-600 w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-200">
             <Sparkles size={20} />
           </div>
         </div>
@@ -189,8 +189,8 @@ export function SubscriptionCard({
              "Zero Platform Fees on UPI"
            ].map((feature, i) => (
              <div key={i} className="flex items-center gap-3">
-               <div className="w-5 h-5 bg-zinc-50 rounded-full flex items-center justify-center border border-zinc-100">
-                 <Check size={12} className="text-zinc-900" strokeWidth={3} />
+               <div className="w-5 h-5 bg-emerald-50 rounded-full flex items-center justify-center border border-emerald-100">
+                 <Check size={12} className="text-emerald-600" strokeWidth={3} />
                </div>
                <span className="text-xs font-bold text-zinc-600 uppercase tracking-wide">{feature}</span>
              </div>
@@ -232,10 +232,10 @@ export function SubscriptionCard({
                   </Button>
                 </div>
               ) : (
-                <Button 
+                <Button
                     onClick={handleSubscribe}
                     disabled={loading || isSyncing}
-                    className="w-full h-16 bg-zinc-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-[0.15em] shadow-xl shadow-zinc-200 active:scale-95 transition-all text-xs flex items-center gap-3"
+                    className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-[0.15em] shadow-xl shadow-emerald-200 active:scale-95 transition-all text-xs flex items-center gap-3"
                 >
                   {loading ? <Loader2 size={18} className="animate-spin" /> : (
                     <>

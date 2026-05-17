@@ -19,7 +19,7 @@ export function MobileBottomNav({
             onClick={() => setActiveView(item.id)}
             className={cn(
               "flex flex-col items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl transition-all min-w-0 flex-1 relative",
-              activeView === item.id ? "text-zinc-900" : "text-zinc-400"
+              activeView === item.id ? "text-emerald-600" : "text-zinc-400"
             )}
           >
             <item.icon
@@ -36,7 +36,7 @@ export function MobileBottomNav({
             {activeView === item.id && (
               <motion.div
                 layoutId="bottomNav"
-                className="absolute bottom-[-6px] sm:bottom-[-8px] w-6 sm:w-8 h-0.5 sm:h-1 bg-zinc-900 rounded-full"
+                className="absolute bottom-[-6px] sm:bottom-[-8px] w-6 sm:w-8 h-0.5 sm:h-1 bg-emerald-600 rounded-full"
               />
             )}
           </button>

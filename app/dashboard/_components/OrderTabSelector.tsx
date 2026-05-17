@@ -33,7 +33,7 @@ export function OrderTabSelector({
       icon: ChefHat,
       count: activeCount,
       activeIconColor: "text-blue-500",
-      countBg: "bg-zinc-900",
+      countBg: "bg-emerald-600",
       pulse: false,
     },
     {

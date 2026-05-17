@@ -29,11 +29,11 @@ export function SidebarContent({
     <div className="flex flex-col h-full p-5 xl:p-6">
       {/* Logo */}
       <div className="flex items-center gap-3 mb-8 lg:mb-12">
-        <div className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center text-white shrink-0">
+        <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-emerald-200">
           <UtensilsCrossed size={20} />
         </div>
         <span className="text-lg font-black tracking-tight text-zinc-900">
-          APNE ORDER
+          APNE<span className="text-emerald-600">ORDER</span>
         </span>
       </div>
 
@@ -42,7 +42,7 @@ export function SidebarContent({
         {NAV_ITEMS.map((item) => {
           const isPremium = ["orders", "menu", "tables", "analytics"].includes(item.id);
           const isLocked = isPremium && !isActive && !loading;
-          
+
           return (
             <button
               key={item.id}
@@ -50,8 +50,8 @@ export function SidebarContent({
               className={cn(
                 "w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-all group",
                 activeView === item.id
-                  ? "bg-zinc-900 text-white shadow-lg"
-                  : "text-zinc-400 hover:text-zinc-900 hover:bg-zinc-50"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200"
+                  : "text-zinc-400 hover:text-zinc-900 hover:bg-emerald-50"
               )}
             >
               <div className="flex items-center gap-3">
@@ -78,7 +78,7 @@ export function SidebarContent({
             Send Test Order
           </Button>
         )}
-        <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-100 italic">
+        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 italic">
           <div className="flex items-center min-w-0">
             <div className="min-w-0">
               <p className="text-[10px] font-bold truncate text-zinc-400">Store: {restaurantName}</p>

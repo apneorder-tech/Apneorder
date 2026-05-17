@@ -62,8 +62,8 @@ export function MenuView({
   if (menuCategories.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-center">
-        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-zinc-100 rounded-2xl flex items-center justify-center mb-4">
-          <UtensilsCrossed className="w-5 h-5 sm:w-6 sm:h-6 text-zinc-300" />
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
+          <UtensilsCrossed className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
         </div>
         <p className="text-zinc-400 font-bold text-sm">
           No menu categories yet
@@ -73,7 +73,7 @@ export function MenuView({
         </p>
         <Button
           size="sm"
-          className="bg-zinc-900"
+          className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-100"
           onClick={onAddCategory}
         >
           <Plus size={14} className="mr-1.5" />
@@ -93,7 +93,7 @@ export function MenuView({
           {/* Category Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-zinc-900 rounded-xl flex items-center justify-center text-white shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-emerald-600 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md shadow-emerald-100">
                 <UtensilsCrossed className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               </div>
               <div className="min-w-0">
@@ -120,7 +120,7 @@ export function MenuView({
             </div>
             <Button
               size="sm"
-              className="bg-zinc-900 h-9 text-xs font-bold rounded-lg shrink-0 w-full sm:w-auto"
+              className="bg-emerald-600 hover:bg-emerald-700 h-9 text-xs font-bold rounded-lg shrink-0 w-full sm:w-auto shadow-md shadow-emerald-100"
               onClick={() => onAddItem(cat.id, cat.name)}
             >
               <Plus size={14} className="mr-1.5" />

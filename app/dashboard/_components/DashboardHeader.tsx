@@ -53,7 +53,7 @@ export function DashboardHeader({
                         ? "Settings"
                         : "Analytics"}
                 {subscriptionStatus === "ACTIVE" && (
-                  <Badge className="ml-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white border-none text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg shadow-lg shadow-amber-100">
+                  <Badge className="ml-2 bg-gradient-to-r from-amber-400 to-emerald-600 text-white border-none text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg shadow-lg shadow-amber-100">
                     Premium
                   </Badge>
                 )}
@@ -146,7 +146,7 @@ export function DashboardHeader({
                   </Button>
                   <Button
                     size="sm"
-                    className="h-9 sm:h-10 text-xs font-bold rounded-lg bg-zinc-900"
+                    className="h-9 sm:h-10 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-200"
                     onClick={onAddCategory}
                   >
                     <Plus size={14} className="mr-1 sm:mr-1.5" />

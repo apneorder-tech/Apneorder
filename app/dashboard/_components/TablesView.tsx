@@ -56,7 +56,7 @@ export function TablesView({
         </div>
         <Button
           onClick={onAddTable}
-          className="bg-zinc-900 rounded-xl h-10 sm:h-11 md:h-12 px-4 sm:px-6 font-bold text-xs sm:text-sm w-full sm:w-auto"
+          className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-10 sm:h-11 md:h-12 px-4 sm:px-6 font-bold text-xs sm:text-sm w-full sm:w-auto shadow-md shadow-emerald-100"
         >
           <Plus size={16} className="mr-1.5 sm:mr-2" />
           Add New Table

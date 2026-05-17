@@ -91,7 +91,7 @@ function LiveOrderCard({
   const statusConfig: Record<string, { border: string; dot: string; label: string; pulse?: boolean }> = {
     payment_pending: { border: "border-t-amber-400", dot: "bg-amber-400", label: "Verifying Payment..." },
     pending:         { border: "border-t-blue-500",  dot: "bg-blue-500",  label: "Order Accepted ✓" },
-    preparing:       { border: "border-t-orange-500", dot: "bg-orange-500", label: "Kitchen is Cooking 🍳" },
+    preparing:       { border: "border-t-emerald-600", dot: "bg-emerald-600", label: "Kitchen is Cooking 🍳" },
     ready:           { border: "border-t-green-500",  dot: "bg-green-500",  label: "Food is Ready! 🔔", pulse: true },
     completed:       { border: "border-t-green-500",  dot: "bg-green-500",  label: "Served! Enjoy 😊" },
   };
@@ -144,7 +144,7 @@ function LiveOrderCard({
                       className={cn(
                         "w-6 h-6 rounded-full flex items-center justify-center transition-all",
                         done || active
-                          ? "bg-zinc-900 dark:bg-white text-white dark:text-zinc-900"
+                          ? "bg-emerald-600 text-white"
                           : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500"
                       )}
                     >
@@ -163,7 +163,7 @@ function LiveOrderCard({
                     <div
                       className={cn(
                         "h-[2px] flex-1 mx-1 rounded-full mb-3.5",
-                        done ? "bg-zinc-900 dark:bg-white" : "bg-zinc-100 dark:bg-zinc-800"
+                        done ? "bg-emerald-600" : "bg-zinc-100 dark:bg-zinc-800"
                       )}
                     />
                   )}
@@ -677,7 +677,7 @@ export default function CustomerMenuPage() {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-zinc-950 font-sans">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-zinc-100 dark:border-zinc-800 border-t-black dark:border-t-white rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-emerald-100 dark:border-zinc-800 border-t-emerald-600 rounded-full animate-spin" />
         <p className="text-black dark:text-white font-black uppercase text-[10px] tracking-widest animate-pulse">Initializing Menu</p>
       </div>
     </div>
@@ -852,8 +852,8 @@ export default function CustomerMenuPage() {
             {!historyChecked && (
               <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                  <div className="w-8 h-8 bg-zinc-900 dark:bg-white rounded-xl flex items-center justify-center shrink-0">
-                    <History size={14} className="text-white dark:text-zinc-900" />
+                  <div className="w-8 h-8 bg-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
+                    <History size={14} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider leading-none">
@@ -913,7 +913,7 @@ export default function CustomerMenuPage() {
                   className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 shadow-sm overflow-hidden"
                 >
                   {/* Header */}
-                  <div className="bg-zinc-900 dark:bg-zinc-800 px-4 py-3.5 flex items-center justify-between">
+                  <div className="bg-emerald-600 px-4 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center">
                         <RotateCcw size={13} className="text-white" />
@@ -983,7 +983,7 @@ export default function CustomerMenuPage() {
                     {availableItems.length > 0 ? (
                       <button
                         onClick={handleReorder}
-                        className="w-full h-12 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-zinc-800 dark:hover:bg-zinc-100 active:scale-[0.98] transition-all shadow-lg shadow-zinc-200 dark:shadow-zinc-800"
+                        className="w-full h-12 bg-white text-emerald-700 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-50 active:scale-[0.98] transition-all shadow-lg shadow-emerald-200"
                       >
                         <RotateCcw size={14} />
                         Reorder {availableItems.length} item{availableItems.length > 1 ? "s" : ""}
@@ -1026,7 +1026,7 @@ export default function CustomerMenuPage() {
             </p>
             <button
               onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-              className="mt-5 px-5 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-xl text-xs font-black uppercase tracking-widest"
+              className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md shadow-emerald-100"
             >
               Clear Search
             </button>
@@ -1314,7 +1314,7 @@ export default function CustomerMenuPage() {
                       className={cn(
                         "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
                         paymentMethod === "ONLINE"
-                          ? "bg-zinc-900 dark:bg-white border-zinc-900 dark:border-white text-white dark:text-zinc-900 shadow-lg scale-[1.02]"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 scale-[1.02]"
                           : "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-zinc-200 dark:hover:border-zinc-600"
                       )}
                     >
@@ -1326,7 +1326,7 @@ export default function CustomerMenuPage() {
                       className={cn(
                         "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
                         paymentMethod === "CASH"
-                          ? "bg-zinc-900 dark:bg-white border-zinc-900 dark:border-white text-white dark:text-zinc-900 shadow-lg scale-[1.02]"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-100 scale-[1.02]"
                           : "bg-white dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-zinc-200 dark:hover:border-zinc-600"
                       )}
                     >
@@ -1368,7 +1368,7 @@ export default function CustomerMenuPage() {
                      }
                    }}
                    disabled={isOrdering}
-                   className="w-full h-16 text-lg font-black rounded-3xl bg-black dark:bg-white text-white dark:text-zinc-900 shadow-2xl hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
+                   className="w-full h-16 text-lg font-black rounded-3xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
                 >
                   {isOrdering ? (
                     <Loader2 className="animate-spin" size={24} />
@@ -1537,7 +1537,7 @@ export default function CustomerMenuPage() {
                     <Button
                       onClick={handleConfirmPaymentSent}
                       disabled={isOrdering}
-                      className="w-full h-16 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-zinc-300 dark:shadow-zinc-800 active:scale-95 transition-all outline-none"
+                      className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all outline-none"
                     >
                       {isOrdering ? (
                         <Loader2 className="animate-spin" size={20} />
@@ -1661,7 +1661,7 @@ export default function CustomerMenuPage() {
                 setIsBagOpen(false);
                 setShowPayment(false);
               }}
-              className="mt-12 px-8 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
+              className="mt-12 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all"
             >
               Done
             </motion.button>
@@ -1692,7 +1692,7 @@ export default function CustomerMenuPage() {
                 setIsOrderRejected(false);
                 setShowPayment(true);
               }}
-              className="mt-12 px-8 py-4 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
+              className="mt-12 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all"
             >
               Try Again
             </motion.button>

@@ -124,7 +124,7 @@ export function OrderCard({
           {isPending && (
             <Button
               size="sm"
-              className="bg-zinc-900 hover:bg-zinc-800 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-zinc-200 transition-all active:scale-95 h-9"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-[10px] px-4 py-2 rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 h-9"
               onClick={() => handleUpdate("preparing")}
             >
               <ChefHat size={14} className="mr-1.5" />

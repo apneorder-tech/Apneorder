@@ -103,9 +103,9 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </Card>
 
         {/* Weekly – Hero Card */}
-        <Card className="bg-zinc-900 text-white border-none shadow-xl shadow-zinc-300/30 overflow-hidden relative rounded-2xl sm:rounded-[28px]">
+        <Card className="bg-emerald-600 text-white border-none shadow-xl shadow-emerald-400/40 overflow-hidden relative rounded-2xl sm:rounded-[28px]">
           <div className="absolute -top-6 -right-6 sm:-top-4 sm:-right-4">
-            <TrendingUp className="text-zinc-700/20 w-16 h-16 sm:w-24 sm:h-24" />
+            <TrendingUp className="text-emerald-500/30 w-16 h-16 sm:w-24 sm:h-24" />
           </div>
           <CardContent className="p-4 sm:p-5 lg:p-6 relative z-10">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -187,7 +187,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-zinc-900" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                 <span className="text-[8px] sm:text-[10px] font-black uppercase text-zinc-400 tracking-wider hidden sm:inline">
                   Revenue
                 </span>
@@ -233,9 +233,9 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
                                   className="w-full rounded-lg sm:rounded-xl cursor-pointer transition-all duration-300 relative group/bar"
                                   style={{ height: `${heightPct}%` }}
                                 >
-                                  <div className="w-full h-full rounded-lg sm:rounded-xl bg-zinc-900 group-hover/bar:bg-zinc-700 transition-colors duration-200 shadow-sm" />
+                                  <div className="w-full h-full rounded-lg sm:rounded-xl bg-emerald-600 group-hover/bar:bg-emerald-700 transition-colors duration-200 shadow-sm" />
                                   {/* Glow on hover */}
-                                  <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-zinc-900/20 blur-md opacity-0 group-hover/bar:opacity-100 transition-opacity duration-300 -z-10" />
+                                  <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-emerald-600/20 blur-md opacity-0 group-hover/bar:opacity-100 transition-opacity duration-300 -z-10" />
                                 </div>
                               </TooltipTrigger>
                               <TooltipContent
@@ -361,7 +361,7 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
                             : i === 1
                               ? "bg-zinc-200 text-zinc-600"
                               : i === 2
-                                ? "bg-orange-100 text-orange-600"
+                                ? "bg-emerald-100 text-emerald-700"
                                 : "bg-white border border-zinc-100 text-zinc-500"
                         )}
                       >
@@ -419,18 +419,20 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
 
       {/* ── Profit Margins ── */}
       {stats.profitData ? (
-        <div className="space-y-4 sm:space-y-5">
+        <div className="space-y-4 sm:space-y-6">
           {/* Section header */}
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <Coins className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Profit Margins</h3>
-              <p className="text-[10px] text-zinc-400 font-medium">Last 7 days · based on cost prices you set</p>
+          <div className="flex flex-col xs:flex-row xs:items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-md shadow-emerald-100">
+                <Coins className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Profit Margins</h3>
+                <p className="text-[10px] text-zinc-400 font-medium">Last 7 days · based on cost prices you set</p>
+              </div>
             </div>
             {stats.profitData.itemsWithoutCost > 0 && (
-              <div className="ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1.5">
+              <div className="xs:ml-auto flex items-center gap-1.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1.5 w-fit">
                 <Info className="w-3 h-3 text-amber-500 shrink-0" />
                 <span className="text-[10px] font-bold text-amber-700">
                   {stats.profitData.itemsWithoutCost} dish{stats.profitData.itemsWithoutCost > 1 ? "es" : ""} missing cost price
@@ -439,38 +441,78 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
             )}
           </div>
 
-          {/* Summary row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <Card className="bg-emerald-900 text-white border-none rounded-2xl shadow-lg shadow-emerald-900/20 overflow-hidden">
-              <CardContent className="p-4 sm:p-5">
-                <p className="text-emerald-400 text-[9px] font-black uppercase tracking-widest mb-1">Estimated Profit</p>
-                <p className="text-xl sm:text-2xl font-black tracking-tight">{formatCurrency(stats.profitData.totalProfitWeek)}</p>
-                <p className="text-emerald-500 text-[9px] font-bold mt-0.5">this week (dishes with cost set)</p>
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            {/* Profit hero card */}
+            <Card className="relative overflow-hidden bg-emerald-600 text-white border-none rounded-2xl shadow-xl shadow-emerald-200/60 sm:col-span-1">
+              <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full" />
+              <div className="absolute -right-2 bottom-2 w-14 h-14 bg-white/5 rounded-full" />
+              <CardContent className="relative z-10 p-4 sm:p-5">
+                <p className="text-emerald-100 text-[9px] font-black uppercase tracking-widest mb-2">Estimated Profit</p>
+                <p className="text-2xl sm:text-3xl font-black tracking-tighter leading-none mb-1">
+                  {formatCurrency(stats.profitData.totalProfitWeek)}
+                </p>
+                <p className="text-emerald-200 text-[9px] font-bold uppercase tracking-wide">this week</p>
               </CardContent>
             </Card>
-            {stats.profitData.topProfitItem && (
-              <Card className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Trophy className="w-3 h-3 text-amber-500" />
+
+            {/* Top earner card */}
+            {stats.profitData.topProfitItem ? (
+              <Card className="bg-white border border-zinc-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-amber-50 rounded-lg flex items-center justify-center">
+                      <Trophy className="w-3 h-3 text-amber-500" />
+                    </div>
                     <p className="text-zinc-400 text-[9px] font-black uppercase tracking-widest">Top Earner</p>
                   </div>
-                  <p className="text-sm font-black text-zinc-900 leading-tight truncate">{stats.profitData.topProfitItem.name}</p>
-                  <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
-                    +{formatCurrency(stats.profitData.topProfitItem.profitContribution)} profit
-                  </p>
+                  <div>
+                    <p className="text-sm font-black text-zinc-900 leading-tight truncate mb-1">
+                      {stats.profitData.topProfitItem.name}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center bg-emerald-50 text-emerald-700 text-[9px] font-black px-2 py-0.5 rounded-full">
+                        +{formatCurrency(stats.profitData.topProfitItem.profitContribution)} profit
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-zinc-50 border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
+                <CardContent className="p-4 sm:p-5 flex items-center justify-center h-full">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-center">No sales data yet</p>
                 </CardContent>
               </Card>
             )}
-            {stats.profitData.lossLeaders.length > 0 && (
-              <Card className="bg-red-50 border border-red-100 rounded-2xl shadow-sm overflow-hidden">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <AlertTriangle className="w-3 h-3 text-red-500" />
+
+            {/* Low margin card */}
+            {stats.profitData.lossLeaders.length > 0 ? (
+              <Card className="bg-red-50 border border-red-100 rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                <CardContent className="p-4 sm:p-5 h-full flex flex-col justify-between">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-red-100 rounded-lg flex items-center justify-center">
+                      <AlertTriangle className="w-3 h-3 text-red-500" />
+                    </div>
                     <p className="text-red-400 text-[9px] font-black uppercase tracking-widest">Low Margin</p>
                   </div>
-                  <p className="text-sm font-black text-red-700 leading-tight">{stats.profitData.lossLeaders.length} dish{stats.profitData.lossLeaders.length > 1 ? "es" : ""}</p>
-                  <p className="text-[10px] font-bold text-red-500 mt-0.5">below 20% margin</p>
+                  <div>
+                    <p className="text-xl font-black text-red-700 leading-none mb-1">
+                      {stats.profitData.lossLeaders.length}
+                      <span className="text-sm ml-1">dish{stats.profitData.lossLeaders.length > 1 ? "es" : ""}</span>
+                    </p>
+                    <p className="text-[9px] font-bold text-red-400 uppercase tracking-wide">below 20% margin</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-emerald-50 border border-emerald-100 rounded-2xl shadow-sm overflow-hidden">
+                <CardContent className="p-4 sm:p-5 flex flex-col justify-center h-full gap-1.5">
+                  <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center">
+                    <span className="text-emerald-600 text-xs font-black">✓</span>
+                  </div>
+                  <p className="text-sm font-black text-emerald-700">All margins healthy</p>
+                  <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-wide">above 20% threshold</p>
                 </CardContent>
               </Card>
             )}
@@ -479,32 +521,53 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
           {/* Loss-leader alerts */}
           {stats.profitData.lossLeaders.length > 0 && (
             <div className="space-y-2">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">
+                Repricing Alerts
+              </p>
               {stats.profitData.lossLeaders.map((item: any) => (
-                <div key={item.id} className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 sm:gap-4 bg-white border border-red-100 rounded-2xl px-4 py-3 sm:py-4 shadow-sm hover:shadow-md hover:border-red-200 transition-all"
+                >
+                  <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-black text-red-800 truncate block">&quot;{item.name}&quot;</span>
-                    <span className="text-[10px] font-bold text-red-500">
-                      Only {item.margin}% margin — selling at ₹{item.price}, costs ₹{item.costPrice}. Consider repricing.
+                    <span className="text-sm font-black text-zinc-900 truncate block leading-tight">{item.name}</span>
+                    <span className="text-[10px] font-medium text-zinc-400 leading-tight">
+                      Sell ₹{item.price} · Cost ₹{item.costPrice} · Consider repricing
                     </span>
                   </div>
-                  <span className="text-xs font-black text-red-600 bg-red-100 px-2 py-1 rounded-lg shrink-0">{item.margin}%</span>
+                  <div className="shrink-0 flex flex-col items-end gap-0.5">
+                    <span className="text-sm font-black text-red-600">{item.margin}%</span>
+                    <span className="text-[9px] font-bold text-red-400 uppercase tracking-wide">margin</span>
+                  </div>
                 </div>
               ))}
             </div>
           )}
 
           {/* Per-item margin bars */}
-          <Card className="border border-zinc-100/80 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+          <Card className="border border-zinc-100 shadow-sm bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
             <div className="p-4 sm:p-6 lg:p-8">
-              <div className="flex items-center justify-between mb-5">
+              {/* Chart header */}
+              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3 mb-5 sm:mb-6">
                 <h4 className="text-xs sm:text-sm font-black text-zinc-900 uppercase tracking-tight">Margin per Dish</h4>
-                <div className="flex items-center gap-3 text-[9px] font-black uppercase tracking-wider">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{"<"}20%</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />20–50%</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />{">"}50%</span>
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  {[
+                    { color: "bg-red-400", label: "< 20%" },
+                    { color: "bg-amber-400", label: "20–50%" },
+                    { color: "bg-emerald-500", label: "> 50%" },
+                  ].map(({ color, label }) => (
+                    <span key={label} className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-500">
+                      <span className={cn("w-2 h-2 rounded-full shrink-0", color)} />
+                      {label}
+                    </span>
+                  ))}
                 </div>
               </div>
+
+              {/* Bar rows */}
               <div className="space-y-3 sm:space-y-4">
                 <AnimatePresence mode="popLayout">
                   {stats.profitData.items.map((item: any, i: number) => {
@@ -512,46 +575,55 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
                       item.margin < 20 ? "bg-red-400"
                       : item.margin < 50 ? "bg-amber-400"
                       : "bg-emerald-500";
-                    const textColor =
-                      item.margin < 20 ? "text-red-600"
-                      : item.margin < 50 ? "text-amber-600"
-                      : "text-emerald-600";
+                    const badgeBg =
+                      item.margin < 20 ? "bg-red-50 text-red-600 border-red-100"
+                      : item.margin < 50 ? "bg-amber-50 text-amber-600 border-amber-100"
+                      : "bg-emerald-50 text-emerald-600 border-emerald-100";
 
                     return (
                       <motion.div
                         layout
                         key={item.id}
-                        initial={{ opacity: 0, x: 16 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.25, delay: i * 0.03 }}
-                        className="space-y-1.5"
+                        className="group"
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        {/* Row label + meta */}
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", item.type === "veg" ? "bg-green-500" : "bg-red-500")} />
-                            <span className="text-xs font-black text-zinc-800 truncate">{item.name}</span>
+                            <span className={cn(
+                              "w-1.5 h-1.5 rounded-full shrink-0",
+                              item.type === "veg" ? "bg-green-500" : "bg-red-500"
+                            )} />
+                            <span className="text-xs font-bold text-zinc-800 truncate">{item.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[9px] font-bold text-zinc-400">
-                              ₹{item.costPrice}→₹{item.price}
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                            <span className="hidden sm:inline text-[9px] font-medium text-zinc-400">
+                              ₹{item.costPrice} → ₹{item.price}
                             </span>
                             {item.quantitySold > 0 && (
-                              <span className="text-[9px] font-bold text-zinc-400">
-                                · {item.quantitySold}× = {formatCurrency(item.profitContribution)}
+                              <span className="hidden md:inline text-[9px] font-medium text-zinc-400">
+                                · {item.quantitySold}× · {formatCurrency(item.profitContribution)}
                               </span>
                             )}
-                            <span className={cn("text-[10px] font-black w-10 text-right", textColor)}>
+                            <span className={cn(
+                              "text-[9px] font-black px-2 py-0.5 rounded-full border",
+                              badgeBg
+                            )}>
                               {item.margin}%
                             </span>
                           </div>
                         </div>
-                        <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+
+                        {/* Progress bar */}
+                        <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${Math.min(item.margin, 100)}%` }}
                             transition={{ duration: 0.6, delay: i * 0.04, ease: "easeOut" }}
-                            className={cn("h-full rounded-full", barColor)}
+                            className={cn("h-full rounded-full transition-opacity group-hover:opacity-80", barColor)}
                           />
                         </div>
                       </motion.div>
@@ -564,16 +636,17 @@ export function AnalyticsView({ stats, loading = false }: { stats: any, loading?
         </div>
       ) : (
         /* No cost prices set yet — prompt */
-        <Card className="border border-dashed border-zinc-200 bg-zinc-50/50 rounded-2xl sm:rounded-[28px]">
-          <CardContent className="p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center shrink-0">
-              <Coins className="w-5 h-5 text-emerald-500" />
+        <Card className="border border-dashed border-zinc-200 bg-white rounded-2xl sm:rounded-[28px] overflow-hidden">
+          <CardContent className="p-6 sm:p-10 flex flex-col sm:flex-row items-center gap-5 sm:gap-8">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-100">
+              <Coins className="w-6 h-6 text-white" />
             </div>
             <div className="text-center sm:text-left">
-              <h4 className="text-sm font-black text-zinc-800 uppercase tracking-tight mb-1">Unlock Profit Analytics</h4>
-              <p className="text-xs text-zinc-500 font-medium leading-relaxed">
-                Add a cost price to your dishes in the <span className="font-black text-zinc-700">Menu</span> tab.
-                You&apos;ll see margin %, your most profitable dish, and low-margin alerts here.
+              <h4 className="text-sm font-black text-zinc-900 uppercase tracking-tight mb-1.5">Unlock Profit Analytics</h4>
+              <p className="text-xs text-zinc-500 font-medium leading-relaxed max-w-sm">
+                Add a cost price to your dishes in the{" "}
+                <span className="font-black text-zinc-800">Menu</span> tab.
+                You&apos;ll instantly see margin %, your most profitable dish, and low-margin alerts right here.
               </p>
             </div>
           </CardContent>

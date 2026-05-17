@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apneorder - 30 Sec Ad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #fff;
+            width: 100vw;
+            height: 100vh;
+            cursor: none;
+        }
+
+        .stage {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        /* ── CURSOR ── */
+        #cursor {
+            position: fixed;
+            top: 0; left: 0;
+            pointer-events: none;
+            z-index: 99999;
+            will-change: transform;
+        }
+
+        #cursor svg {
+            width: 22px;
+            height: 26px;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.22));
+            transition: transform 0.1s ease;
+        }
+
+        #cursor.clicking svg {
+            transform: scale(0.82);
+        }
+
+        /* Click ripple */
+        .c-ripple {
+            position: fixed;
+            border-radius: 50%;
+            border: 1.5px solid rgba(0,0,0,0.28);
+            pointer-events: none;
+            z-index: 99997;
+            transform: translate(-50%,-50%) scale(0);
+            animation: cRipple 0.5s ease-out forwards;
+        }
+
+        @keyframes cRipple {
+            0%   { width:0;   height:0;   opacity:0.7; }
+            100% { width:48px; height:48px; opacity:0; }
+        }
+
+        /* Cursor trail */
+        .c-trail {
+            position: fixed;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.09);
+            pointer-events: none;
+            z-index: 99996;
+            transform: translate(-50%,-50%);
+        }
+
+        /* ── SUBTITLE BAR ── */
+        .subtitle-bar {
+            position: fixed;
+            bottom: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 8000;
+            pointer-events: none;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .subtitle-text {
+            display: inline-block;
+            background: rgba(0,0,0,0.82);
+            color: #fff;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-size: clamp(0.72rem, 1.8vw, 0.9rem);
+            font-weight: 600;
+            letter-spacing: 0.4px;
+            line-height: 1.5;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+            backdrop-filter: blur(8px);
+        }
+
+        .subtitle-text.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .subtitle-text strong {
+            color: #4ade80;
+        }
+
+        /* ── PROGRESS BAR ── */
+        .prog-bar {
+            position: fixed;
+            bottom: 0; left: 0;
+            height: 3px;
+            width: 0%;
+            background: #111;
+            z-index: 9999;
+            transition: width 0.1s linear;
+        }
+
+        .scene-label {
+            position: fixed;
+            top: 20px; left: 24px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: #111;
+            opacity: 0.3;
+            z-index: 9000;
+        }
+
+        /* ── SCENE BASE ── */
+        .scene {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1;
+            transition: opacity 0.6s ease;
+        }
+
+        .scene.active {
+            opacity: 1;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* ════════════════════════════
+           SCENE 1 — PROBLEM  (0–8s)
+        ════════════════════════════ */
+        #scene1 { background: #fff; }
+
+        .s1-top-label {
+            font-size: clamp(0.58rem, 1.4vw, 0.7rem);
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #ccc;
+            margin-bottom: 22px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.5s ease;
+        }
+
+        .s1-heading {
+            font-size: clamp(2.6rem, 6.5vw, 5.2rem);
+            font-weight: 900;
+            color: #111;
+            letter-spacing: -3px;
+            text-align: center;
+            line-height: 1;
+            opacity: 0;
+            transform: translateY(18px);
+            transition: all 0.65s cubic-bezier(0.34,1.2,0.64,1);
+            position: relative;
+        }
+
+        .s1-heading .word-old {
+            color: #ccc;
+            position: relative;
+            display: inline-block;
+        }
+
+        .s1-strike-line {
+            position: absolute;
+            left: 0; right: 0;
+            top: 50%;
+            height: 5px;
+            background: #111;
+            border-radius: 3px;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.55s cubic-bezier(0.4,0,0.2,1);
+        }
+
+        .s1-strike-line.drawn { transform: scaleX(1); }
+
+        .s1-customers {
+            display: flex;
+            gap: clamp(22px, 4vw, 60px);
+            margin-top: 48px;
+            opacity: 0;
+            transform: translateY(18px);
+            transition: all 0.65s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s1-person {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .s1-avatar {
+            width: clamp(58px, 8vw, 88px);
+            height: clamp(58px, 8vw, 88px);
+            border-radius: 50%;
+            border: 2px solid #e8e8e8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(26px, 4vw, 40px);
+            background: #fafafa;
+            position: relative;
+        }
+
+        .s1-status {
+            position: absolute;
+            bottom: 2px; right: 2px;
+            width: 11px; height: 11px;
+            border-radius: 50%;
+            background: #ef4444;
+            border: 2px solid #fff;
+        }
+
+        .s1-bubble {
+            background: #fff;
+            color: #555;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: clamp(0.6rem, 1.3vw, 0.72rem);
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1.5px solid #eee;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .s1-bubble::before {
+            content: '';
+            position: absolute;
+            top: -7px; left: 50%;
+            transform: translateX(-50%);
+            border: 4.5px solid transparent;
+            border-bottom-color: #eee;
+        }
+
+        .s1-bubble::after {
+            content: '';
+            position: absolute;
+            top: -5px; left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-bottom-color: #fff;
+        }
+
+        .s1-wait-pill {
+            margin-top: 44px;
+            background: #111;
+            color: #fff;
+            padding: 14px 30px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.55s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s1-wait-pill i { opacity: 0.6; font-size: 0.9rem; }
+
+        .s1-wait-pill-num {
+            font-size: clamp(1.2rem, 3vw, 1.9rem);
+            font-weight: 900;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .s1-wait-pill-sub {
+            font-size: 0.62rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            opacity: 0.55;
+        }
+
+        .s1-spin {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: 2.5px solid rgba(255,255,255,0.25);
+            border-top-color: #fff;
+            animation: spinA 0.9s linear infinite;
+        }
+
+        /* ════════════════════════════
+           SCENE 2 — SOLUTION  (8–20s)
+        ════════════════════════════ */
+        #scene2 {
+            background: #fff;
+            flex-direction: row;
+            gap: clamp(28px, 5vw, 72px);
+            padding: 36px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .s2-copy {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 340px;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.7s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s2-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #111;
+            color: #fff;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+            width: fit-content;
+        }
+
+        .s2-badge i { font-size: 0.55rem; }
+
+        .s2-heading {
+            font-size: clamp(2rem, 4.5vw, 3.6rem);
+            font-weight: 900;
+            color: #111;
+            letter-spacing: -2px;
+            line-height: 1.0;
+        }
+
+        .s2-heading span {
+            display: block;
+            font-size: 38%;
+            font-weight: 400;
+            color: #aaa;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .s2-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .s2-flow-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 14px;
+            border-radius: 12px;
+            border: 1.5px solid #f0f0f0;
+            opacity: 0;
+            transform: translateX(-14px);
+            transition: all 0.45s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s2-flow-step.lit {
+            border-color: #111;
+            background: #fafafa;
+        }
+
+        .s2-flow-num {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: #111;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.68rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .s2-flow-icon {
+            width: 26px; height: 26px;
+            border-radius: 7px;
+            background: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .s2-flow-icon i { font-size: 0.7rem; color: #555; }
+
+        .s2-flow-label {
+            font-size: clamp(0.75rem, 1.5vw, 0.88rem);
+            font-weight: 700;
+            color: #111;
+            flex: 1;
+        }
+
+        .s2-flow-check {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            border: 1.5px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        .s2-flow-check i {
+            font-size: 0.55rem;
+            color: #fff;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+        }
+
+        .s2-flow-check.done {
+            background: #111;
+            border-color: #111;
+        }
+
+        .s2-flow-check.done i { opacity: 1; transform: scale(1); }
+
+        /* PHONE */
+        .s2-phone-wrap {
+            position: relative;
+            opacity: 0;
+            transform: translateY(28px) scale(0.93);
+            transition: all 0.85s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s2-phone {
+            width: clamp(170px, 19vw, 255px);
+            height: clamp(340px, 40vw, 520px);
+            background: #1a1a1a;
+            border-radius: clamp(26px, 4vw, 42px);
+            padding: 10px;
+            box-shadow: 0 0 0 1px #2a2a2a, 0 28px 64px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .s2-phone-inner {
+            width: 100%; height: 100%;
+            background: #fff;
+            border-radius: clamp(18px, 3.2vw, 34px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .s2-notch-bar {
+            background: #1a1a1a;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 5px;
+            flex-shrink: 0;
+        }
+
+        .s2-notch {
+            width: 80px; height: 18px;
+            background: #1a1a1a;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .s2-app { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+
+        .s2-app-bar {
+            background: #111;
+            color: #fff;
+            padding: 10px 12px;
+            font-size: clamp(0.6rem, 1.2vw, 0.72rem);
+            font-weight: 800;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-shrink: 0;
+        }
+
+        .s2-app-bar-icon {
+            width: 20px; height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .s2-app-bar-icon i { font-size: 0.55rem; }
+
+        .s2-live-dot {
+            margin-left: auto;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: blink 1.1s infinite;
+        }
+
+        .s2-menu-area {
+            flex: 1;
+            padding: 9px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .s2-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 11px;
+            border: 1.5px solid #f0f0f0;
+            border-radius: 10px;
+            opacity: 0;
+            transform: translateX(14px);
+            transition: all 0.42s cubic-bezier(0.34,1.2,0.64,1);
+            background: #fff;
+        }
+
+        .s2-menu-item.added {
+            border-color: #111;
+            background: #fafafa;
+        }
+
+        .s2-item-emoji { font-size: 1rem; flex-shrink: 0; }
+
+        .s2-item-info { flex: 1; min-width: 0; }
+
+        .s2-item-name {
+            font-size: clamp(0.56rem, 1vw, 0.68rem);
+            font-weight: 700;
+            color: #111;
+        }
+
+        .s2-item-price {
+            font-size: 0.55rem;
+            color: #aaa;
+            margin-top: 1px;
+        }
+
+        .s2-add-btn {
+            width: 20px; height: 20px;
+            border-radius: 6px;
+            background: #111;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+        }
+
+        .s2-add-btn i { font-size: 0.6rem; }
+
+        .s2-add-btn.tapped { transform: scale(1.4); background: #333; }
+
+        .s2-qty {
+            position: absolute;
+            top: -5px; right: -5px;
+            width: 12px; height: 12px;
+            background: #111;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 0.45rem;
+            font-weight: 900;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        .s2-qty.show { opacity: 1; transform: scale(1); }
+
+        .s2-pay-strip {
+            margin: 0 9px 9px;
+            background: #111;
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            opacity: 0;
+            transform: translateY(6px);
+            transition: all 0.5s cubic-bezier(0.34,1.2,0.64,1);
+            flex-shrink: 0;
+            cursor: default;
+        }
+
+        .s2-pay-strip.tapped { background: #333; transform: scale(0.97); }
+
+        .s2-pay-left {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .s2-pay-left i { font-size: 0.65rem; opacity: 0.7; }
+
+        .s2-pay-text {
+            font-size: clamp(0.58rem, 1.1vw, 0.68rem);
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .s2-pay-amt {
+            font-size: clamp(0.62rem, 1.2vw, 0.76rem);
+            font-weight: 900;
+        }
+
+        .s2-confirmed {
+            position: absolute;
+            bottom: -20px; left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 24px;
+            font-size: clamp(0.54rem, 1vw, 0.64rem);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .s2-confirmed-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: blink 1s infinite;
+        }
+
+        /* ════════════════════════════
+           SCENE 3 — RESULTS  (20–27s)
+        ════════════════════════════ */
+        #scene3 { background: #fff; }
+
+        .s3-top {
+            font-size: clamp(0.58rem, 1.3vw, 0.7rem);
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #ccc;
+            margin-bottom: 28px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .s3-metrics {
+            display: flex;
+            gap: clamp(18px, 4vw, 56px);
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .s3-metric {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s cubic-bezier(0.34,1.3,0.64,1);
+        }
+
+        .s3-metric-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 12px;
+        }
+
+        .s3-metric-icon i { color: #fff; font-size: 1rem; }
+
+        .s3-metric-num {
+            font-size: clamp(2rem, 5.5vw, 4rem);
+            font-weight: 900;
+            color: #111;
+            letter-spacing: -2px;
+            line-height: 1;
+        }
+
+        .s3-metric-num.green { color: #16a34a; }
+
+        .s3-metric-label {
+            font-size: clamp(0.6rem, 1.2vw, 0.72rem);
+            color: #aaa;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-top: 6px;
+        }
+
+        .s3-divider {
+            width: 1px;
+            height: clamp(60px, 10vw, 100px);
+            background: #eee;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .s3-bottom-line {
+            margin-top: 36px;
+            font-size: clamp(0.68rem, 1.5vw, 0.88rem);
+            font-weight: 700;
+            color: #bbb;
+            letter-spacing: 2px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.5s ease;
+            text-align: center;
+        }
+
+        .s3-bottom-line strong { color: #111; }
+
+        /* ════════════════════════════
+           SCENE 4 — CTA  (27–32s)
+        ════════════════════════════ */
+        #scene4 { background: #111; overflow: hidden; }
+
+        .s4-rings {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .s4-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.06);
+            opacity: 0;
+            animation: ringOut 2.5s ease-out forwards;
+        }
+
+        .s4-content {
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            opacity: 0;
+            transform: translateY(18px);
+            transition: all 0.85s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s4-eyebrow {
+            font-size: clamp(0.58rem, 1.3vw, 0.68rem);
+            font-weight: 800;
+            letter-spacing: 7px;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 16px;
+        }
+
+        .s4-logo {
+            font-size: clamp(3rem, 8vw, 6.5rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -4px;
+            line-height: 1;
+            margin-bottom: 12px;
+        }
+
+        .s4-tagline {
+            font-size: clamp(0.65rem, 1.5vw, 0.82rem);
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 3px;
+            margin-bottom: 40px;
+        }
+
+        .s4-cta-row {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .s4-cta-primary {
+            background: #fff;
+            color: #111;
+            padding: clamp(13px, 2vw, 18px) clamp(26px, 4.5vw, 44px);
+            border-radius: 50px;
+            font-size: clamp(0.7rem, 1.5vw, 0.86rem);
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            border: 2px solid #fff;
+            cursor: default;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s ease;
+        }
+
+        .s4-cta-primary.hov { background: #eee; }
+
+        .s4-cta-secondary {
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            padding: clamp(13px, 2vw, 18px) clamp(26px, 4.5vw, 44px);
+            border-radius: 50px;
+            font-size: clamp(0.7rem, 1.5vw, 0.86rem);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: default;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.25s ease;
+        }
+
+        .s4-cta-secondary.hov {
+            border-color: rgba(255,255,255,0.5);
+            color: #fff;
+        }
+
+        .s4-stats {
+            display: flex;
+            gap: clamp(20px, 4vw, 48px);
+            margin-top: 40px;
+            justify-content: center;
+        }
+
+        .s4-stat {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s cubic-bezier(0.34,1.2,0.64,1);
+        }
+
+        .s4-stat-num {
+            font-size: clamp(1.4rem, 3vw, 2.2rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+
+        .s4-stat-lbl {
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.35);
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        .s4-bottom-strip {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 3px;
+            background: #fff;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.9s ease;
+        }
+
+        /* Replay */
+        .replay-btn {
+            position: fixed;
+            bottom: 26px; right: 26px;
+            background: #fff;
+            color: #111;
+            border: none;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            font-size: 0.85rem;
+            cursor: pointer;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        }
+
+        .replay-btn:hover { transform: scale(1.1) rotate(-20deg); }
+
+        /* ── KEYFRAMES ── */
+        @keyframes spinA   { to { transform: rotate(360deg); } }
+        @keyframes blink   { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+        @keyframes ringOut { from { transform:scale(0.15); opacity:0.5; } to { transform:scale(1); opacity:0; } }
+    </style>
+</head>
+<body>
+<div class="stage">
+
+    <div class="prog-bar" id="progBar"></div>
+    <div class="scene-label" id="sceneLabel">01 / 04</div>
+
+    <!-- ══ SCENE 1 ══ -->
+    <div class="scene" id="scene1">
+        <div class="s1-top-label" id="s1TopLabel">THE PROBLEM</div>
+        <h1 class="s1-heading" id="s1Heading">
+            <span class="word-old">The Old Way
+                <div class="s1-strike-line" id="s1Strike"></div>
+            </span>
+        </h1>
+        <div class="s1-customers" id="s1Customers">
+            <div class="s1-person">
+                <div class="s1-avatar">
+                    👨
+                    <div class="s1-status"></div>
+                </div>
+                <div class="s1-bubble">Where's my order?</div>
+            </div>
+            <div class="s1-person">
+                <div class="s1-avatar">
+                    👩
+                    <div class="s1-status"></div>
+                </div>
+                <div class="s1-bubble">No one is listening!</div>
+            </div>
+            <div class="s1-person">
+                <div class="s1-avatar">
+                    🧑
+                    <div class="s1-status"></div>
+                </div>
+                <div class="s1-bubble">Waiting forever...</div>
+            </div>
+        </div>
+        <div class="s1-wait-pill" id="s1WaitPill">
+            <div class="s1-spin"></div>
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <div>
+                <div class="s1-wait-pill-num">20 Minutes</div>
+                <div class="s1-wait-pill-sub">AVERAGE WAIT TIME</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SCENE 2 ══ -->
+    <div class="scene" id="scene2">
+        <div class="s2-copy" id="s2Copy">
+            <div class="s2-badge">
+                <i class="fa-solid fa-bolt"></i>
+                INTRODUCING
+            </div>
+            <div class="s2-heading">
+                <span>THE SOLUTION</span>
+                Apneorder
+            </div>
+            <div class="s2-flow">
+                <div class="s2-flow-step" id="sf1">
+                    <div class="s2-flow-num">1</div>
+                    <div class="s2-flow-icon"><i class="fa-solid fa-qrcode"></i></div>
+                    <div class="s2-flow-label">Scan QR at your table</div>
+                    <div class="s2-flow-check" id="fc1"><i class="fa-solid fa-check"></i></div>
+                </div>
+                <div class="s2-flow-step" id="sf2">
+                    <div class="s2-flow-num">2</div>
+                    <div class="s2-flow-icon"><i class="fa-solid fa-utensils"></i></div>
+                    <div class="s2-flow-label">Browse & add items</div>
+                    <div class="s2-flow-check" id="fc2"><i class="fa-solid fa-check"></i></div>
+                </div>
+                <div class="s2-flow-step" id="sf3">
+                    <div class="s2-flow-num">3</div>
+                    <div class="s2-flow-icon"><i class="fa-solid fa-credit-card"></i></div>
+                    <div class="s2-flow-label">Pay & done — in seconds</div>
+                    <div class="s2-flow-check" id="fc3"><i class="fa-solid fa-check"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="s2-phone-wrap" id="s2Phone">
+            <div class="s2-phone">
+                <div class="s2-phone-inner">
+                    <div class="s2-notch-bar"><div class="s2-notch"></div></div>
+                    <div class="s2-app">
+                        <div class="s2-app-bar">
+                            <div class="s2-app-bar-icon"><i class="fa-solid fa-utensils"></i></div>
+                            APNEORDER
+                            <div class="s2-live-dot"></div>
+                        </div>
+                        <div class="s2-menu-area">
+                            <div class="s2-menu-item" id="mi1">
+                                <div class="s2-item-emoji">🍕</div>
+                                <div class="s2-item-info">
+                                    <div class="s2-item-name">Margherita Pizza</div>
+                                    <div class="s2-item-price">₹250</div>
+                                </div>
+                                <div style="position:relative">
+                                    <div class="s2-add-btn" id="ab1"><i class="fa-solid fa-plus"></i></div>
+                                    <div class="s2-qty" id="q1">1</div>
+                                </div>
+                            </div>
+                            <div class="s2-menu-item" id="mi2">
+                                <div class="s2-item-emoji">🍔</div>
+                                <div class="s2-item-info">
+                                    <div class="s2-item-name">Cheese Burger</div>
+                                    <div class="s2-item-price">₹180</div>
+                                </div>
+                                <div style="position:relative">
+                                    <div class="s2-add-btn" id="ab2"><i class="fa-solid fa-plus"></i></div>
+                                    <div class="s2-qty" id="q2">1</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="s2-pay-strip" id="s2PayStrip">
+                            <div class="s2-pay-left">
+                                <i class="fa-solid fa-lock"></i>
+                                <div class="s2-pay-text">PAY SECURELY</div>
+                            </div>
+                            <div class="s2-pay-amt">₹430</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="s2-confirmed" id="s2Confirmed">
+                <div class="s2-confirmed-dot"></div>
+                <i class="fa-solid fa-circle-check"></i>
+                ORDER CONFIRMED — 8 MIN
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ SCENE 3 ══ -->
+    <div class="scene" id="scene3">
+        <div class="s3-top" id="s3Top">THE RESULTS</div>
+        <div class="s3-metrics">
+            <div class="s3-metric" id="sm1">
+                <div class="s3-metric-icon"><i class="fa-solid fa-bag-shopping"></i></div>
+                <div class="s3-metric-num">142</div>
+                <div class="s3-metric-label">ORDERS TODAY</div>
+            </div>
+            <div class="s3-divider" id="sd1"></div>
+            <div class="s3-metric" id="sm2">
+                <div class="s3-metric-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                <div class="s3-metric-num">38,400</div>
+                <div class="s3-metric-label">REVENUE TODAY</div>
+            </div>
+            <div class="s3-divider" id="sd2"></div>
+            <div class="s3-metric" id="sm3">
+                <div class="s3-metric-icon"><i class="fa-solid fa-stopwatch"></i></div>
+                <div class="s3-metric-num green">3 Min</div>
+                <div class="s3-metric-label">AVG WAIT NOW</div>
+            </div>
+        </div>
+        <div class="s3-bottom-line" id="s3Bottom">
+            Wait time dropped from <strong>20 min → 3 min.</strong> Revenue up <strong>35%.</strong>
+        </div>
+    </div>
+
+    <!-- ══ SCENE 4 ══ -->
+    <div class="scene" id="scene4">
+        <div class="s4-rings" id="s4Rings"></div>
+        <div class="s4-content" id="s4Content">
+            <div class="s4-eyebrow">START YOUR FREE TRIAL TODAY</div>
+            <div class="s4-logo">Apneorder</div>
+            <div class="s4-tagline">ORDER SMARTER · SERVE FASTER · GROW MORE</div>
+            <div class="s4-cta-row">
+                <div class="s4-cta-primary" id="ctaPrimary">
+                    <i class="fa-solid fa-download"></i>
+                    GET STARTED FREE
+                </div>
+                <div class="s4-cta-secondary" id="ctaSecondary">
+                    <i class="fa-solid fa-play"></i>
+                    WATCH DEMO
+                </div>
+            </div>
+            <div class="s4-stats">
+                <div class="s4-stat" id="ss1">
+                    <div class="s4-stat-num">1000+</div>
+                    <div class="s4-stat-lbl">RESTAURANTS</div>
+                </div>
+                <div class="s4-stat" id="ss2">
+                    <div class="s4-stat-num">2M+</div>
+                    <div class="s4-stat-lbl">ORDERS PLACED</div>
+                </div>
+                <div class="s4-stat" id="ss3">
+                    <div class="s4-stat-num">4.9★</div>
+                    <div class="s4-stat-lbl">AVG RATING</div>
+                </div>
+            </div>
+        </div>
+        <div class="s4-bottom-strip" id="s4Strip"></div>
+    </div>
+
+</div>
+
+<!-- Cursor -->
+<div id="cursor">
+    <svg viewBox="0 0 22 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 1.5L3 21.5L8 17L11.5 25L14 24L10.5 16L17.5 16L3 1.5Z"
+              fill="#111111"
+              stroke="#ffffff"
+              stroke-width="1.4"
+              stroke-linejoin="round"
+              stroke-linecap="round"/>
+    </svg>
+</div>
+
+<!-- Subtitle -->
+<div class="subtitle-bar">
+    <div class="subtitle-text" id="subtitle"></div>
+</div>
+
+<!-- Replay -->
+<button class="replay-btn" id="replayBtn" onclick="init()">
+    <i class="fa-solid fa-rotate-right"></i>
+</button>
+
+<script>
+/* ─────────────────────────────────────────────
+   CURSOR
+───────────────────────────────────────────── */
+const cursorEl = document.getElementById('cursor');
+let cx = innerWidth / 2, cy = innerHeight / 2;
+
+// Minimal trail
+const trails = [];
+for (let i = 0; i < 4; i++) {
+    const d = document.createElement('div');
+    d.className = 'c-trail';
+    const s = 5 - i;
+    d.style.width  = s + 'px';
+    d.style.height = s + 'px';
+    d.style.opacity = (0.9 - i * 0.2).toString();
+    document.body.appendChild(d);
+    trails.push({ el: d, x: cx, y: cy });
+}
+
+setInterval(() => {
+    trails.forEach((t, i) => {
+        setTimeout(() => {
+            t.x += (cx - t.x) * 0.4;
+            t.y += (cy - t.y) * 0.4;
+            t.el.style.left = t.x + 'px';
+            t.el.style.top  = t.y + 'px';
+        }, i * 18);
+    });
+}, 16);
+
+function setCursor(x, y) {
+    cx = x; cy = y;
+    cursorEl.style.left = x + 'px';
+    cursorEl.style.top  = y + 'px';
+}
+
+function moveTo(tx, ty, ms, cb) {
+    const sx = cx, sy = cy, t0 = performance.now();
+    const ease = t => t < .5 ? 2*t*t : -1+(4-2*t)*t;
+    const step = now => {
+        const p = Math.min((now - t0) / ms, 1);
+        setCursor(sx + (tx - sx) * ease(p), sy + (ty - sy) * ease(p));
+        p < 1 ? requestAnimationFrame(step) : cb && cb();
+    };
+    requestAnimationFrame(step);
+}
+
+function click(x, y) {
+    cursorEl.classList.add('clicking');
+    setTimeout(() => cursorEl.classList.remove('clicking'), 200);
+    const r = document.createElement('div');
+    r.className = 'c-ripple';
+    r.style.left = x + 'px';
+    r.style.top  = y + 'px';
+    document.body.appendChild(r);
+    setTimeout(() => r.remove(), 550);
+}
+
+function px(xp, yp) {
+    return { x: innerWidth * xp / 100, y: innerHeight * yp / 100 };
+}
+
+/* ─────────────────────────────────────────────
+   SUBTITLE
+───────────────────────────────────────────── */
+const subEl = document.getElementById('subtitle');
+let subTimer = null;
+
+function showSub(html, durationMs = 3500) {
+    subEl.innerHTML = html;
+    subEl.classList.add('show');
+    if (subTimer) clearTimeout(subTimer);
+    subTimer = setTimeout(() => subEl.classList.remove('show'), durationMs);
+}
+
+function hideSub() {
+    subEl.classList.remove('show');
+    if (subTimer) clearTimeout(subTimer);
+}
+
+/* ─────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────── */
+const g = id => document.getElementById(id);
+
+function fadeIn(el, delay = 0) {
+    if (!el) return;
+    setTimeout(() => {
+        el.style.transition = 'opacity 0.55s ease, transform 0.6s cubic-bezier(0.34,1.2,0.64,1)';
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+    }, delay);
+}
+
+function activateScene(n) {
+    document.querySelectorAll('.scene').forEach((s, i) => {
+        if (i + 1 === n) {
+            s.style.transition = 'opacity 0.65s ease';
+            s.classList.add('active');
+        } else {
+            s.style.transition = 'opacity 0.5s ease';
+            s.classList.remove('active');
+        }
+    });
+    g('sceneLabel').textContent = `0${n} / 04`;
+}
+
+/* ─────────────────────────────────────────────
+   EVENT SCHEDULER — 32s total
+───────────────────────────────────────────── */
+const TOTAL = 32000;
+let events = [], fired = new Set(), t0 = null, rafId = null;
+
+function at(ms, fn) { events.push({ ms, fn, id: events.length }); }
+
+function buildRings() {
+    const c = g('s4Rings'); if (!c) return; c.innerHTML = '';
+    [120, 240, 380, 540, 710].forEach((sz, i) => {
+        const r = document.createElement('div');
+        r.className = 's4-ring';
+        r.style.cssText = `width:${sz}px;height:${sz}px;animation-duration:${1.8+i*0.3}s;animation-delay:${i*0.2}s`;
+        c.appendChild(r);
+    });
+}
+
+function schedule() {
+    events = []; fired = new Set();
+
+    /* ── SCENE 1: 0–8s ── */
+    at(0, () => {
+        activateScene(1);
+        setCursor(innerWidth / 2, innerHeight / 2);
+    });
+    at(300,  () => fadeIn(g('s1TopLabel')));
+    at(900,  () => fadeIn(g('s1Heading')));
+    at(1500, () => {
+        g('s1Strike').classList.add('drawn');
+        showSub('Before Apneorder — customers are stuck waiting <strong>20+ minutes</strong> just to place an order.', 4500);
+    });
+    at(2200, () => fadeIn(g('s1Customers')));
+    at(3400, () => {
+        // Cursor gestures toward customers
+        const p = px(35, 56);
+        moveTo(p.x, p.y, 600, () => { click(cx, cy); });
+    });
+    at(4400, () => {
+        const p = px(65, 56);
+        moveTo(p.x, p.y, 600, () => { click(cx, cy); });
+    });
+    at(5400, () => {
+        fadeIn(g('s1WaitPill'));
+        const p = px(50, 80);
+        moveTo(p.x, p.y, 700, () => click(cx, cy));
+    });
+
+    /* ── SCENE 2: 8–20s ── */
+    at(8000, () => {
+        activateScene(2);
+        hideSub();
+        const p = px(50, 50);
+        moveTo(p.x, p.y, 500, null);
+    });
+    at(8400, () => {
+        fadeIn(g('s2Copy'));
+        showSub('Apneorder fixes this — customers scan, browse, and order in seconds. No waiting, no shouting.', 5000);
+    });
+    at(8800, () => {
+        const ph = g('s2Phone');
+        ph.style.transition = 'all 0.85s cubic-bezier(0.34,1.2,0.64,1)';
+        ph.style.opacity = '1';
+        ph.style.transform = 'none';
+    });
+
+    // Steps appear
+    at(9400, () => {
+        const s = g('sf1');
+        s.style.transition = 'all 0.45s cubic-bezier(0.34,1.2,0.64,1)';
+        s.style.opacity = '1'; s.style.transform = 'none';
+        s.classList.add('lit');
+    });
+    at(10100, () => {
+        g('fc1').classList.add('done');
+        g('sf1').classList.remove('lit');
+        const s = g('sf2');
+        s.style.transition = 'all 0.45s cubic-bezier(0.34,1.2,0.64,1)';
+        s.style.opacity = '1'; s.style.transform = 'none';
+        s.classList.add('lit');
+    });
+    at(10800, () => {
+        g('fc2').classList.add('done');
+        g('sf2').classList.remove('lit');
+        const s = g('sf3');
+        s.style.transition = 'all 0.45s cubic-bezier(0.34,1.2,0.64,1)';
+        s.style.opacity = '1'; s.style.transform = 'none';
+        s.classList.add('lit');
+    });
+
+    // Phone — menu items appear, cursor taps
+    at(11500, () => {
+        const m = g('mi1');
+        m.style.transition = 'all 0.42s cubic-bezier(0.34,1.2,0.64,1)';
+        m.style.opacity = '1'; m.style.transform = 'none';
+    });
+    at(12000, () => {
+        const m = g('mi2');
+        m.style.transition = 'all 0.42s cubic-bezier(0.34,1.2,0.64,1)';
+        m.style.opacity = '1'; m.style.transform = 'none';
+    });
+
+    // Cursor taps item 1 add button
+    at(12600, () => {
+        const phoneEl = g('s2Phone');
+        const rect = phoneEl.getBoundingClientRect();
+        const tx = rect.right - 36;
+        const ty = rect.top + rect.height * 0.42;
+        moveTo(tx, ty, 550, () => {
+            click(cx, cy);
+            showSub('<strong>Tap +</strong> to instantly add items to the cart — the menu is always up to date.', 3500);
+            const b = g('ab1'), q = g('q1'), m = g('mi1');
+            if (b) { b.classList.add('tapped'); setTimeout(() => b.classList.remove('tapped'), 260); }
+            if (q) q.classList.add('show');
+            if (m) m.classList.add('added');
+        });
+    });
+
+    // Cursor taps item 2
+    at(13600, () => {
+        const phoneEl = g('s2Phone');
+        const rect = phoneEl.getBoundingClientRect();
+        const tx = rect.right - 36;
+        const ty = rect.top + rect.height * 0.55;
+        moveTo(tx, ty, 500, () => {
+            click(cx, cy);
+            const b = g('ab2'), q = g('q2'), m = g('mi2');
+            if (b) { b.classList.add('tapped'); setTimeout(() => b.classList.remove('tapped'), 260); }
+            if (q) q.classList.add('show');
+            if (m) m.classList.add('added');
+        });
+    });
+
+    // Pay strip appears
+    at(14400, () => {
+        const ps = g('s2PayStrip');
+        ps.style.transition = 'all 0.5s cubic-bezier(0.34,1.2,0.64,1)';
+        ps.style.opacity = '1'; ps.style.transform = 'none';
+    });
+
+    // Cursor taps pay
+    at(15200, () => {
+        const phoneEl = g('s2Phone');
+        const rect = phoneEl.getBoundingClientRect();
+        const tx = rect.left + rect.width / 2;
+        const ty = rect.bottom - 38;
+        moveTo(tx, ty, 600, () => {
+            click(cx, cy);
+            showSub('One tap to <strong>pay securely</strong> — and the order goes straight to the kitchen. Done!', 4000);
+            const ps = g('s2PayStrip');
+            if (ps) { ps.classList.add('tapped'); setTimeout(() => ps.classList.remove('tapped'), 380); }
+        });
+    });
+
+    at(16000, () => { g('fc3').classList.add('done'); g('sf3').classList.remove('lit'); });
+
+    at(16800, () => {
+        const conf = g('s2Confirmed');
+        conf.style.opacity = '1';
+    });
+
+    /* ── SCENE 3: 20–27s ── */
+    at(20000, () => {
+        activateScene(3);
+        hideSub();
+        const p = px(50, 50);
+        moveTo(p.x, p.y, 450, null);
+    });
+
+    at(20400, () => {
+        g('s3Top').style.opacity = '1';
+        showSub('Restaurants using Apneorder see <strong>real results</strong> — from day one.', 4500);
+    });
+
+    // Metrics pop in one by one, cursor highlights each
+    at(21000, () => {
+        fadeIn(g('sm1'));
+        const p = px(24, 48);
+        moveTo(p.x, p.y, 500, () => click(cx, cy));
+    });
+    at(22200, () => {
+        g('sd1').style.opacity = '1';
+        fadeIn(g('sm2'));
+        const p = px(49, 48);
+        moveTo(p.x, p.y, 500, () => click(cx, cy));
+    });
+    at(23400, () => {
+        g('sd2').style.opacity = '1';
+        fadeIn(g('sm3'));
+        const p = px(74, 48);
+        moveTo(p.x, p.y, 500, () => click(cx, cy));
+    });
+    at(24600, () => fadeIn(g('s3Bottom')));
+
+    /* ── SCENE 4: 27–32s ── */
+    at(27000, () => {
+        activateScene(4);
+        hideSub();
+        buildRings();
+        const p = px(50, 50);
+        moveTo(p.x, p.y, 500, null);
+    });
+
+    at(27500, () => {
+        const c = g('s4Content');
+        c.style.transition = 'all 0.85s cubic-bezier(0.34,1.2,0.64,1)';
+        c.style.opacity = '1'; c.style.transform = 'none';
+        showSub('Join <strong>1,000+ restaurants</strong> already growing with Apneorder. Start free today.', 5000);
+    });
+
+    at(28800, () => {
+        fadeIn(g('ss1'));
+        setTimeout(() => fadeIn(g('ss2')), 200);
+        setTimeout(() => fadeIn(g('ss3')), 400);
+    });
+
+    // Cursor hovers Get Started
+    at(29600, () => {
+        const btn = g('ctaPrimary');
+        const rect = btn ? btn.getBoundingClientRect() : null;
+        if (rect) {
+            moveTo(rect.left + rect.width / 2, rect.top + rect.height / 2, 600, () => {
+                click(cx, cy);
+                btn.classList.add('hov');
+                setTimeout(() => btn.classList.remove('hov'), 800);
+            });
+        }
+    });
+
+    at(30800, () => {
+        g('s4Strip').style.transform = 'scaleX(1)';
+    });
+
+    at(31200, () => {
+        g('replayBtn').style.opacity = '1';
+    });
+}
+
+/* ─────────────────────────────────────────────
+   RESET
+───────────────────────────────────────────── */
+function reset() {
+    document.querySelectorAll('.scene').forEach(s => {
+        s.classList.remove('active');
+        s.style.transition = 'none';
+    });
+
+    // Scene 1
+    const els1 = ['s1TopLabel','s1Heading','s1Customers','s1WaitPill'];
+    els1.forEach(id => {
+        const e = g(id);
+        if (!e) return;
+        e.style.transition = 'none';
+        e.style.opacity = '0';
+        e.style.transform = '';
+    });
+    g('s1Strike').classList.remove('drawn');
+
+    // Scene 2
+    const s2Copy = g('s2Copy');
+    if (s2Copy) { s2Copy.style.transition='none'; s2Copy.style.opacity='0'; s2Copy.style.transform='translateX(-20px)'; }
+    const s2Ph = g('s2Phone');
+    if (s2Ph) { s2Ph.style.transition='none'; s2Ph.style.opacity='0'; s2Ph.style.transform='translateY(28px) scale(0.93)'; }
+
+    ['sf1','sf2','sf3'].forEach(id => {
+        const e = g(id);
+        if (e) { e.style.transition='none'; e.style.opacity='0'; e.style.transform='translateX(-14px)'; e.classList.remove('lit'); }
+    });
+    ['fc1','fc2','fc3'].forEach(id => { const e=g(id); if(e) e.classList.remove('done'); });
+    ['mi1','mi2'].forEach(id => {
+        const e = g(id);
+        if (e) { e.style.transition='none'; e.style.opacity='0'; e.style.transform='translateX(14px)'; e.classList.remove('added'); }
+    });
+    ['ab1','ab2'].forEach(id => { const e=g(id); if(e) e.classList.remove('tapped'); });
+    ['q1','q2'].forEach(id => { const e=g(id); if(e) e.classList.remove('show'); });
+    const ps = g('s2PayStrip');
+    if (ps) { ps.style.transition='none'; ps.style.opacity='0'; ps.style.transform='translateY(6px)'; ps.classList.remove('tapped'); }
+    const conf = g('s2Confirmed');
+    if (conf) { conf.style.transition='none'; conf.style.opacity='0'; }
+
+    // Scene 3
+    g('s3Top').style.opacity = '0';
+    ['sm1','sm2','sm3'].forEach(id => {
+        const e = g(id);
+        if (e) { e.style.transition='none'; e.style.opacity='0'; e.style.transform='translateY(20px)'; }
+    });
+    ['sd1','sd2'].forEach(id => { const e=g(id); if(e) { e.style.transition='none'; e.style.opacity='0'; } });
+    const s3b = g('s3Bottom');
+    if (s3b) { s3b.style.transition='none'; s3b.style.opacity='0'; s3b.style.transform='translateY(8px)'; }
+
+    // Scene 4
+    const s4c = g('s4Content');
+    if (s4c) { s4c.style.transition='none'; s4c.style.opacity='0'; s4c.style.transform='translateY(18px)'; }
+    ['ss1','ss2','ss3'].forEach(id => {
+        const e = g(id);
+        if (e) { e.style.transition='none'; e.style.opacity='0'; e.style.transform='translateY(10px)'; }
+    });
+    ['ctaPrimary','ctaSecondary'].forEach(id => { const e=g(id); if(e) { e.classList.remove('hov'); } });
+    const strip = g('s4Strip');
+    if (strip) { strip.style.transition='none'; strip.style.transform='scaleX(0)'; }
+    const rings = g('s4Rings'); if (rings) rings.innerHTML = '';
+
+    g('replayBtn').style.opacity = '0';
+    g('progBar').style.width = '0%';
+    g('progBar').style.transition = 'none';
+    g('sceneLabel').textContent = '01 / 04';
+    hideSub();
+}
+
+/* ─────────────────────────────────────────────
+   TICK
+───────────────────────────────────────────── */
+function tick(ts) {
+    if (!t0) t0 = ts;
+    const elapsed = ts - t0;
+    g('progBar').style.width = Math.min(elapsed / TOTAL, 1) * 100 + '%';
+    events.forEach(ev => {
+        if (!fired.has(ev.id) && elapsed >= ev.ms) {
+            fired.add(ev.id);
+            try { ev.fn(); } catch(e) { console.warn(e); }
+        }
+    });
+    if (elapsed < TOTAL) rafId = requestAnimationFrame(tick);
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+function init() {
+    if (rafId) cancelAnimationFrame(rafId);
+    reset();
+    schedule();
+    t0 = null;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        g('progBar').style.transition = 'width 0.1s linear';
+        rafId = requestAnimationFrame(tick);
+    }));
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
