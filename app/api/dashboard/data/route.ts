@@ -110,40 +110,52 @@ export async function GET(request: Request) {
 
     // 3. Fetch Data based on mode
     if (isEssentials) {
-      const restaurant = await prisma.restaurant.findUnique({
-        where: { managerId: effectiveManagerId },
-        select: { 
-          id: true, name: true, upiId: true,
-          categories: { 
-            select: { 
-              id: true, 
-              name: true,
-              menuItems: {
-                where: { isDeleted: false } as any,
-                select: { id: true, name: true, price: true, costPrice: true, type: true, isAvailable: true }
+      const [restaurant, salesAggToday, preparedTodayCount, totalCompletedCount] = await Promise.all([
+        prisma.restaurant.findUnique({
+          where: { managerId: effectiveManagerId },
+          select: {
+            id: true, name: true, upiId: true,
+            categories: {
+              select: {
+                id: true,
+                name: true,
+                menuItems: {
+                  where: { isDeleted: false } as any,
+                  select: { id: true, name: true, price: true, costPrice: true, type: true, isAvailable: true }
+                }
               }
-            }
-          },
-          tables: {
-            select: {
-              id: true, tableNumber: true, qrCodeUrl: true, isOccupied: true,
-              orders: {
-                where: {
-                  OR: [
-                    { status: { notIn: ["completed", "cancelled"] } },
-                    { status: "completed", createdAt: { gte: todayStart } }
-                  ]
-                },
-                include: {
-                  orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
-                  table: { select: { tableNumber: true } }
-                },
-                orderBy: { createdAt: 'desc' }
+            },
+            tables: {
+              select: {
+                id: true, tableNumber: true, qrCodeUrl: true, isOccupied: true,
+                orders: {
+                  where: {
+                    OR: [
+                      { status: { notIn: ["completed", "cancelled"] } },
+                      { status: "completed", createdAt: { gte: todayStart } }
+                    ]
+                  },
+                  include: {
+                    orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
+                    table: { select: { tableNumber: true } }
+                  },
+                  orderBy: { createdAt: 'desc' }
+                }
               }
             }
           }
-        }
-      });
+        }),
+        prisma.order.aggregate({
+          _sum: { totalAmount: true },
+          where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: todayStart } }
+        }),
+        prisma.order.count({
+          where: { table: { restaurant: { managerId: effectiveManagerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
+        }),
+        prisma.order.count({
+          where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" }
+        }),
+      ]);
 
       if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
 
@@ -159,10 +171,14 @@ export async function GET(request: Request) {
         tableNumber: o.table?.tableNumber
       }));
 
+      const completedToday = allOrders.filter((o: any) => o.status === "completed");
+
       return NextResponse.json({
         success: true,
         orders: allOrders.filter((o: any) => o.status !== "completed"),
-        completedOrders: allOrders.filter((o: any) => o.status === "completed").slice(0, 10),
+        completedOrders: completedToday.slice(0, 10),
+        hasMoreCompleted: totalCompletedCount > 10,
+        totalCompleted: totalCompletedCount,
         restaurantId: (restaurant as any).id,
         restaurantName: (restaurant as any).name,
         upiId: (restaurant as any).upiId,
@@ -171,7 +187,11 @@ export async function GET(request: Request) {
           menuItems: (cat.menuItems || []).filter((item: any) => !item.isDeleted)
         })),
         tables: (restaurant as any).tables?.map((t: any) => ({ id: t.id, tableNumber: t.tableNumber, qrCodeUrl: t.qrCodeUrl, isOccupied: t.isOccupied })),
-        stats: null
+        stats: {
+          totalSaleToday: Number(salesAggToday._sum.totalAmount ?? 0),
+          preparedTodayCount,
+        },
+        subscription: subscription || null,
       });
     }
 

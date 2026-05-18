@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { User as SupabaseUser } from "@supabase/supabase-js";
-import jsPDF from "jspdf";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -143,10 +142,10 @@ export default function DashboardPage() {
   }, []);
 
   // ─── Data Fetching ───
-  const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = false, subscriptionOnly = false) => {
+  const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = true) => {
     try {
       const idToken = await getToken();
-      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}&subscriptionOnly=${subscriptionOnly}`, {
+      const res = await fetch(`/api/dashboard/data?managerId=${uid}&essentials=${essentialsOnly}`, {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
       const data = await res.json();
@@ -173,26 +172,13 @@ export default function DashboardPage() {
         if (data.subscription) setSubscription(data.subscription);
       }
 
-      if (subscriptionOnly) {
-        // If it's subscription-only check, only proceed to essentials IF active
-        if (data.subscription?.status === "ACTIVE") {
-          fetchDashboardData(uid, true, false);
-        } else {
-          // Done loading for now (locked)
-          setLoading(false);
-          setIsEssentialsLoaded(true);
-        }
-        return;
-      }
-
       if (essentialsOnly) {
         setIsEssentialsLoaded(true);
-        fetchDashboardData(uid, false, false);
+        setLoading(false);
       }
-    } catch (err) { 
-      console.error("Fetch Error:", err); 
-    } finally {
-      if (!essentialsOnly && !subscriptionOnly) setLoading(false);
+    } catch (err) {
+      console.error("Fetch Error:", err);
+      setLoading(false);
     }
   }, [getToken]);
 
@@ -223,6 +209,30 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activeView === "menu" && restaurantId) fetchMenuData(restaurantId);
   }, [activeView, restaurantId, fetchMenuData]);
+
+  const [isAnalyticsLoaded, setIsAnalyticsLoaded] = useState(false);
+
+  const fetchAnalyticsData = useCallback(async (uid: string) => {
+    try {
+      const idToken = await getToken();
+      const res = await fetch(`/api/dashboard/analytics?managerId=${uid}`, {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+      });
+      const data = await res.json();
+      if (data.success && data.stats) {
+        setDashboardStats((prev) => ({ ...prev, ...data.stats }));
+        setIsAnalyticsLoaded(true);
+      }
+    } catch (err) {
+      console.error("Analytics Fetch Error:", err);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    if (activeView === "analytics" && managerId && !isAnalyticsLoaded) {
+      fetchAnalyticsData(managerId);
+    }
+  }, [activeView, managerId, isAnalyticsLoaded, fetchAnalyticsData]);
 
   const loadMoreCompleted = useCallback(async () => {
     if (!managerId || isLoadingMore || !hasMoreCompleted) return;
@@ -261,7 +271,7 @@ export default function DashboardPage() {
       }
 
       setManagerId(idToUse);
-      fetchDashboardData(idToUse, false, true);
+      fetchDashboardData(idToUse);
 
       // Background sync
       try {
@@ -706,25 +716,29 @@ export default function DashboardPage() {
     }
   };
 
-  const downloadQR = (table: ManageTable) => {
+  const downloadQR = async (table: ManageTable) => {
+    const [{ default: jsPDF }, QRCode] = await Promise.all([
+      import("jspdf"),
+      import("qrcode"),
+    ]);
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     doc.setFont("helvetica", "bold"); doc.setFontSize(28);
     doc.text(restaurantName.toUpperCase(), 105, 40, { align: "center" });
     doc.setFontSize(16); doc.setTextColor(100); doc.text("SCAN TO ORDER", 105, 55, { align: "center" });
     const dynamicUrl = `${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`;
-    import("qrcode").then((QRCode) => {
-      QRCode.toDataURL(dynamicUrl, { margin: 1, width: 1000 }).then((url) => {
-        doc.addImage(url, "PNG", 55, 70, 100, 100);
-        doc.setFontSize(24); doc.setTextColor(0); doc.text(`TABLE ${table.tableNumber}`, 105, 185, { align: "center" });
-        doc.setFontSize(10); doc.setTextColor(150); doc.text("Powered by Apneorder", 105, 280, { align: "center" });
-        doc.save(`${restaurantName.replace(/\s+/g, "_")}_Table_${table.tableNumber}.pdf`);
-      });
-    });
+    const url = await QRCode.toDataURL(dynamicUrl, { margin: 1, width: 1000 });
+    doc.addImage(url, "PNG", 55, 70, 100, 100);
+    doc.setFontSize(24); doc.setTextColor(0); doc.text(`TABLE ${table.tableNumber}`, 105, 185, { align: "center" });
+    doc.setFontSize(10); doc.setTextColor(150); doc.text("Powered by Apneorder", 105, 280, { align: "center" });
+    doc.save(`${restaurantName.replace(/\s+/g, "_")}_Table_${table.tableNumber}.pdf`);
   };
 
   const downloadAllQRs = async () => {
+    const [{ default: jsPDF }, QRCode] = await Promise.all([
+      import("jspdf"),
+      import("qrcode"),
+    ]);
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const QRCode = await import("qrcode");
     for (let i = 0; i < tables.length; i++) {
       const table = tables[i]; if (i > 0) doc.addPage();
       const dynamicUrl = `${window.location.origin}/menu/${restaurantId}?table=${table.tableNumber}`;
@@ -1054,7 +1068,7 @@ export default function DashboardPage() {
 
             {activeView === "analytics" && (
               (subscription?.status === "ACTIVE" || loading) ? (
-                <AnalyticsView stats={dashboardStats} loading={loading} />
+                <AnalyticsView stats={dashboardStats} loading={!isAnalyticsLoaded} />
               ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
 
