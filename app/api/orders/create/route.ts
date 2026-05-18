@@ -29,20 +29,25 @@ export async function POST(request: Request) {
     }
 
     // 2. Calculate Total & build order items (with optional special instructions)
+    // Batch-fetch all menu items in one query to avoid N+1
+    const itemIds = items.map((i) => i.id);
+    const menuItems = await (prisma.menuItem as any).findMany({
+        where: { id: { in: itemIds }, isDeleted: false },
+        select: { id: true, price: true },
+    });
+    const menuItemMap = new Map<string, any>(menuItems.map((m: any) => [m.id, m]));
+
     let totalAmount = 0;
     const orderItemsData = [];
     for (const item of items) {
-        const menuItem = await (prisma.menuItem as any).findFirst({
-            where: { id: item.id, isDeleted: false }
-        });
+        const menuItem = menuItemMap.get(item.id);
         if (menuItem) {
             const subtotal = Number(menuItem.price) * item.quantity;
             totalAmount += subtotal;
             orderItemsData.push({
                 menuItemId: item.id,
                 quantity: item.quantity,
-                subtotal: subtotal,
-                // Sanitise: trim whitespace, collapse to null if empty
+                subtotal,
                 notes: item.notes?.trim() || null,
             });
         }

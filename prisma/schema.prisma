@@ -69,6 +69,7 @@ model MenuItem {
 
   @@index([categoryId])
   @@index([isDeleted])
+  @@index([categoryId, isDeleted])
 }
 
 model Table {
@@ -106,6 +107,8 @@ model Order {
   @@index([restaurantId])
   @@index([status])
   @@index([createdAt])
+  @@index([restaurantId, status, createdAt])
+  @@index([restaurantId, customerPhone, createdAt])
 }
 
 model OrderItem {

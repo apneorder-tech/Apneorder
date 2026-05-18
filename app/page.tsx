@@ -55,6 +55,16 @@ const moneyOutcomes = [
 export default function Home() {
   const [redirecting, setRedirecting] = useState(false);
 
+  const scrollToSection = (id: string) => {
+    const section = document.getElementById(id);
+    if (!section) return;
+
+    const headerOffset = 82;
+    const top = section.getBoundingClientRect().top + window.scrollY - headerOffset;
+    window.scrollTo({ top, behavior: "smooth" });
+    window.history.pushState(null, "", `#${id}`);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) { setRedirecting(true); window.location.href = "/dashboard"; }
@@ -92,6 +102,10 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-8">
             {['Features', 'How it Works', 'Pricing'].map(n => (
               <a key={n} href={`#${n.toLowerCase().replace(/\s+/g, '-')}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  scrollToSection(n.toLowerCase().replace(/\s+/g, '-'));
+                }}
                 className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
                 {n}
               </a>
@@ -1063,14 +1077,78 @@ export default function Home() {
       </main>
 
       {/* ─────────────────── FOOTER ─────────────────── */}
-      <footer className="bg-zinc-950 py-8 border-t border-zinc-900">
-        <div className="max-w-7xl mx-auto px-5 lg:px-10 flex flex-col sm:flex-row
-          items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="ApneOrder" className="h-7 w-7 object-contain opacity-40" />
-            <span className="font-black text-zinc-500 text-sm tracking-tight">ApneOrder</span>
-          </Link>
-          <p className="text-xs text-zinc-600">© {new Date().getFullYear()} ApneOrder. All rights reserved.</p>
+      <footer className="bg-zinc-950 border-t border-zinc-900">
+        <div className="max-w-7xl mx-auto px-5 lg:px-10 py-10">
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
+
+            {/* Brand */}
+            <div className="flex flex-col items-center md:items-start gap-3">
+              <Link href="/" className="flex items-center gap-2">
+                <img src="/logo.png" alt="ApneOrder" className="h-7 w-7 object-contain opacity-40" />
+                <span className="font-black text-zinc-400 text-sm tracking-tight">ApneOrder</span>
+              </Link>
+              <p className="text-xs text-zinc-600 text-center md:text-left max-w-[220px]">
+                Restaurant management made simple for modern Indian restaurants.
+              </p>
+            </div>
+
+            {/* Links */}
+            <div className="flex flex-col items-center md:items-end gap-4">
+              <div className="flex items-center gap-5">
+                <Link href="/terms" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  Terms &amp; Conditions
+                </Link>
+                <span className="text-zinc-800 text-xs">·</span>
+                <Link href="/privacy" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                  Privacy Policy
+                </Link>
+              </div>
+
+              {/* Social Icons */}
+              <div className="flex items-center gap-3">
+                <a
+                  href="https://instagram.com/apneorder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="ApneOrder on Instagram"
+                  className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                  </svg>
+                </a>
+                <a
+                  href="https://twitter.com/apneorder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="ApneOrder on X (Twitter)"
+                  className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                </a>
+                <a
+                  href="https://linkedin.com/company/apneorder"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="ApneOrder on LinkedIn"
+                  className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="mt-8 pt-6 border-t border-zinc-900 text-center">
+            <p className="text-xs text-zinc-700">
+              © {new Date().getFullYear()} ApneOrder. All rights reserved.
+            </p>
+          </div>
         </div>
       </footer>
 

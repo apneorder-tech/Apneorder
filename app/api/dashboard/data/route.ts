@@ -180,14 +180,51 @@ export async function GET(request: Request) {
       console.error("Prisma subscription model NOT FOUND. Available models:", Object.keys(prisma));
     }
 
+    const currentYearNum = new Date().getFullYear();
+    const currentYearStart = new Date(currentYearNum, 0, 1);
+    const nextYearStart = new Date(currentYearNum + 1, 0, 1);
+
+    // Build time buckets for chart queries BEFORE the Promise.all so we can
+    // use plain Prisma aggregates (same ORM path as the scalar stats — avoids
+    // $queryRaw timezone issues where date_trunc uses the DB timezone).
+    const weekBuckets = Array.from({ length: 7 }, (_, i) => {
+      const start = new Date(now);
+      start.setUTCDate(now.getUTCDate() - (6 - i));
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setUTCDate(start.getUTCDate() + 1);
+      return { start, end, label: start.toLocaleDateString("en-IN", { weekday: "short" }) };
+    });
+
+    const monthBuckets = Array.from({ length: 4 }, (_, i) => {
+      const start = new Date(now);
+      start.setUTCDate(now.getUTCDate() - (21 - i * 7));
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setUTCDate(start.getUTCDate() + 7);
+      return { start, end, label: `Week ${i + 1}` };
+    });
+
+    const yearBuckets = Array.from({ length: 12 }, (_, i) => {
+      const start = new Date(Date.UTC(currentYearNum, i, 1));
+      const end = new Date(Date.UTC(currentYearNum, i + 1, 1));
+      return { start, end, label: start.toLocaleDateString("en-IN", { month: "short" }) };
+    });
+
     const [
       restaurant,
-      salesAnnualArr,
+      salesAggToday,
+      salesAggWeek,
+      salesAggMonth,
+      salesAggYear,
       preparedTodayCount,
       topItemsAgg,
       completedOrders,
       totalCompletedCount,
       allItemsSoldWeek,
+      weekChartResults,
+      monthChartResults,
+      yearChartResults,
     ] = await Promise.all([
       prisma.restaurant.findUnique({
         where: { managerId: effectiveManagerId },
@@ -224,9 +261,22 @@ export async function GET(request: Request) {
           }
         }
       }),
-      prisma.order.findMany({
-        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: oneYearAgo } },
-        select: { totalAmount: true, createdAt: true }
+      // DB-level aggregates for scalar stats — avoids loading full order rows
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: todayStart } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: sevenDaysAgo } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: thirtyDaysAgo } }
+      }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: oneYearAgo } }
       }),
       prisma.order.count({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: { in: ["ready", "completed"] }, createdAt: { gte: todayStart } }
@@ -238,10 +288,18 @@ export async function GET(request: Request) {
         orderBy: { _sum: { quantity: 'desc' } },
         take: 5
       }),
+      // completedOrders: use select on nested orderItems to avoid over-fetching
       prisma.order.findMany({
         where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" },
         include: {
-          orderItems: { include: { menuItem: { select: { name: true, type: true, price: true } } } },
+          orderItems: {
+            select: {
+              id: true,
+              quantity: true,
+              notes: true,
+              menuItem: { select: { name: true, type: true, price: true } }
+            }
+          },
           table: { select: { tableNumber: true } }
         },
         orderBy: { createdAt: 'desc' },
@@ -263,6 +321,19 @@ export async function GET(request: Request) {
           },
         },
       }),
+      // Chart queries: one Prisma aggregate per bucket — avoids $queryRaw timezone issues
+      Promise.all(weekBuckets.map(({ start, end }) => prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: start, lt: end } },
+      }))),
+      Promise.all(monthBuckets.map(({ start, end }) => prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: start, lt: end } },
+      }))),
+      Promise.all(yearBuckets.map(({ start, end }) => prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed", createdAt: { gte: start, lt: end } },
+      }))),
     ]);
 
     if (!restaurant) return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
@@ -302,35 +373,27 @@ export async function GET(request: Request) {
       : null;
     // ────────────────────────────────────────────────────────────
 
-    const salesDaily = salesAnnualArr.filter(o => o.createdAt >= todayStart).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
-    const salesWeekly = salesAnnualArr.filter(o => o.createdAt >= sevenDaysAgo).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
-    const salesMonthly = salesAnnualArr.filter(o => o.createdAt >= thirtyDaysAgo).reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
-    const salesYearly = salesAnnualArr.reduce((sum: number, o: any) => sum + Number(o.totalAmount), 0);
+    // Scalar stats from DB-level aggregates
+    const salesDaily = Number(salesAggToday._sum.totalAmount ?? 0);
+    const salesWeekly = Number(salesAggWeek._sum.totalAmount ?? 0);
+    const salesMonthly = Number(salesAggMonth._sum.totalAmount ?? 0);
+    const salesYearly = Number(salesAggYear._sum.totalAmount ?? 0);
 
-    // Chart logic
-    const chartOrders = salesAnnualArr;
-    const chartWeek = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const start = new Date(d); start.setHours(0,0,0,0);
-      const end = new Date(d); end.setHours(23,59,59,999);
-      const val = chartOrders.filter((o: any) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
-      return { date: start.toLocaleDateString('en-IN', { weekday: 'short' }), sales: val };
-    }).reverse();
+    // Chart data — derived from per-bucket Prisma aggregates (no timezone issues)
+    const chartWeek = weekBuckets.map(({ label }, i) => ({
+      date: label,
+      sales: Number(weekChartResults[i]._sum.totalAmount ?? 0),
+    }));
 
-    const chartMonth = Array.from({ length: 4 }).map((_, i) => {
-      const start = new Date(); start.setDate(start.getDate() - (i + 1) * 7);
-      const end = new Date(); end.setDate(end.getDate() - i * 7);
-      const val = chartOrders.filter((o: any) => new Date(o.createdAt) >= start && new Date(o.createdAt) <= end).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
-      return { date: `Week ${4-i}`, sales: val };
-    }).reverse();
+    const chartMonth = monthBuckets.map(({ label }, i) => ({
+      date: label,
+      sales: Number(monthChartResults[i]._sum.totalAmount ?? 0),
+    }));
 
-    const currentYearNum = new Date().getFullYear();
-    const chartYear = Array.from({ length: 12 }).map((_, i) => {
-      const start = new Date(currentYearNum, i, 1);
-      const end = new Date(currentYearNum, i + 1, 0, 23, 59, 59, 999);
-      const val = chartOrders.filter((o: any) => { const d = new Date(o.createdAt); return d >= start && d <= end; }).reduce((s: number, o: any) => s + Number(o.totalAmount), 0);
-      return { date: start.toLocaleDateString('en-IN', { month: 'short' }), sales: val };
-    });
+    const chartYear = yearBuckets.map(({ label }, i) => ({
+      date: label,
+      sales: Number(yearChartResults[i]._sum.totalAmount ?? 0),
+    }));
 
     const mapItems = (oi: any) => ({
       id: oi.id,

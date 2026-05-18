@@ -69,9 +69,9 @@ export function SidebarContent({
       {/* Store info */}
       <div className="mt-auto space-y-2">
         {onSendTestOrder && (
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="w-full border-dashed border-zinc-300 hover:border-zinc-500 hover:bg-zinc-50 text-[10px] font-black uppercase tracking-widest text-zinc-500"
             onClick={onSendTestOrder}
           >
@@ -86,9 +86,9 @@ export function SidebarContent({
           </div>
         </div>
         {onLogout && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="w-full text-zinc-400 hover:text-red-500 font-bold text-xs"
             onClick={onLogout}
           >

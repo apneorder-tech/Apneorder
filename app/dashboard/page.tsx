@@ -29,7 +29,7 @@ import { OrderTabSelector } from "./_components/OrderTabSelector";
 import { OrdersEmptyState } from "./_components/OrdersEmptyState";
 import { OrdersGrid } from "./_components/OrdersGrid";
 import { MobileBottomNav } from "./_components/MobileBottomNav";
-import { StatCardSkeleton } from "./_components/DashboardSkeleton";
+import { StatCardSkeleton, OrdersViewSkeleton, OrderTabSkeleton, DashboardPageSkeleton } from "./_components/DashboardSkeleton";
 
 // Dynamic Sub-Views (Loaded only when active)
 const MenuView = dynamic(() => import("./_components/MenuView").then(m => m.MenuView), { ssr: false });
@@ -124,11 +124,18 @@ export default function DashboardPage() {
     () => activeTab === "verifying" ? verifyingOrders : activeTab === "active" ? activeOrders : completedOrders,
     [activeTab, verifyingOrders, activeOrders, completedOrders]
   );
+  // Derive table occupancy from the isOccupied flag — set by the server on order create,
+  // and cleared locally when the manager clicks "Clear Table"
+  const tableOccupancy = useMemo(() => {
+    const occupied = tables.filter((t) => t.isOccupied).length;
+    return `${occupied}/${tables.length}`;
+  }, [tables]);
 
   const [isMenuLoaded, setIsMenuLoaded] = useState(false);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
   const [isEssentialsLoaded, setIsEssentialsLoaded] = useState(false);
   const pendingUpdatesRef = useRef<Set<string>>(new Set());
+  const ordersRef = useRef<Order[]>([]);
 
   const getToken = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -184,10 +191,13 @@ export default function DashboardPage() {
       }
     } catch (err) { 
       console.error("Fetch Error:", err); 
-    } finally { 
-      if (!essentialsOnly) setLoading(false);
+    } finally {
+      if (!essentialsOnly && !subscriptionOnly) setLoading(false);
     }
   }, [getToken]);
+
+  // Keep ordersRef in sync so updateOrderStatus can read current orders synchronously
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
 
   const fetchMenuData = useCallback(async (rid: string) => {
     if (isMenuLoaded || isLoadingMenu) return;
@@ -315,20 +325,50 @@ export default function DashboardPage() {
         }
 
         if (payload.eventType === "UPDATE") {
-          // 🚀 SMART MERGE: Only update the specific fields that can change via status update.
-          // Spreading the raw payload.new causes all unknown DB columns to pollute our
-          // typed Order object, which triggers unnecessary re-renders of every card.
-          setOrders((currentOrders) =>
-            currentOrders.map((o) => {
-              if (o.id !== orderId) return o;
-              return {
-                ...o,
-                status: payload.new.status ?? o.status,
-                paymentMethod: payload.new.paymentMethod ?? o.paymentMethod,
-                transactionId: payload.new.transactionId ?? o.transactionId,
-              };
-            })
-          );
+          const newStatus = payload.new.status;
+          // Read previous status from local ref — payload.old.status is unreliable without REPLICA IDENTITY FULL
+          const movedOrder = ordersRef.current.find((o) => o.id === orderId);
+          const wasAlreadyPrepared = movedOrder?.status === "ready";
+
+          if (newStatus === "completed" || newStatus === "cancelled") {
+            setOrders((currentOrders) => currentOrders.filter((o) => o.id !== orderId));
+            if (newStatus === "completed") {
+              setCompletedOrders((prev) => {
+                if (prev.some((o) => o.id === orderId)) return prev;
+                const base = movedOrder ?? ({ id: orderId } as Order);
+                return [{ ...base, status: "completed" as const }, ...prev];
+              });
+              setTotalCompleted((c) => c + 1);
+              setDashboardStats((prev) => ({
+                ...prev,
+                // Don't double-count: if it was "ready" it was already in preparedTodayCount
+                preparedTodayCount: wasAlreadyPrepared ? prev.preparedTodayCount : prev.preparedTodayCount + 1,
+                totalSaleToday: prev.totalSaleToday + Number(movedOrder?.totalAmount ?? 0),
+              }));
+            } else if (newStatus === "cancelled" && wasAlreadyPrepared) {
+              setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount - 1 }));
+            }
+          } else if (newStatus === "ready") {
+            setOrders((currentOrders) =>
+              currentOrders.map((o) => {
+                if (o.id !== orderId) return o;
+                return { ...o, status: newStatus, paymentMethod: payload.new.paymentMethod ?? o.paymentMethod, transactionId: payload.new.transactionId ?? o.transactionId };
+              })
+            );
+            setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount + 1 }));
+          } else {
+            setOrders((currentOrders) =>
+              currentOrders.map((o) => {
+                if (o.id !== orderId) return o;
+                return {
+                  ...o,
+                  status: newStatus ?? o.status,
+                  paymentMethod: payload.new.paymentMethod ?? o.paymentMethod,
+                  transactionId: payload.new.transactionId ?? o.transactionId,
+                };
+              })
+            );
+          }
         } else {
           // For INSERT (New Order), do a full re-fetch to get nested items
           const idToken = await getToken();
@@ -339,6 +379,7 @@ export default function DashboardPage() {
             .then((data) => {
               if (data.success) {
                 setOrders(data.orders);
+                if (data.tables) setTables(data.tables);
                 if (payload.eventType === "INSERT") {
                   console.log("Supabase: New order play sound effect");
                   new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3").play().catch(e => console.error("Audio error:", e));
@@ -475,14 +516,54 @@ export default function DashboardPage() {
     pendingUpdatesRef.current.add(orderId);
     setTimeout(() => pendingUpdatesRef.current.delete(orderId), 2000);
 
-    // Capture prev inside the setter so we don't need `orders` in the dep array.
-    // Without this fix, every order state change recreated this callback, causing
-    // ALL OrderCards to re-render simultaneously even when only one changed.
-    let prevOrder: Order | undefined;
+    // Capture synchronously from the ref (updater functions run async in React 18)
+    const prevOrder = ordersRef.current.find((o) => o.id === orderId);
+
     setOrders((p) => {
-      prevOrder = p.find((o) => o.id === orderId);
+      if (status === "completed" || status === "cancelled") {
+        return p.filter((o) => o.id !== orderId);
+      }
       return p.map((o) => (o.id === orderId ? { ...o, status } : o));
     });
+
+    // ── Stat deltas ──────────────────────────────────────────────────────────
+    // Server preparedTodayCount = orders with status IN ("ready","completed") created today.
+    // Each order is counted ONCE: ready→completed must NOT increment again.
+    const prevStatus = prevOrder?.status;
+    const wasAlreadyPrepared = prevStatus === "ready"; // already counted in preparedTodayCount
+
+    if (status === "completed" && prevOrder) {
+      setCompletedOrders((prev) => {
+        if (prev.some((o) => o.id === orderId)) return prev;
+        return [{ ...prevOrder, status: "completed" as const }, ...prev];
+      });
+      setTotalCompleted((c) => c + 1);
+      setDashboardStats((prev) => ({
+        ...prev,
+        // Only count toward prepared if it wasn't already counted as "ready"
+        preparedTodayCount: wasAlreadyPrepared ? prev.preparedTodayCount : prev.preparedTodayCount + 1,
+        totalSaleToday: prev.totalSaleToday + Number(prevOrder.totalAmount ?? 0),
+      }));
+    } else if (status === "ready") {
+      setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount + 1 }));
+    } else if (status === "cancelled" && wasAlreadyPrepared) {
+      // Cancelling a "ready" order removes it from the prepared count
+      setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount - 1 }));
+    }
+
+    const rollbackStats = () => {
+      if (status === "completed") {
+        setDashboardStats((prev) => ({
+          ...prev,
+          preparedTodayCount: wasAlreadyPrepared ? prev.preparedTodayCount : prev.preparedTodayCount - 1,
+          totalSaleToday: prev.totalSaleToday - Number(prevOrder?.totalAmount ?? 0),
+        }));
+      } else if (status === "ready") {
+        setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount - 1 }));
+      } else if (status === "cancelled" && wasAlreadyPrepared) {
+        setDashboardStats((prev) => ({ ...prev, preparedTodayCount: prev.preparedTodayCount + 1 }));
+      }
+    };
 
     try {
       const idToken = await getToken();
@@ -494,14 +575,34 @@ export default function DashboardPage() {
         },
         body: JSON.stringify({ status }),
       });
-      // Rollback on failure
+
       if (!res.ok && prevOrder) {
-        setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder! : o)));
+        if (status === "completed" || status === "cancelled") {
+          setOrders((p) => [...p, prevOrder]);
+        } else {
+          setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder : o)));
+        }
+        if (status === "completed") {
+          setCompletedOrders((prev) => prev.filter((o) => o.id !== orderId));
+          setTotalCompleted((c) => c - 1);
+        }
+        rollbackStats();
       }
     } catch {
-      if (prevOrder) setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder! : o)));
+      if (prevOrder) {
+        if (status === "completed" || status === "cancelled") {
+          setOrders((p) => [...p, prevOrder]);
+        } else {
+          setOrders((p) => p.map((o) => (o.id === orderId ? prevOrder : o)));
+        }
+        if (status === "completed") {
+          setCompletedOrders((prev) => prev.filter((o) => o.id !== orderId));
+          setTotalCompleted((c) => c - 1);
+        }
+        rollbackStats();
+      }
     }
-  }, []); // ✅ Stable reference — no deps needed since prev is captured in the setter
+  }, [getToken]);
 
   const handleUpdateUpi = async () => {
     if (!restaurantId || !tempUpiId.trim() || !tempUpiId.includes("@")) return;
@@ -785,38 +886,41 @@ export default function DashboardPage() {
                       <>
                         <StatCard label="Live Orders" value={activeOrders.length.toString()} icon={ChefHat} color="text-orange-600" />
                         <StatCard label="Ready/Served" value={dashboardStats.preparedTodayCount.toString()} icon={Check} color="text-green-600" />
-                        <StatCard label="Table Occupancy" value={dashboardStats.tablesFilled} icon={Bell} color="text-blue-600" />
+                        <StatCard label="Table Occupancy" value={tableOccupancy} icon={Bell} color="text-blue-600" />
                         <StatCard label="Today's Sale" value={formatCurrency(dashboardStats.totalSaleToday)} icon={Clock} color="text-purple-600" />
                       </>
                     )}
                   </div>
 
-                  <div className="space-y-6 sm:space-y-8">
-                    <OrderTabSelector 
-                      activeTab={activeTab} 
-                      setActiveTab={setActiveTab} 
-                      verifyingCount={verifyingOrders.length} 
-                      activeCount={activeOrders.length} 
-                      completedCount={completedOrders.length}
-                    />
-                    
-                    {isEssentialsLoaded && displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
-                      <div className="space-y-6 sm:space-y-8">
-                        <OrdersGrid 
-                          orders={displayedOrders} 
-                          onStatusUpdate={updateOrderStatus} 
-                          loading={!isEssentialsLoaded} 
-                        />
-                        {activeTab === "completed" && hasMoreCompleted && (
-                          <div className="flex justify-center pt-2 sm:pt-4 pb-8 sm:pb-12">
-                            <Button variant="outline" size="lg" className="bg-white hover:bg-zinc-50 font-bold rounded-xl shadow-sm gap-2" onClick={loadMoreCompleted} disabled={isLoadingMore}>
-                              {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : "Load More Orders"}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {!isEssentialsLoaded ? (
+                    <OrdersViewSkeleton />
+                  ) : (
+                    <div className="space-y-6 sm:space-y-8">
+                      <OrderTabSelector
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                        verifyingCount={verifyingOrders.length}
+                        activeCount={activeOrders.length}
+                        completedCount={completedOrders.length}
+                      />
+                      {displayedOrders.length === 0 ? <OrdersEmptyState activeTab={activeTab} /> : (
+                        <div className="space-y-6 sm:space-y-8">
+                          <OrdersGrid
+                            orders={displayedOrders}
+                            onStatusUpdate={updateOrderStatus}
+                            loading={false}
+                          />
+                          {activeTab === "completed" && hasMoreCompleted && (
+                            <div className="flex justify-center pt-2 sm:pt-4 pb-8 sm:pb-12">
+                              <Button variant="outline" size="lg" className="bg-white hover:bg-zinc-50 font-bold rounded-xl shadow-sm gap-2" onClick={loadMoreCompleted} disabled={isLoadingMore}>
+                                {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : "Load More Orders"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
