@@ -60,7 +60,7 @@ export const metadata: Metadata = {
       "Take orders via QR menu, collect UPI payments instantly, and manage live orders from one dashboard. Made for Indian restaurants. Go live in 10 minutes.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "ApneOrder — QR Menu & UPI Ordering for Indian Restaurants",
@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     title: "ApneOrder — QR Menu & UPI Ordering for Indian Restaurants",
     description:
       "Take orders via QR menu, collect UPI payments instantly, manage live orders. Made for Indian restaurants.",
-    images: ["/og-image.png"],
+    images: ["/opengraph-image"],
     creator: "@apneorder",
     site: "@apneorder",
   },
@@ -130,7 +130,7 @@ const jsonLd = {
         "Table Management",
         "Restaurant Analytics",
       ],
-      screenshot: `${BASE_URL}/og-image.png`,
+      screenshot: `${BASE_URL}/opengraph-image`,
       inLanguage: ["en-IN", "hi"],
       audience: {
         "@type": "Audience",
