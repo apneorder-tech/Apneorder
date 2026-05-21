@@ -99,7 +99,7 @@ export const metadata: Metadata = {
   },
 
   verification: {
-    google: "google09577fd6ee281896",
+    google: "Lpgwr3NoW02E7W45j5hPsSY8B60IRSCMESVTOyO9MRc",
   },
 
   category: "technology",
