@@ -301,6 +301,9 @@ export default function CustomerMenuPage() {
   const [waiterCallCooldownUntil, setWaiterCallCooldownUntil] = useState<number | null>(null);
   const [waiterCallFeedback, setWaiterCallFeedback] = useState<"sent" | "cooldown" | null>(null);
 
+  // Track when customer returns from UPI app
+  const [returnedFromUPI, setReturnedFromUPI] = useState(false);
+
   // ─── Live Order Tracking state ───
   const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set());
@@ -494,48 +497,91 @@ export default function CustomerMenuPage() {
 
   const upiUrl = restaurant ? `upi://pay?pa=${restaurant.upiId.trim()}&pn=${encodeURIComponent(restaurant.name)}&am=${amParam}&cu=INR&tn=${encodeURIComponent(`Order from ${restaurant.name}`)}` : "";
 
-  const handlePlaceOrder = async () => {
-    if (getTotalItems() === 0) return;
-    setShowPayment(true);
-    const isSafeToRedirect = totalPrice <= 2000 || !isInAppBrowser;
-    if (upiUrl && isSafeToRedirect) {
-      window.location.href = upiUrl;
-    }
+  // ─── Shared order creation ───
+  const createOrder = async (method: "ONLINE" | "CASH"): Promise<string> => {
+    const res = await fetch("/api/orders/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        restaurantId,
+        tableNumber,
+        items: Object.entries(cart).map(([id, quantity]) => ({
+          id,
+          quantity,
+          notes: cartNotes[id]?.trim() || null,
+        })),
+        transactionId: null,
+        paymentMethod: method,
+        customerPhone: customerPhone.trim() || null,
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Failed to create order");
+    return data.orderId as string;
   };
 
+  // ─── CASH: create order immediately ───
   const handleConfirmPaymentSent = async () => {
     setIsOrdering(true);
     try {
-      const res = await fetch("/api/orders/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          restaurantId,
-          tableNumber,
-          items: Object.entries(cart).map(([id, quantity]) => ({
-            id,
-            quantity,
-            notes: cartNotes[id]?.trim() || null,
-          })),
-          transactionId: null,
-          paymentMethod,
-          customerPhone: customerPhone.trim() || null
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setPlacedOrderId(data.orderId);
-      } else {
-        throw new Error(data.error || "Failed to create order");
-      }
+      const orderId = await createOrder("CASH");
+      setPlacedOrderId(orderId);
     } catch (err) {
-      console.error("Finalize Order Error:", err);
+      console.error("Cash Order Error:", err);
       alert("Something went wrong. Please check your connection and try again.");
     } finally {
       setIsOrdering(false);
     }
   };
+
+  // ─── ONLINE: create order first, then open UPI ───
+  // Called from inside the payment drawer when customer taps "Pay Now"
+  const handleInitiateOnlinePayment = async () => {
+    if (isOrdering || placedOrderId) return;
+    setIsOrdering(true);
+    try {
+      const orderId = await createOrder("ONLINE");
+      setPlacedOrderId(orderId);
+      // Open UPI app — page stays loaded in memory, visibilitychange fires on return
+      const isSafeToRedirect = totalPrice <= 2000 || !isInAppBrowser;
+      if (upiUrl && isSafeToRedirect) {
+        window.location.href = upiUrl;
+      }
+    } catch (err) {
+      console.error("Online Payment Error:", err);
+      alert("Something went wrong. Please check your connection and try again.");
+    } finally {
+      setIsOrdering(false);
+    }
+  };
+
+  // ─── For ONLINE: just open the payment drawer ───
+  const handlePlaceOrder = async () => {
+    if (getTotalItems() === 0) return;
+    if (paymentMethod === "CASH") {
+      handleConfirmPaymentSent();
+      return;
+    }
+    setShowPayment(true);
+    setIsBagOpen(false);
+  };
+
+  // ─── Detect customer returning from UPI app ───
+  // When placedOrderId is set for an ONLINE order, the UPI app has opened.
+  // visibilitychange fires when the customer switches back to the browser —
+  // order is already in the system, no manual button needed.
+  useEffect(() => {
+    if (!placedOrderId || paymentMethod !== "ONLINE" || isOrderSuccess) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setReturnedFromUPI(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [placedOrderId, paymentMethod, isOrderSuccess]);
 
   // One channel per session — mirrors the dashboard approach (restaurantId filter)
   useEffect(() => {
@@ -1523,13 +1569,7 @@ export default function CustomerMenuPage() {
                  </div>
 
                  <Button
-                   onClick={() => {
-                     if (paymentMethod === "CASH") {
-                       handleConfirmPaymentSent();
-                     } else {
-                       setShowPayment(true);
-                     }
-                   }}
+                   onClick={handlePlaceOrder}
                    disabled={isOrdering}
                    className="w-full h-16 text-lg font-black rounded-3xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
                 >
@@ -1670,70 +1710,96 @@ export default function CustomerMenuPage() {
               )}
 
               <div className="w-full space-y-6">
-                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-3xl p-6 border border-zinc-100 dark:border-zinc-700 text-center">
-                  {placedOrderId ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="animate-spin text-zinc-900 dark:text-white" size={16} />
-                        <span className="text-zinc-900 dark:text-white font-black uppercase tracking-widest text-[10px]">Verifying Payment...</span>
-                      </div>
-                      <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-bold leading-relaxed px-4">
-                        We&apos;re waiting for the restaurant to confirm your payment.
-                        <br/>
-                        <span className="text-zinc-400 dark:text-zinc-500 font-medium">Please stay on this screen while we verify your scan.</span>
+
+                {/* ── STATE 1: Order not yet created — show Pay Now button ── */}
+                {!placedOrderId && (
+                  <>
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-3xl p-5 border border-zinc-100 dark:border-zinc-700 text-center">
+                      <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
+                        Scan the QR above from any UPI app, or tap below to pay on this device.
                       </p>
                     </div>
-                  ) : (
-                    <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest">
-                      Scan the QR above & Pay. Your order will be placed after confirmation!
-                    </p>
-                  )}
-                </div>
 
-                {!placedOrderId ? (
-                  <div className="w-full space-y-4">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                       <div className="w-6 h-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full flex items-center justify-center text-[10px] font-black">2</div>
-                       <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Confirm Transfer</span>
+                    <div className="w-full space-y-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-6 h-6 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-full flex items-center justify-center text-[10px] font-black">2</div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Pay on This Device</span>
+                      </div>
+                      <Button
+                        onClick={handleInitiateOnlinePayment}
+                        disabled={isOrdering}
+                        className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all outline-none"
+                      >
+                        {isOrdering ? (
+                          <Loader2 className="animate-spin" size={20} />
+                        ) : (
+                          <div className="flex items-center justify-center gap-3">
+                            <span>Open UPI & Place Order</span>
+                            <ChevronRight size={18} />
+                          </div>
+                        )}
+                      </Button>
+                      <p className="text-center text-[8px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">
+                        Order is placed the moment you tap — no extra step needed
+                      </p>
                     </div>
+                  </>
+                )}
 
-                    <Button
-                      onClick={handleConfirmPaymentSent}
-                      disabled={isOrdering}
-                      className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all outline-none"
+                {/* ── STATE 2: Order placed, UPI opened, customer hasn't returned yet ── */}
+                {placedOrderId && !returnedFromUPI && (
+                  <div className="space-y-4">
+                    <div className="bg-zinc-50 dark:bg-zinc-800 rounded-3xl p-6 border border-zinc-100 dark:border-zinc-700 text-center space-y-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="animate-spin text-emerald-600" size={16} />
+                        <span className="text-zinc-900 dark:text-white font-black uppercase tracking-widest text-[10px]">
+                          Order Placed — Complete Payment in UPI App
+                        </span>
+                      </div>
+                      <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-bold leading-relaxed px-2">
+                        Your order is confirmed with the restaurant. Finish the payment in your UPI app and come back here.
+                      </p>
+                    </div>
+                    {/* Fallback for scan-from-other-device case */}
+                    <button
+                      onClick={() => setReturnedFromUPI(true)}
+                      className="w-full text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors py-2 outline-none"
                     >
-                      {isOrdering ? (
-                        <Loader2 className="animate-spin" size={20} />
-                      ) : (
-                        <div className="flex items-center justify-center gap-3">
-                          <span>I Have Successfully Paid</span>
-                          <ChevronRight size={18} />
-                        </div>
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 dark:text-zinc-600 animate-pulse">
-                      Do not close this window
-                    </p>
+                      I&apos;ve Already Paid ↑
+                    </button>
                   </div>
                 )}
 
-                {!isOrdering && (
+                {/* ── STATE 3: Customer returned from UPI — no action needed ── */}
+                {placedOrderId && returnedFromUPI && (
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl p-6 border border-emerald-100 dark:border-emerald-900 text-center space-y-3">
+                    <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-200">
+                      <Check size={22} className="text-white" strokeWidth={3} />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-emerald-700 dark:text-emerald-400 font-black uppercase tracking-widest text-[11px]">
+                        Payment Received!
+                      </p>
+                      <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-bold leading-relaxed px-2">
+                        Your order is with the restaurant. They&apos;re verifying your payment and will start cooking shortly.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+                        Waiting for kitchen confirmation...
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Go back — only when order not yet placed */}
+                {!placedOrderId && !isOrdering && (
                   <button
-                    onClick={() => {
-                      if (placedOrderId) {
-                        if (confirm("Are you sure you want to go back? Your order is currently being verified.")) {
-                           setShowPayment(false);
-                        }
-                      } else {
-                        setShowPayment(false);
-                      }
-                    }}
+                    onClick={() => setShowPayment(false)}
                     className="w-full text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-white transition-colors py-2 outline-none"
                   >
-                    {placedOrderId ? "Cancel & Go Back" : "Go Back to Menu"}
+                    Go Back to Menu
                   </button>
                 )}
               </div>
@@ -1823,6 +1889,7 @@ export default function CustomerMenuPage() {
                 setCartNotes({});
                 setIsBagOpen(false);
                 setShowPayment(false);
+                setReturnedFromUPI(false);
               }}
               className="mt-12 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all"
             >
