@@ -294,6 +294,8 @@ export default function CustomerMenuPage() {
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
   const [showDirectOptions, setShowDirectOptions] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  // Single phone state — shared between Quick Reorder lookup and cart checkout.
+  // Typing in either input fills both instantly so the customer never has to repeat themselves.
   const [customerPhone, setCustomerPhone] = useState("");
 
   // Waiter call state
@@ -310,7 +312,6 @@ export default function CustomerMenuPage() {
   const lastPlacedOrderIdRef = useRef<string | null>(null);
 
   // ─── Quick Reorder state ───
-  const [quickPhone, setQuickPhone] = useState("");
   const [isCheckingHistory, setIsCheckingHistory] = useState(false);
   const [orderHistory, setOrderHistory] = useState<QuickReorderHistory | null>(null);
   const [historyChecked, setHistoryChecked] = useState(false);
@@ -704,10 +705,10 @@ export default function CustomerMenuPage() {
 
   // Poll every 5s as Realtime fallback
   useEffect(() => {
-    if (!quickPhone || quickPhone.length !== 10 || liveOrders.length === 0) return;
-    const interval = setInterval(() => fetchLiveOrders(quickPhone), 5_000);
+    if (!customerPhone || customerPhone.length !== 10 || liveOrders.length === 0) return;
+    const interval = setInterval(() => fetchLiveOrders(customerPhone), 5_000);
     return () => clearInterval(interval);
-  }, [quickPhone, liveOrders.length, fetchLiveOrders]);
+  }, [customerPhone, liveOrders.length, fetchLiveOrders]);
 
   const checkOrderHistory = async (phone: string) => {
     if (phone.length !== 10 || isCheckingHistory) return;
@@ -739,7 +740,6 @@ export default function CustomerMenuPage() {
       if (item.isAvailable) newCart[item.id] = item.quantity;
     }
     setCart((prev) => ({ ...prev, ...newCart }));
-    setCustomerPhone(quickPhone);
     setQuickReorderDismissed(true);
     setIsBagOpen(true);
   };
@@ -1108,10 +1108,10 @@ export default function CustomerMenuPage() {
                           type="tel"
                           inputMode="numeric"
                           placeholder="10-digit mobile number"
-                          value={quickPhone}
+                          value={customerPhone}
                           onChange={(e) => {
                             const val = e.target.value.replace(/\D/g, "").slice(0, 10);
-                            setQuickPhone(val);
+                            setCustomerPhone(val);
                             if (val.length === 10) checkOrderHistory(val);
                           }}
                           className="w-full h-11 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-10 text-sm font-bold text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800 transition-all outline-none"
@@ -1119,7 +1119,7 @@ export default function CustomerMenuPage() {
                         {isCheckingHistory && (
                           <Loader2 size={15} className="absolute right-3.5 text-zinc-400 dark:text-zinc-500 animate-spin" />
                         )}
-                        {quickPhone.length === 10 && !isCheckingHistory && (
+                        {customerPhone.length === 10 && !isCheckingHistory && (
                           <Check size={15} strokeWidth={3} className="absolute right-3.5 text-green-500" />
                         )}
                       </div>
@@ -1639,7 +1639,12 @@ export default function CustomerMenuPage() {
                        inputMode="numeric"
                        placeholder="Enter your 10-digit number"
                        value={customerPhone}
-                       onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                       onChange={(e) => {
+                         const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                         setCustomerPhone(val);
+                         // Also trigger history lookup if the customer fills number here first
+                         if (val.length === 10 && !historyChecked) checkOrderHistory(val);
+                       }}
                        className={cn(
                          "w-full h-16 border-2 rounded-2xl pl-14 pr-6 text-sm font-black tracking-tight dark:text-white transition-all outline-none",
                          customerPhone.length === 10
