@@ -454,12 +454,20 @@ export default function CustomerMenuPage() {
   const handleDownloadQR = async (url: string) => {
     try {
       setIsDownloading(true);
-      const response = await fetch(url);
+
+      // Proxy through our API route to avoid CORS issues with external QR service
+      const proxyUrl = `/api/download-qr?url=${encodeURIComponent(url)}`;
+      const response = await fetch(proxyUrl);
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = `Apneorder_QR_${restaurant?.name?.replace(/\s+/g, '_')}_${getTotalPrice()}.png`;
+      link.download = `Apneorder_QR_${restaurant?.name?.replace(/\s+/g, '_') ?? 'restaurant'}_₹${getTotalPrice()}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
