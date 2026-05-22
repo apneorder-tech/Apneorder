@@ -301,14 +301,13 @@ export default function CustomerMenuPage() {
   const [waiterCallCooldownUntil, setWaiterCallCooldownUntil] = useState<number | null>(null);
   const [waiterCallFeedback, setWaiterCallFeedback] = useState<"sent" | "cooldown" | null>(null);
 
-  // Customer tapped "I've Paid" — order already in system, just waiting for restaurant
-  const [customerPaidConfirmed, setCustomerPaidConfirmed] = useState(false);
-
   // ─── Live Order Tracking state ───
   const [liveOrders, setLiveOrders] = useState<LiveOrder[]>([]);
   const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<string>>(new Set());
   const liveChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const liveChannelActiveRef = useRef(false);
+  // Captures the last order ID before placedOrderId is cleared on success
+  const lastPlacedOrderIdRef = useRef<string | null>(null);
 
   // ─── Quick Reorder state ───
   const [quickPhone, setQuickPhone] = useState("");
@@ -327,6 +326,11 @@ export default function CustomerMenuPage() {
     setIsInAppBrowser(isRestricted);
     if (!isRestricted) setShowDirectOptions(true);
   }, []);
+
+  // Keep ref in sync so we can access the order ID after it's cleared on success
+  useEffect(() => {
+    if (placedOrderId) lastPlacedOrderIdRef.current = placedOrderId;
+  }, [placedOrderId]);
 
   useEffect(() => {
     if (!placedOrderId || isOrderSuccess) return;
@@ -424,6 +428,57 @@ export default function CustomerMenuPage() {
 
     syncLatestUpi();
   }, [showPayment, restaurantId]);
+
+  // ─── Auto live-tracking — no phone number needed ───
+  // When the restaurant accepts the order, snapshot the cart into liveOrders so
+  // the customer sees their order status without having entered a phone number.
+  // The existing Supabase realtime channel then handles all further status updates.
+  useEffect(() => {
+    if (!isOrderSuccess || !restaurant) return;
+
+    const orderId = lastPlacedOrderIdRef.current;
+    if (!orderId) return;
+
+    setLiveOrders((prev) => {
+      // Already tracked (e.g. via phone number lookup) — don't duplicate
+      if (prev.some((o) => o.id === orderId)) return prev;
+
+      const items: LiveOrderItem[] = Object.entries(cart)
+        .map(([id, qty]) => {
+          const item = restaurant.categories
+            .flatMap((c) => c.menuItems)
+            .find((i) => i.id === id);
+          if (!item) return null;
+          return {
+            name: item.name,
+            price: item.price,
+            type: item.type,
+            quantity: qty,
+          };
+        })
+        .filter((i): i is LiveOrderItem => i !== null);
+
+      if (items.length === 0) return prev;
+
+      return [
+        ...prev,
+        {
+          id: orderId,
+          status: "pending",
+          tableNumber,
+          totalAmount: Object.entries(cart).reduce((sum, [id, qty]) => {
+            const item = restaurant.categories
+              .flatMap((c) => c.menuItems)
+              .find((i) => i.id === id);
+            return sum + (item?.price ?? 0) * qty;
+          }, 0),
+          paymentMethod,
+          createdAt: new Date().toISOString(),
+          items,
+        },
+      ];
+    });
+  }, [isOrderSuccess, restaurant, cart, tableNumber, paymentMethod]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -546,12 +601,13 @@ export default function CustomerMenuPage() {
     return data.orderId as string;
   };
 
-  // ─── CASH: place order immediately ───
+  // ─── CASH: place order immediately and close the bag ───
   const handleConfirmPaymentSent = async () => {
     setIsOrdering(true);
     try {
       const orderId = await createOrder("CASH");
       setPlacedOrderId(orderId);
+      setIsBagOpen(false); // close bag so customer isn't stuck looking at it
     } catch (err) {
       console.error("Cash Order Error:", err);
       alert("Something went wrong. Please check your connection and try again.");
@@ -560,10 +616,11 @@ export default function CustomerMenuPage() {
     }
   };
 
-  // ─── ONLINE: create order as payment_pending first, then show QR drawer ───
-  // Order is in the system the moment customer clicks Pay — no UPI redirect needed.
-  // Customer scans / downloads the QR, pays, then confirms with "I've Paid".
-  const handlePlaceOrder = async () => {
+  // ─── ONLINE: open drawer instantly — order is created only when customer confirms ───
+  // Customer sees the QR immediately. The order is registered in the system only
+  // when they tap "I Have Successfully Paid" — so no phantom orders ever land on
+  // the restaurant dashboard from customers who scan but don't actually pay.
+  const handlePlaceOrder = () => {
     if (getTotalItems() === 0) return;
 
     if (paymentMethod === "CASH") {
@@ -571,13 +628,19 @@ export default function CustomerMenuPage() {
       return;
     }
 
-    // Create order immediately so restaurant can see it even if customer never returns
+    // Open drawer and close bag immediately — zero wait.
+    setPlacedOrderId(null);
+    setShowPayment(true);
+    setIsBagOpen(false);
+  };
+
+  // ─── Called when customer taps "I Have Successfully Paid" ───
+  // This is the moment the order enters the restaurant's system.
+  const handleConfirmPaid = async () => {
     setIsOrdering(true);
     try {
       const orderId = await createOrder("ONLINE");
       setPlacedOrderId(orderId);
-      setShowPayment(true);
-      setIsBagOpen(false);
     } catch (err) {
       console.error("Online Order Error:", err);
       alert("Something went wrong. Please check your connection and try again.");
@@ -1549,36 +1612,70 @@ export default function CustomerMenuPage() {
                   </div>
                  </div>
 
-                 {/* WhatsApp Opt-in */}
-                 <div className="space-y-3">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 ml-1">WhatsApp Receipt (Optional)</p>
-                   <div className="relative group">
+                 {/* Mobile Number — required for live order tracking */}
+                 <div className="space-y-2">
+                   {/* Header row */}
+                   <div className="flex items-center justify-between ml-1">
+                     <div className="flex items-center gap-1.5">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-zinc-900 dark:text-white">
+                         Mobile Number
+                       </p>
+                       <span className="text-[9px] font-black text-red-500 uppercase tracking-wider">* Required</span>
+                     </div>
+                     {customerPhone.length === 10 && (
+                       <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1">
+                         <Check size={10} strokeWidth={3} /> Verified
+                       </span>
+                     )}
+                   </div>
+
+                   {/* Input */}
+                   <div className="relative">
                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
                        <span className="text-zinc-400 dark:text-zinc-500 font-black text-xs">+91</span>
                      </div>
                      <input
                        type="tel"
-                       placeholder="Enter Mobile Number"
+                       inputMode="numeric"
+                       placeholder="Enter your 10-digit number"
                        value={customerPhone}
                        onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                       className="w-full h-16 bg-zinc-50 dark:bg-zinc-800 border-2 border-zinc-100 dark:border-zinc-700 rounded-2xl pl-14 pr-6 text-sm font-black tracking-tight dark:text-white focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800 transition-all outline-none"
+                       className={cn(
+                         "w-full h-16 border-2 rounded-2xl pl-14 pr-6 text-sm font-black tracking-tight dark:text-white transition-all outline-none",
+                         customerPhone.length === 10
+                           ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-700 focus:border-emerald-500"
+                           : customerPhone.length > 0
+                           ? "bg-zinc-50 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800"
+                           : "bg-zinc-50 dark:bg-zinc-800 border-zinc-100 dark:border-zinc-700 focus:border-zinc-900 dark:focus:border-zinc-400 focus:bg-white dark:focus:bg-zinc-800"
+                       )}
                      />
-                     <div className="absolute inset-y-0 right-5 flex items-center">
-                        <Smartphone size={18} className="text-zinc-300 dark:text-zinc-600" />
-                     </div>
                    </div>
-                   <p className="text-[8px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-[0.1em] ml-1">
-                     Receive your digital bill and order updates instantly on WhatsApp.
-                   </p>
+
+                   {/* Why we need it */}
+                   <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-2xl px-4 py-3">
+                     <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                       <Bell size={10} className="text-white" strokeWidth={3} />
+                     </div>
+                     <p className="text-[10px] text-blue-700 dark:text-blue-300 font-bold leading-relaxed">
+                       Your number is used to <strong>track your order in real time</strong> — see when it&apos;s accepted, being cooked, and ready to serve. No spam, ever.
+                     </p>
+                   </div>
                  </div>
 
                  <Button
                    onClick={handlePlaceOrder}
-                   disabled={isOrdering}
-                   className="w-full h-16 text-lg font-black rounded-3xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-widest italic"
+                   disabled={isOrdering || customerPhone.length !== 10}
+                   className={cn(
+                     "w-full h-16 text-lg font-black rounded-3xl transition-all uppercase tracking-widest italic",
+                     customerPhone.length === 10
+                       ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 hover:scale-[1.02] active:scale-95"
+                       : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
+                   )}
                 >
                   {isOrdering ? (
                     <Loader2 className="animate-spin" size={24} />
+                  ) : customerPhone.length !== 10 ? (
+                    <>Enter Mobile Number to Continue</>
                   ) : paymentMethod === "CASH" ? (
                     <>Place Cash Order <ChevronRight size={24} className="ml-2" strokeWidth={3} /></>
                   ) : (
@@ -1605,7 +1702,9 @@ export default function CustomerMenuPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowPayment(false)}
+              onClick={() => {
+                setShowPayment(false);
+              }}
               className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[80]"
             />
             <motion.div
@@ -1713,8 +1812,8 @@ export default function CustomerMenuPage() {
 
               <div className="w-full space-y-6">
 
-                {/* ── STATE 1: Order placed, customer hasn't confirmed payment yet ── */}
-                {placedOrderId && !customerPaidConfirmed && (
+                {/* ── QR STEP: customer hasn't tapped "I've Paid" yet ── */}
+                {!placedOrderId && (
                   <>
                     <div className="bg-zinc-50 dark:bg-zinc-800 rounded-3xl p-5 border border-zinc-100 dark:border-zinc-700 text-center">
                       <p className="text-zinc-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest leading-relaxed">
@@ -1728,20 +1827,28 @@ export default function CustomerMenuPage() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Confirm Payment</span>
                       </div>
                       <Button
-                        onClick={() => setCustomerPaidConfirmed(true)}
-                        className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all outline-none"
+                        onClick={handleConfirmPaid}
+                        disabled={isOrdering}
+                        className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[24px] font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all outline-none disabled:opacity-80 disabled:cursor-not-allowed"
                       >
-                        <div className="flex items-center justify-center gap-3">
-                          <span>I Have Successfully Paid</span>
-                          <ChevronRight size={18} />
-                        </div>
+                        {isOrdering ? (
+                          <div className="flex items-center justify-center gap-3">
+                            <Loader2 size={18} className="animate-spin" />
+                            <span>Registering Order…</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-3">
+                            <span>I Have Successfully Paid</span>
+                            <ChevronRight size={18} />
+                          </div>
+                        )}
                       </Button>
                     </div>
                   </>
                 )}
 
-                {/* ── STATE 2: Customer confirmed — waiting for restaurant to verify ── */}
-                {placedOrderId && customerPaidConfirmed && (
+                {/* ── VERIFICATION: order registered, waiting for restaurant ── */}
+                {placedOrderId && (
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl p-6 border border-emerald-100 dark:border-emerald-900 text-center space-y-3">
                     <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-200">
                       <Check size={22} className="text-white" strokeWidth={3} />
@@ -1849,7 +1956,7 @@ export default function CustomerMenuPage() {
                 setCartNotes({});
                 setIsBagOpen(false);
                 setShowPayment(false);
-                setCustomerPaidConfirmed(false);
+                lastPlacedOrderIdRef.current = null;
               }}
               className="mt-12 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all"
             >
@@ -1864,28 +1971,129 @@ export default function CustomerMenuPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-white dark:bg-zinc-950 z-[120] flex flex-col items-center justify-center p-6 text-center"
+            className="fixed inset-0 bg-white dark:bg-zinc-950 z-[120] flex flex-col items-center justify-center p-6"
           >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-24 h-24 bg-red-50 dark:bg-red-950/50 text-red-500 rounded-full flex items-center justify-center mb-6"
-            >
-              <XCircle size={48} strokeWidth={2} />
-            </motion.div>
+            <div className="w-full max-w-sm flex flex-col items-center text-center">
 
-            <h2 className="text-3xl font-black italic tracking-tighter uppercase text-zinc-900 dark:text-white">Payment Rejected</h2>
-            <p className="text-xs font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mt-2">The manager could not verify your payment</p>
+              {/* Icon */}
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                className="w-20 h-20 bg-red-50 dark:bg-red-950/50 rounded-full flex items-center justify-center mb-5"
+              >
+                <XCircle size={40} className="text-red-500" strokeWidth={2} />
+              </motion.div>
 
-            <motion.button
-              onClick={() => {
-                setIsOrderRejected(false);
-                setShowPayment(true);
-              }}
-              className="mt-12 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all"
-            >
-              Try Again
-            </motion.button>
+              {/* Title */}
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="space-y-1.5 mb-4"
+              >
+                <h2 className="text-2xl font-black italic tracking-tighter uppercase text-zinc-900 dark:text-white">
+                  Payment Not Verified
+                </h2>
+                <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 leading-relaxed px-4">
+                  The restaurant could not confirm your payment. This can happen if the UPI transfer is still processing or the amount didn&apos;t match.
+                </p>
+              </motion.div>
+
+              {/* Cart still safe banner */}
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.25 }}
+                className="w-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-2xl px-4 py-3 flex items-center gap-3 mb-6"
+              >
+                <div className="w-7 h-7 bg-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                  <Check size={13} className="text-white" strokeWidth={3} />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                    Your order is saved
+                  </p>
+                  <p className="text-[9px] font-bold text-emerald-600 dark:text-emerald-500 mt-0.5">
+                    {Object.keys(cart).length} item{Object.keys(cart).length !== 1 ? "s" : ""} still in your bag — no need to start over
+                  </p>
+                </div>
+              </motion.div>
+
+              {/* Cart items preview */}
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.35 }}
+                className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 mb-6 space-y-2"
+              >
+                {Object.entries(cart).map(([id, qty]) => {
+                  const item = restaurant?.categories
+                    .flatMap((c) => c.menuItems)
+                    .find((i) => i.id === id);
+                  if (!item) return null;
+                  return (
+                    <div key={id} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={cn(
+                          "w-1.5 h-1.5 rounded-full shrink-0",
+                          item.type === "veg" ? "bg-green-500" : "bg-red-500"
+                        )} />
+                        <span className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 truncate">
+                          {item.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 shrink-0">
+                        {qty}× ₹{item.price * qty}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Total</span>
+                  <span className="text-[11px] font-black text-zinc-900 dark:text-white">₹{getTotalPrice()}</span>
+                </div>
+              </motion.div>
+
+              {/* Action buttons */}
+              <motion.div
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.45 }}
+                className="w-full space-y-3"
+              >
+                {/* Primary — re-place order and go straight to payment */}
+                <button
+                  onClick={() => {
+                    setIsOrderRejected(false);
+                    setPlacedOrderId(null);
+                    handlePlaceOrder();
+                  }}
+                  disabled={isOrdering}
+                  className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl shadow-emerald-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {isOrdering ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>Try Again — Scan &amp; Pay <ChevronRight size={16} strokeWidth={3} /></>
+                  )}
+                </button>
+
+                {/* Secondary — go back to menu, cart stays intact */}
+                <button
+                  onClick={() => {
+                    setIsOrderRejected(false);
+                    setPlacedOrderId(null);
+                    setShowPayment(false);
+                    setIsBagOpen(false);
+                  }}
+                  className="w-full h-12 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-95 transition-all"
+                >
+                  Go Back to Menu
+                </button>
+              </motion.div>
+
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
