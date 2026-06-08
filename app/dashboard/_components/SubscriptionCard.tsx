@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { load } from "@cashfreepayments/cashfree-js";
 
 export function SubscriptionCard({ 
   status, 
@@ -107,9 +108,17 @@ export function SubscriptionCard({
       }
 
       const data = await res.json();
-      if (data.success && data.authLink) {
-        toast.loading("Redirecting to secure payment...");
-        window.location.href = data.authLink;
+      if (data.success && data.paymentSessionId) {
+        toast.loading("Opening secure payment...");
+        const cashfree = await load({
+          mode: process.env.NEXT_PUBLIC_CASHFREE_MODE === "production"
+            ? "production"
+            : "sandbox",
+        });
+        await cashfree.checkout({
+          paymentSessionId: data.paymentSessionId,
+          redirectTarget: "_self",
+        });
       } else {
         toast.error(data.error || "Failed to initiate subscription");
       }

@@ -67,10 +67,13 @@ export async function POST(request: Request) {
       },
     });
 
-    // Redirect manager to Cashfree hosted checkout
-    const authLink = `${cashfreeCheckoutBase}/#${cfRes.payment_session_id}`;
-
-    return NextResponse.json({ success: true, authLink });
+    // Return session ID — client uses Cashfree JS SDK to open checkout
+    return NextResponse.json({
+      success: true,
+      paymentSessionId: cfRes.payment_session_id,
+      // authLink kept for fallback compatibility
+      authLink: `${cashfreeCheckoutBase}/#${cfRes.payment_session_id}`,
+    });
   } catch (err: any) {
     console.error("[subscriptions/create] Error:", err);
     return NextResponse.json(
