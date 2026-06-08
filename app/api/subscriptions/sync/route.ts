@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyManagerSession, unauthorizedResponse } from "@/lib/auth";
 import prisma from "@/lib/prisma-new";
-import { getCashfreePaymentLinkStatus } from "@/lib/cashfree";
+import { getCashfreeOrderStatus } from "@/lib/cashfree";
 
 function nextPeriodEnd(currentEnd: Date | null): Date {
   const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
@@ -42,13 +42,13 @@ export async function POST(request: Request) {
 
     const linkId: string = subscription.cashfreeSubscriptionId;
 
-    // Check Cashfree for the payment link status
-    const linkData = await getCashfreePaymentLinkStatus(linkId);
-    const linkStatus: string = linkData?.link_status ?? "";
+    // Check Cashfree for the order status
+    const orderData = await getCashfreeOrderStatus(linkId);
+    const orderStatus: string = orderData?.order_status ?? "";
 
-    console.log(`[subscriptions/sync] link_id=${linkId} status=${linkStatus}`);
+    console.log(`[subscriptions/sync] order_id=${linkId} status=${orderStatus}`);
 
-    if (linkStatus === "PAID") {
+    if (orderStatus === "PAID") {
       const newEnd = nextPeriodEnd(subscription.currentPeriodEnd);
 
       await (prisma as any).subscription.update({

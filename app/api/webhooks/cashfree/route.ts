@@ -57,44 +57,60 @@ export async function POST(request: Request) {
     //     "order": { "transaction_status": "SUCCESS" }
     //   }
     // }
-    if (type === "PAYMENT_LINK_EVENT") {
-      const linkId: string = data?.link_id ?? "";
-      const transactionStatus: string = data?.order?.transaction_status ?? "";
-      const linkStatus: string = data?.link_status ?? "";
+    // ── PG Order paid (subscription via hosted checkout) ──────────────────
+    if (type === "PAYMENT_SUCCESS_WEBHOOK") {
+      const orderId: string = data?.order?.order_id ?? "";
+      const paymentStatus: string = data?.payment?.payment_status ?? "";
 
-      // Accept both full PAID status and individual successful transaction
-      const isSuccess =
-        linkStatus === "PAID" || transactionStatus === "SUCCESS";
-
-      if (!isSuccess || !linkId) {
-        console.log("[cashfree webhook] Non-success payment link event — ignored");
-        return NextResponse.json({ success: true, message: "Non-success event ignored" });
+      // Only process subscription orders (our order IDs start with "ao_")
+      if (paymentStatus !== "SUCCESS" || !orderId.startsWith("ao_")) {
+        return NextResponse.json({ success: true, message: "Non-subscription order — ignored" });
       }
 
-      // Find subscription by the link_id stored on creation
       const subscription = await (prisma as any).subscription.findFirst({
-        where: { cashfreeSubscriptionId: linkId },
+        where: { cashfreeSubscriptionId: orderId },
       });
 
       if (!subscription) {
-        console.error("[cashfree webhook] No subscription found for link_id:", linkId);
-        // Return 200 so Cashfree doesn't keep retrying — we just don't have this link
-        return NextResponse.json({ success: true, message: "Link not tracked" });
+        console.error("[cashfree webhook] No subscription found for order_id:", orderId);
+        return NextResponse.json({ success: true, message: "Order not tracked" });
       }
 
       const newEnd = nextPeriodEnd(subscription.currentPeriodEnd);
 
       await (prisma as any).subscription.update({
         where: { id: subscription.id },
-        data: {
-          status: "ACTIVE",
-          currentPeriodEnd: newEnd,
-        },
+        data: { status: "ACTIVE", currentPeriodEnd: newEnd },
       });
 
-      console.log(
-        `[cashfree webhook] ✅ Activated subscription for manager ${subscription.managerId}. Expires: ${newEnd.toISOString()}`
-      );
+      console.log(`[cashfree webhook] ✅ Subscription activated for manager ${subscription.managerId}. Expires: ${newEnd.toISOString()}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Payment Link paid (kept for backward compat) ───────────────────────
+    if (type === "PAYMENT_LINK_EVENT") {
+      const linkId: string = data?.link_id ?? "";
+      const transactionStatus: string = data?.order?.transaction_status ?? "";
+      const linkStatus: string = data?.link_status ?? "";
+      const isSuccess = linkStatus === "PAID" || transactionStatus === "SUCCESS";
+
+      if (!isSuccess || !linkId) {
+        return NextResponse.json({ success: true, message: "Non-success event ignored" });
+      }
+
+      const subscription = await (prisma as any).subscription.findFirst({
+        where: { cashfreeSubscriptionId: linkId },
+      });
+
+      if (!subscription) {
+        return NextResponse.json({ success: true, message: "Link not tracked" });
+      }
+
+      const newEnd = nextPeriodEnd(subscription.currentPeriodEnd);
+      await (prisma as any).subscription.update({
+        where: { id: subscription.id },
+        data: { status: "ACTIVE", currentPeriodEnd: newEnd },
+      });
 
       return NextResponse.json({ success: true });
     }

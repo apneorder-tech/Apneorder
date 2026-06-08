@@ -1,38 +1,42 @@
 import { load } from "@cashfreepayments/cashfree-js";
 
-const isProd = process.env.NODE_ENV === "production";
-const baseUrl = isProd
+// Use CASHFREE_MODE=sandbox for test credentials, CASHFREE_MODE=production for live.
+// Falls back to NODE_ENV if not set explicitly.
+const isCashfreeProd =
+  (process.env.CASHFREE_MODE ?? process.env.NODE_ENV) === "production";
+
+const baseUrl = isCashfreeProd
   ? "https://api.cashfree.com/pg"
   : "https://sandbox.cashfree.com/pg";
 
-const subBaseUrl = isProd
+const subBaseUrl = isCashfreeProd
   ? "https://api.cashfree.com/pg"
   : "https://sandbox.cashfree.com/pg";
 
-// ─── Payment Link helpers ─────────────────────────────────────────────────────
-// Used for subscription billing. A new link is generated for each billing cycle.
-// The link_id is stored in Subscription.cashfreeSubscriptionId so the webhook
-// and sync route can identify which manager paid.
+// ─── PG Order helpers (used for subscription billing) ────────────────────────
+// Payment Links API requires manual activation by Cashfree support.
+// PG Orders API is always enabled — we create an order, redirect the manager
+// to Cashfree's hosted checkout, and activate the subscription via webhook.
+// The order_id is stored in Subscription.cashfreeSubscriptionId.
 
-export async function createCashfreePaymentLink({
-  linkId,
+export async function createCashfreeOrder({
+  orderId,
   amount,
   customerPhone,
   customerEmail,
   customerName,
+  customerId,
   returnUrl,
 }: {
-  linkId: string;
+  orderId: string;
   amount: number;
   customerPhone: string;
   customerEmail: string;
   customerName: string;
+  customerId: string;
   returnUrl: string;
 }) {
-  // Link expires in 48 hours
-  const expiry = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
-
-  const response = await fetch(`${baseUrl}/links`, {
+  const response = await fetch(`${baseUrl}/orders`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -41,31 +45,27 @@ export async function createCashfreePaymentLink({
       "x-api-version": "2023-08-01",
     },
     body: JSON.stringify({
-      link_id: linkId,
-      link_amount: amount,
-      link_currency: "INR",
-      link_purpose: "ApneOrder Monthly Subscription",
+      order_id: orderId,
+      order_amount: amount,
+      order_currency: "INR",
       customer_details: {
+        customer_id: customerId,
         customer_phone: customerPhone,
-        customer_name: customerName,
         customer_email: customerEmail,
+        customer_name: customerName,
       },
-      link_meta: {
+      order_meta: {
         return_url: returnUrl,
       },
-      link_expiry_time: expiry,
-      link_notify: {
-        send_sms: false,
-        send_email: false,
-      },
+      order_note: "ApneOrder Monthly Subscription",
     }),
   });
 
   return await response.json();
 }
 
-export async function getCashfreePaymentLinkStatus(linkId: string) {
-  const response = await fetch(`${baseUrl}/links/${linkId}`, {
+export async function getCashfreeOrderStatus(orderId: string) {
+  const response = await fetch(`${baseUrl}/orders/${orderId}`, {
     method: "GET",
     headers: {
       "x-client-id": process.env.CASHFREE_APP_ID!,
@@ -80,7 +80,7 @@ export async function getCashfreePaymentLinkStatus(linkId: string) {
 export const cashfreeConfig = {
   appId: process.env.CASHFREE_APP_ID!,
   secretKey: process.env.CASHFREE_SECRET_KEY!,
-  env: isProd ? "PRODUCTION" : "SANDBOX",
+  env: isCashfreeProd ? "PRODUCTION" : "SANDBOX",
 };
 
 /**
@@ -159,11 +159,11 @@ export async function createCashfreeSubscription({
  * Fetch subscription status from v2 API
  */
 export async function checkCashfreeSubscriptionV2(id: string) {
-  const isProd = process.env.NEXT_PUBLIC_CASHFREE_MODE === "production";
-  const baseUrl = isProd ? "https://api.cashfree.com/api/v2" : "https://test.cashfree.com/api/v2";
+  // uses module-level isCashfreeProd
+  const v2BaseUrl = isCashfreeProd ? "https://api.cashfree.com/api/v2" : "https://test.cashfree.com/api/v2";
   
   // Try path-based fetch (common for v2)
-  const url = `${baseUrl}/subscriptions/${id}`;
+  const url = `${v2BaseUrl}/subscriptions/${id}`;
 
   const response = await fetch(url, {
     method: "GET",
@@ -194,10 +194,10 @@ export async function createCashfreeSubscriptionV2(data: {
   customerPhone: string;
   returnUrl: string;
 }) {
-  const isProd = process.env.NEXT_PUBLIC_CASHFREE_MODE === "production";
-  const baseUrl = isProd ? "https://api.cashfree.com/api/v2" : "https://test.cashfree.com/api/v2";
+  // uses module-level isCashfreeProd
+  const v2BaseUrl = isCashfreeProd ? "https://api.cashfree.com/api/v2" : "https://test.cashfree.com/api/v2";
 
-  const response = await fetch(`${baseUrl}/subscriptions`, {
+  const response = await fetch(`${v2BaseUrl}/subscriptions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
