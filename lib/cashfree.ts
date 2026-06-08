@@ -1,13 +1,81 @@
 import { load } from "@cashfreepayments/cashfree-js";
 
 const isProd = process.env.NODE_ENV === "production";
-const baseUrl = isProd 
-  ? "https://api.cashfree.com/pg" 
+const baseUrl = isProd
+  ? "https://api.cashfree.com/pg"
   : "https://sandbox.cashfree.com/pg";
 
-const subBaseUrl = isProd 
-  ? "https://api.cashfree.com/pg" 
+const subBaseUrl = isProd
+  ? "https://api.cashfree.com/pg"
   : "https://sandbox.cashfree.com/pg";
+
+// ─── Payment Link helpers ─────────────────────────────────────────────────────
+// Used for subscription billing. A new link is generated for each billing cycle.
+// The link_id is stored in Subscription.cashfreeSubscriptionId so the webhook
+// and sync route can identify which manager paid.
+
+export async function createCashfreePaymentLink({
+  linkId,
+  amount,
+  customerPhone,
+  customerEmail,
+  customerName,
+  returnUrl,
+}: {
+  linkId: string;
+  amount: number;
+  customerPhone: string;
+  customerEmail: string;
+  customerName: string;
+  returnUrl: string;
+}) {
+  // Link expires in 48 hours
+  const expiry = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+  const response = await fetch(`${baseUrl}/links`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-client-id": process.env.CASHFREE_APP_ID!,
+      "x-client-secret": process.env.CASHFREE_SECRET_KEY!,
+      "x-api-version": "2023-08-01",
+    },
+    body: JSON.stringify({
+      link_id: linkId,
+      link_amount: amount,
+      link_currency: "INR",
+      link_purpose: "ApneOrder Monthly Subscription",
+      customer_details: {
+        customer_phone: customerPhone,
+        customer_name: customerName,
+        customer_email: customerEmail,
+      },
+      link_meta: {
+        return_url: returnUrl,
+      },
+      link_expiry_time: expiry,
+      link_notify: {
+        send_sms: false,
+        send_email: false,
+      },
+    }),
+  });
+
+  return await response.json();
+}
+
+export async function getCashfreePaymentLinkStatus(linkId: string) {
+  const response = await fetch(`${baseUrl}/links/${linkId}`, {
+    method: "GET",
+    headers: {
+      "x-client-id": process.env.CASHFREE_APP_ID!,
+      "x-client-secret": process.env.CASHFREE_SECRET_KEY!,
+      "x-api-version": "2023-08-01",
+    },
+  });
+
+  return await response.json();
+}
 
 export const cashfreeConfig = {
   appId: process.env.CASHFREE_APP_ID!,

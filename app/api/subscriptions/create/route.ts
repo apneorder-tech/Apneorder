@@ -1,102 +1,75 @@
 import { NextResponse } from "next/server";
 import { verifyManagerSession, unauthorizedResponse } from "@/lib/auth";
 import prisma from "@/lib/prisma-new";
+import { createCashfreePaymentLink } from "@/lib/cashfree";
 
-import { createCashfreeSubscriptionV2, createSubscriptionPlan } from "@/lib/cashfree";
+const SUBSCRIPTION_AMOUNT = 1499;
 
 export async function POST(request: Request) {
-  const authStatus = await verifyManagerSession(request);
-  if (!authStatus.authenticated || !authStatus.uid) {
-    return unauthorizedResponse();
-  }
+  const auth = await verifyManagerSession(request);
+  if (!auth.authenticated || !auth.uid) return unauthorizedResponse();
 
   try {
-    const { customerName, customerEmail } = await request.json();
-    const managerId = authStatus.uid;
+    const managerId = auth.uid;
 
-    const protocol = request.headers.get("x-forwarded-proto") || "http";
+    const protocol = request.headers.get("x-forwarded-proto") || "https";
     const host = request.headers.get("host");
-    const baseUrl = `${protocol}://${host}`;
+    const returnUrl = `${protocol}://${host}/dashboard?subscription=success`;
 
-    // 1. Check if manager exists
-    const manager = await prisma.manager.findUnique({
+    // Get manager info for customer details
+    const manager = await (prisma as any).manager.findUnique({
       where: { id: managerId },
-      include: { restaurant: true }
+      select: { name: true, phone: true, email: true },
     });
 
     if (!manager) {
       return NextResponse.json({ success: false, error: "Manager not found" }, { status: 404 });
     }
 
-    // 1.5 Avoid redundant subscriptions if already active
-    const existingActiveSub = await (prisma as any).subscription.findFirst({
-      where: { managerId: managerId, status: "ACTIVE" }
-    });
+    // Unique link ID — stored in DB to identify the manager when webhook fires
+    // Format: ao_<8-char managerId tail>_<timestamp>
+    const linkId = `ao_${managerId.slice(-8)}_${Date.now()}`;
 
-    if (existingActiveSub) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "You already have an active subscription for this restaurant." 
-      }, { status: 400 });
-    }
-
-    // 2. Create a unique subscription ID for Cashfree
-    const internalSubId = `sub_${Date.now()}_${managerId.slice(-4)}`;
-
-    // 2.5 Ensure Plan exists (Cashfree throws error if it already exists, so we ignore 409)
-    await createSubscriptionPlan().catch(() => {});
-
-    // 3. Create Subscription in Cashfree v2 (returns authLink)
-    const cfResponse = await createCashfreeSubscriptionV2({
-      subscriptionId: `sub_${internalSubId}_${Date.now()}`,
-      planId: "MONTHLY_1499",
-      customerName: customerName || manager.name || "Restaurant Manager",
-      customerEmail: customerEmail || `manager_${managerId}@apneorder.com`,
+    // Create the payment link on Cashfree
+    const cfRes = await createCashfreePaymentLink({
+      linkId,
+      amount: SUBSCRIPTION_AMOUNT,
       customerPhone: manager.phone || "9999999999",
-      returnUrl: `${baseUrl}/dashboard?subscription=success`
+      customerEmail: manager.email || `mgr_${managerId}@apneorder.com`,
+      customerName: manager.name || "Restaurant Manager",
+      returnUrl,
     });
 
-    if (cfResponse.status === "OK" && cfResponse.authLink) {
-      // 4. Create or Update placeholder in DB
-      // We save the subReferenceId (Cashfree's ID) for status polling
-      await (prisma as any).subscription.upsert({
-        where: { managerId: managerId },
-        update: {
-          cashfreeSubscriptionId: cfResponse.subReferenceId.toString(),
-          status: "INACTIVE",
-          currentPeriodEnd: new Date(),
-        },
-        create: {
-          managerId: managerId,
-          cashfreeSubscriptionId: cfResponse.subReferenceId.toString(),
-          status: "INACTIVE",
-          currentPeriodEnd: new Date(),
-        }
-      });
-
-      console.log("Cashfree v2 Subscription Created:", cfResponse.authLink);
-
-      return NextResponse.json({ 
-        success: true, 
-        subscriptionId: internalSubId,
-        authLink: cfResponse.authLink
-      });
+    if (!cfRes.link_url) {
+      console.error("[subscriptions/create] Cashfree error:", cfRes);
+      return NextResponse.json(
+        { success: false, error: cfRes.message || "Failed to create payment link", details: cfRes },
+        { status: 500 }
+      );
     }
 
-    console.log("Cashfree Response:", cfResponse);
+    // Persist the link_id so the webhook and sync routes can look up this manager
+    await (prisma as any).subscription.upsert({
+      where: { managerId },
+      update: {
+        cashfreeSubscriptionId: linkId,
+        status: "INACTIVE",
+      },
+      create: {
+        managerId,
+        cashfreeSubscriptionId: linkId,
+        status: "INACTIVE",
+        currentPeriodEnd: new Date(),
+      },
+    });
 
-    return NextResponse.json({ 
-      success: false, 
-      error: cfResponse.message || "Failed to create subscription",
-      details: cfResponse
-    }, { status: 500 });
-
-  } catch (error: any) {
-    console.error("Subscription Creation Error:", error);
-    return NextResponse.json({ 
-      success: false, 
-      error: "Internal server error", 
-      details: error?.message || String(error)
-    }, { status: 500 });
+    // Return authLink — same field SubscriptionCard already expects
+    return NextResponse.json({ success: true, authLink: cfRes.link_url });
+  } catch (err: any) {
+    console.error("[subscriptions/create] Error:", err);
+    return NextResponse.json(
+      { success: false, error: "Internal server error", details: err?.message },
+      { status: 500 }
+    );
   }
 }

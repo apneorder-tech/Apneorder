@@ -1,83 +1,85 @@
-// Last Sync: 2026-03-26T20:37:00
 import { NextResponse } from "next/server";
 import { verifyManagerSession, unauthorizedResponse } from "@/lib/auth";
 import prisma from "@/lib/prisma-new";
-import { checkCashfreeSubscriptionV2 } from "@/lib/cashfree";
+import { getCashfreePaymentLinkStatus } from "@/lib/cashfree";
+
+function nextPeriodEnd(currentEnd: Date | null): Date {
+  const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
+  const next = new Date(base);
+  next.setMonth(next.getMonth() + 1);
+  return next;
+}
 
 export async function POST(request: Request) {
-  const authStatus = await verifyManagerSession(request);
-  if (!authStatus.authenticated || !authStatus.uid) {
-    return unauthorizedResponse();
-  }
+  const auth = await verifyManagerSession(request);
+  if (!auth.authenticated || !auth.uid) return unauthorizedResponse();
 
   try {
-    const managerId = authStatus.uid;
+    const managerId = auth.uid;
 
-    // 1. Get current subscription from DB
     const subscription = await (prisma as any).subscription.findUnique({
-      where: { managerId }
+      where: { managerId },
     });
 
-    if (!subscription || !subscription.cashfreeSubscriptionId) {
-      return NextResponse.json({ success: false, error: "No subscription session found" }, { status: 404 });
+    // If already active — return immediately, no need to call Cashfree
+    if (subscription?.status === "ACTIVE") {
+      return NextResponse.json({
+        success: true,
+        status: "ACTIVE",
+        subscription: {
+          status: "ACTIVE",
+          currentPeriodEnd: subscription.currentPeriodEnd,
+        },
+      });
     }
 
-    // 2. Fetch latest status from Cashfree
-    // Guard: Legacy IDs (starting with sub_) cannot be fetched via v2 path
-    if (subscription.cashfreeSubscriptionId.startsWith("sub_")) {
-       return NextResponse.json({ 
-         success: false, 
-         error: "Legacy Payment Format",
-         message: "This record uses an old ID format. Please click 'Upgrade to Premium' again to start a modern session."
-       }, { status: 400 });
+    if (!subscription?.cashfreeSubscriptionId) {
+      return NextResponse.json(
+        { success: false, error: "No subscription session found" },
+        { status: 404 }
+      );
     }
 
-    console.log("Syncing subscription status for:", subscription.cashfreeSubscriptionId);
-    const cfSub = await checkCashfreeSubscriptionV2(subscription.cashfreeSubscriptionId);
+    const linkId: string = subscription.cashfreeSubscriptionId;
 
-    // 3. Update DB if status changed
-    // Cashfree v2 statuses: INITIALIZED, ACTIVE, ON_HOLD, DEACTIVATED, CANCELLED
-    const statusMap: Record<string, string> = {
-      "ACTIVE": "ACTIVE",
-      "INITIALIZED": "INACTIVE",
-      "ON_HOLD": "PAST_DUE",
-      "DEACTIVATED": "CANCELED",
-      "CANCELLED": "CANCELED"
-    };
+    // Check Cashfree for the payment link status
+    const linkData = await getCashfreePaymentLinkStatus(linkId);
+    const linkStatus: string = linkData?.link_status ?? "";
 
-    const newStatus = statusMap[cfSub.status] || "INACTIVE";
+    console.log(`[subscriptions/sync] link_id=${linkId} status=${linkStatus}`);
 
-    if (newStatus !== subscription.status) {
-      const updateData: any = { status: newStatus };
-      
-      if (newStatus === "ACTIVE") {
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        updateData.currentPeriodEnd = nextMonth;
-      }
+    if (linkStatus === "PAID") {
+      const newEnd = nextPeriodEnd(subscription.currentPeriodEnd);
 
       await (prisma as any).subscription.update({
         where: { managerId },
-        data: updateData
+        data: {
+          status: "ACTIVE",
+          currentPeriodEnd: newEnd,
+        },
       });
 
-      console.log(`Updated subscription status to ${newStatus} for ${managerId}`);
+      return NextResponse.json({
+        success: true,
+        status: "ACTIVE",
+        subscription: { status: "ACTIVE", currentPeriodEnd: newEnd },
+      });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      status: newStatus,
+    // Not paid yet — return current status
+    return NextResponse.json({
+      success: true,
+      status: subscription.status ?? "INACTIVE",
       subscription: {
-        status: newStatus,
-        currentPeriodEnd: subscription.currentPeriodEnd
-      }
+        status: subscription.status,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      },
     });
-
-  } catch (error: any) {
-    console.error("Subscription Sync Error:", error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error?.message || "Failed to reach Cashfree" 
-    }, { status: 502 }); // Bad Gateway for external API failure
+  } catch (err: any) {
+    console.error("[subscriptions/sync] Error:", err);
+    return NextResponse.json(
+      { success: false, error: err?.message || "Failed to sync status" },
+      { status: 502 }
+    );
   }
 }

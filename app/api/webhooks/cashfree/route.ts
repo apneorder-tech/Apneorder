@@ -2,13 +2,21 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
 import crypto from "crypto";
 
-// Cashfree Webhook Verification
-function verifySignature(payload: string, signature: string, secretKey: string) {
-  const generatedSignature = crypto
+function verifySignature(payload: string, signature: string, secretKey: string): boolean {
+  const generated = crypto
     .createHmac("sha256", secretKey)
     .update(payload)
     .digest("base64");
-  return generatedSignature === signature;
+  return generated === signature;
+}
+
+/** Extend by 30 days from whichever is later — now or the current end date.
+ *  Early renewals never lose days. */
+function nextPeriodEnd(currentEnd: Date | null): Date {
+  const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
+  const next = new Date(base);
+  next.setMonth(next.getMonth() + 1);
+  return next;
 }
 
 export async function POST(request: Request) {
@@ -17,78 +25,118 @@ export async function POST(request: Request) {
     const signature = request.headers.get("x-cf-signature");
     const secretKey = process.env.CASHFREE_SECRET_KEY;
 
-    if (!signature || !secretKey) {
-      return NextResponse.json({ success: false, error: "Missing signature or secret key" }, { status: 401 });
-    }
-
-    // 1. Verify Signature
-    const isValid = verifySignature(body, signature, secretKey);
-    if (!isValid) {
-      console.error("Invalid Cashfree Webhook Signature");
-      return NextResponse.json({ success: false, error: "Invalid signature" }, { status: 401 });
+    // Signature check — we always return 200 to Cashfree so the webhook endpoint
+    // can be saved via the "Test & Add" button. However we only process the event
+    // when the signature is present and valid. The "Test & Add" button sends a
+    // dummy payload with no real signature — it will get acknowledged (200) but
+    // no DB changes will happen.
+    if (signature && secretKey) {
+      if (!verifySignature(body, signature, secretKey)) {
+        console.error("[cashfree webhook] Invalid signature — acknowledging but not processing");
+        return NextResponse.json({ success: true, message: "Acknowledged" });
+      }
+    } else {
+      // No signature — acknowledge without processing (Cashfree test button)
+      console.warn("[cashfree webhook] No signature — acknowledged without processing");
+      return NextResponse.json({ success: true, message: "Acknowledged" });
     }
 
     const payload = JSON.parse(body);
-    const { event, subscriptionId, status, data } = payload;
-    
-    // Some Cashfree versions nest data in 'data' object
-    const subId = subscriptionId || data?.subscriptionId;
-    const eventType = event || data?.event;
+    const type: string = payload.type ?? "";
+    const data = payload.data ?? {};
 
-    if (!subId) {
-      return NextResponse.json({ success: true, message: "No subscription ID found" });
-    }
+    console.log("[cashfree webhook] Event:", type, "link_id:", data?.link_id ?? "n/a");
 
-    console.log(`Processing Cashfree Webhook: ${eventType} for ${subId}`);
+    // ── Payment Link paid ──────────────────────────────────────────────────
+    // Real payload structure from Cashfree:
+    // {
+    //   "type": "PAYMENT_LINK_EVENT",
+    //   "data": {
+    //     "link_id": "ao_xxx_1234567890",
+    //     "link_status": "PAID",
+    //     "order": { "transaction_status": "SUCCESS" }
+    //   }
+    // }
+    if (type === "PAYMENT_LINK_EVENT") {
+      const linkId: string = data?.link_id ?? "";
+      const transactionStatus: string = data?.order?.transaction_status ?? "";
+      const linkStatus: string = data?.link_status ?? "";
 
-    // 2. Map Events to DB Updates
-    const statusMap: Record<string, string> = {
-      "SUBSCRIPTION_ACTIVATED": "ACTIVE",
-      "SUB_PAYMENT_SUCCESS": "ACTIVE",
-      "SUBSCRIPTION_DEACTIVATED": "CANCELED",
-      "SUB_PAYMENT_FAILED": "PAST_DUE",
-      "SUBSCRIPTION_ON_HOLD": "PAST_DUE",
-      "SUBSCRIPTION_CANCELLED": "CANCELED",
-    };
+      // Accept both full PAID status and individual successful transaction
+      const isSuccess =
+        linkStatus === "PAID" || transactionStatus === "SUCCESS";
 
-    const newStatus = statusMap[eventType];
-
-    if (newStatus) {
-      const updateData: any = { status: newStatus };
-      
-      // Update expiry if payment was successful
-      if (newStatus === "ACTIVE") {
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        updateData.currentPeriodEnd = nextMonth;
+      if (!isSuccess || !linkId) {
+        console.log("[cashfree webhook] Non-success payment link event — ignored");
+        return NextResponse.json({ success: true, message: "Non-success event ignored" });
       }
 
-      await prisma.subscription.update({
-        where: { cashfreeSubscriptionId: subId },
-        data: updateData
+      // Find subscription by the link_id stored on creation
+      const subscription = await (prisma as any).subscription.findFirst({
+        where: { cashfreeSubscriptionId: linkId },
       });
 
-      // Log the event
-      const subscription = await prisma.subscription.findUnique({
-        where: { cashfreeSubscriptionId: subId },
-        select: { managerId: true }
+      if (!subscription) {
+        console.error("[cashfree webhook] No subscription found for link_id:", linkId);
+        // Return 200 so Cashfree doesn't keep retrying — we just don't have this link
+        return NextResponse.json({ success: true, message: "Link not tracked" });
+      }
+
+      const newEnd = nextPeriodEnd(subscription.currentPeriodEnd);
+
+      await (prisma as any).subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: "ACTIVE",
+          currentPeriodEnd: newEnd,
+        },
       });
 
-      if (subscription) {
-        const { logAction, AuditAction } = await import("@/lib/logger");
-        await logAction(
-          subscription.managerId,
-          "SUBSCRIPTION_UPDATE" as any, // Cast to any if not in enum yet
-          "Subscription",
-          subId,
-          { event: eventType, newStatus }
-        );
+      console.log(
+        `[cashfree webhook] ✅ Activated subscription for manager ${subscription.managerId}. Expires: ${newEnd.toISOString()}`
+      );
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Legacy Cashfree Subscription events (backward compat) ────────────
+    const subId =
+      payload.subscriptionId ??
+      data?.subscriptionId ??
+      data?.subscription?.subscriptionId;
+
+    if (subId) {
+      const statusMap: Record<string, string> = {
+        SUBSCRIPTION_ACTIVATED: "ACTIVE",
+        SUB_PAYMENT_SUCCESS: "ACTIVE",
+        SUBSCRIPTION_DEACTIVATED: "CANCELED",
+        SUB_PAYMENT_FAILED: "PAST_DUE",
+        SUBSCRIPTION_ON_HOLD: "PAST_DUE",
+        SUBSCRIPTION_CANCELLED: "CANCELED",
+      };
+
+      const newStatus = statusMap[type];
+      if (newStatus) {
+        const sub = await (prisma as any).subscription.findFirst({
+          where: { cashfreeSubscriptionId: subId },
+        });
+        if (sub) {
+          await (prisma as any).subscription.update({
+            where: { id: sub.id },
+            data: {
+              status: newStatus,
+              ...(newStatus === "ACTIVE" && {
+                currentPeriodEnd: nextPeriodEnd(sub.currentPeriodEnd),
+              }),
+            },
+          });
+        }
       }
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Cashfree Webhook Error:", error);
+  } catch (err) {
+    console.error("[cashfree webhook] Error:", err);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
