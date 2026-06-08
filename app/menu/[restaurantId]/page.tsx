@@ -1409,11 +1409,11 @@ export default function CustomerMenuPage() {
                 </div>
                 <div className="text-left">
                    <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40">Ready to Order</p>
-                   <p className="font-black text-xl italic tracking-tighter uppercase leading-none">View Bag</p>
+                   <p className="font-black text-xl tracking-tighter uppercase leading-none">View Bag</p>
                 </div>
               </div>
               <div className="flex items-center gap-4 relative z-10">
-                <span className="text-2xl font-black italic tracking-tighter">₹{getTotalPrice()}</span>
+                <span className="text-2xl font-black tracking-tighter">₹{getTotalPrice()}</span>
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                     <ChevronRight size={18} />
                 </div>
@@ -1494,7 +1494,7 @@ export default function CustomerMenuPage() {
             >
               <div className="px-8 pt-10 pb-6 flex items-center justify-between z-10">
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-black uppercase tracking-tight leading-none italic dark:text-white">Bag Summary</h2>
+                  <h2 className="text-3xl font-black uppercase tracking-tight leading-none dark:text-white">Bag Summary</h2>
                   <p className="text-zinc-400 dark:text-zinc-500 text-xs font-black uppercase tracking-widest">Table {tableNumber} • {getTotalItems()} Items</p>
                 </div>
                 <button
@@ -1518,16 +1518,16 @@ export default function CustomerMenuPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1.5">
                                     <div className={cn("w-2 h-2 rounded-full shrink-0", item.type === 'veg' ? 'bg-green-500' : 'bg-red-500')} />
-                                    <p className="font-black text-lg tracking-tight uppercase italic leading-none truncate dark:text-white">{item.name}</p>
+                                    <p className="font-black text-lg tracking-tight uppercase leading-none truncate dark:text-white">{item.name}</p>
                                     </div>
-                                    <p className="text-zinc-400 dark:text-zinc-500 text-xs font-bold uppercase italic tracking-wider">₹{item.price} x {qty}</p>
+                                    <p className="text-zinc-400 dark:text-zinc-500 text-xs font-bold uppercase tracking-wider">₹{item.price} x {qty}</p>
                                 </div>
                                 <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-700 rounded-2xl p-1 gap-4 shrink-0">
                                     <button onClick={() => removeFromCart(id)} className="w-9 h-9 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-all dark:text-white"><Minus size={14} /></button>
                                     <span className="font-black text-sm w-4 text-center dark:text-white">{qty}</span>
                                     <button onClick={() => addToCart(id)} className="w-9 h-9 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-all dark:text-white"><Plus size={14} /></button>
                                 </div>
-                                <p className="text-right font-black text-lg italic tracking-tighter w-20 shrink-0 dark:text-white">₹{item.price * qty}</p>
+                                <p className="text-right font-black text-lg tracking-tighter w-20 shrink-0 dark:text-white">₹{item.price * qty}</p>
                             </div>
 
                             {/* Special instructions input */}
@@ -1575,7 +1575,7 @@ export default function CustomerMenuPage() {
                   </div>
                   <div className="flex justify-between items-end pt-4">
                     <span className="text-sm font-black uppercase tracking-[0.2em] dark:text-white">Grand Total</span>
-                    <span className="text-4xl font-black italic tracking-tighter text-black dark:text-white leading-none">₹{getTotalPrice()}</span>
+                    <span className="text-4xl font-black tracking-tighter text-black dark:text-white leading-none">₹{getTotalPrice()}</span>
                   </div>
                 </div>
               </div>
@@ -1671,7 +1671,7 @@ export default function CustomerMenuPage() {
                    onClick={handlePlaceOrder}
                    disabled={isOrdering || customerPhone.length !== 10}
                    className={cn(
-                     "w-full h-16 text-lg font-black rounded-3xl transition-all uppercase tracking-widest italic",
+                     "w-full h-16 text-lg font-black rounded-3xl transition-all uppercase tracking-widest",
                      customerPhone.length === 10
                        ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xl shadow-emerald-200 hover:scale-[1.02] active:scale-95"
                        : "bg-zinc-200 dark:bg-zinc-700 text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
@@ -1723,9 +1723,9 @@ export default function CustomerMenuPage() {
 
                <div className="text-center space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 dark:text-zinc-500">Complete Payment</p>
-                <h2 className="text-3xl font-black italic tracking-tighter uppercase dark:text-white">Scan or Choose App</h2>
+                <h2 className="text-3xl font-black tracking-tighter uppercase dark:text-white">Scan or Choose App</h2>
                 <div className="flex items-center justify-center gap-2 py-2">
-                   <span className="text-4xl font-black italic tracking-tighter dark:text-white">₹{getTotalPrice()}</span>
+                   <span className="text-4xl font-black tracking-tighter dark:text-white">₹{getTotalPrice()}</span>
                 </div>
               </div>
 
@@ -1809,7 +1809,7 @@ export default function CustomerMenuPage() {
 
                   <div className="flex items-start gap-3 p-4 bg-zinc-50 dark:bg-zinc-800 rounded-2xl border border-zinc-100 dark:border-zinc-700">
                     <Info size={14} className="text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5" />
-                    <p className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold leading-relaxed italic">
+                    <p className="text-[9px] text-zinc-500 dark:text-zinc-400 font-bold leading-relaxed">
                       Scan the QR above or <strong>Download</strong> it to pay via Gallery. This method is the most reliable way to pay any amount without limits.
                     </p>
                   </div>
@@ -1905,7 +1905,7 @@ export default function CustomerMenuPage() {
               transition={{ delay: 0.2 }}
               className="space-y-2"
             >
-              <h2 className="text-3xl font-black italic tracking-tighter uppercase text-zinc-900 dark:text-white">
+              <h2 className="text-3xl font-black tracking-tighter uppercase text-zinc-900 dark:text-white">
                 Order Placed!
               </h2>
               <p className="text-xs font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
@@ -1943,7 +1943,7 @@ export default function CustomerMenuPage() {
                   </div>
                   <div>
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">Estimated Ready In</p>
-                    <p className="text-2xl font-black text-white italic tracking-tighter leading-none">
+                    <p className="text-2xl font-black text-white tracking-tighter leading-none">
                       ~{estimatedPrepMins} <span className="text-sm font-bold text-zinc-400">mins</span>
                     </p>
                   </div>
@@ -1997,7 +1997,7 @@ export default function CustomerMenuPage() {
                 transition={{ delay: 0.15 }}
                 className="space-y-1.5 mb-4"
               >
-                <h2 className="text-2xl font-black italic tracking-tighter uppercase text-zinc-900 dark:text-white">
+                <h2 className="text-2xl font-black tracking-tighter uppercase text-zinc-900 dark:text-white">
                   Payment Not Verified
                 </h2>
                 <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 leading-relaxed px-4">
