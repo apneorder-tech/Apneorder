@@ -3,7 +3,7 @@ import { verifyManagerSession, unauthorizedResponse } from "@/lib/auth";
 import prisma from "@/lib/prisma-new";
 import { createCashfreeOrder } from "@/lib/cashfree";
 
-const SUBSCRIPTION_AMOUNT = 1499;
+const SUBSCRIPTION_AMOUNT = 1; // TEST — change back to 1499 before go-live
 
 // Cashfree hosted checkout URL — redirect manager here after order creation
 const cashfreeCheckoutBase = process.env.NODE_ENV === "production"
