@@ -471,7 +471,7 @@ export default function CustomerMenuPage() {
         {
           id: orderId,
           status: "pending",
-          tableNumber,
+          tableNumber: tableDisplay,
           totalAmount: Object.entries(cart).reduce((sum, [id, qty]) => {
             const item = restaurant.categories
               .flatMap((c) => c.menuItems)
@@ -484,7 +484,7 @@ export default function CustomerMenuPage() {
         },
       ];
     });
-  }, [isOrderSuccess, restaurant, cart, tableNumber, paymentMethod]);
+  }, [isOrderSuccess, restaurant, cart, tableDisplay, paymentMethod]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -762,7 +762,9 @@ export default function CustomerMenuPage() {
       const res = await fetch("/api/waiter-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurantId, tableNumber }),
+        // Send the human-readable table number so the restaurant knows which
+        // table is calling — not the CUID used for order routing.
+        body: JSON.stringify({ restaurantId, tableNumber: tableDisplay }),
       });
       const data = await res.json();
       if (data.success) {
