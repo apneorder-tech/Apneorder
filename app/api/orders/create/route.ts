@@ -16,13 +16,14 @@ export async function POST(request: Request) {
 
     const { restaurantId, tableNumber, items, transactionId, paymentMethod, customerPhone } = result.data;
 
-    // 1. Find the table record
-    const table = await prisma.table.findFirst({
-        where: {
-            restaurantId,
-            tableNumber: tableNumber
-        }
-    });
+    // 1. Find the table record.
+    // New QR codes use the table's DB ID (CUID) as the table param — look up by ID first.
+    // Old QR codes use the plain table number — fall back to that for backward compatibility.
+    const isCuid = tableNumber.length > 8 && /^c[a-z0-9]+$/i.test(tableNumber);
+
+    const table = isCuid
+      ? await prisma.table.findFirst({ where: { id: tableNumber, restaurantId } })
+      : await prisma.table.findFirst({ where: { tableNumber, restaurantId } });
 
     if (!table) {
         return NextResponse.json({ error: "Table not found" }, { status: 404 });

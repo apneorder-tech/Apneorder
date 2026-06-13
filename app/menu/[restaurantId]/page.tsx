@@ -248,7 +248,12 @@ export default function CustomerMenuPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const restaurantId = params.restaurantId as string;
-  const tableNumber = searchParams.get("table") || "1";
+  // New QR codes: ?table=<CUID>&tn=<display number>
+  // Old QR codes: ?table=<number>  (backward compatible)
+  const tableParam = searchParams.get("table") || "1";
+  const tnParam = searchParams.get("tn"); // display label from new QR
+  const tableNumber = tableParam;          // passed to order creation (CUID or number)
+  const tableDisplay = tnParam || tableParam; // shown in UI ("Table 1")
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -859,7 +864,7 @@ export default function CustomerMenuPage() {
               className="h-9 px-4 rounded-xl flex items-center text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-md"
               style={{ backgroundColor: restaurant.themeColor }}
             >
-              Table {tableNumber}
+              Table {tableDisplay}
             </div>
           </div>
 
@@ -909,7 +914,7 @@ export default function CustomerMenuPage() {
             {/* Restaurant info */}
             <div className="px-5 py-4 border-b border-emerald-100/40 dark:border-zinc-800">
               <h2 className="font-black text-base text-zinc-900 dark:text-white truncate uppercase tracking-tight">{restaurant.name}</h2>
-              <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Table {tableNumber}</p>
+              <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Table {tableDisplay}</p>
             </div>
 
             {/* Search (desktop sidebar) */}
@@ -1495,7 +1500,7 @@ export default function CustomerMenuPage() {
               <div className="px-8 pt-10 pb-6 flex items-center justify-between z-10">
                 <div className="space-y-1">
                   <h2 className="text-3xl font-black uppercase tracking-tight leading-none dark:text-white">Bag Summary</h2>
-                  <p className="text-zinc-400 dark:text-zinc-500 text-xs font-black uppercase tracking-widest">Table {tableNumber} • {getTotalItems()} Items</p>
+                  <p className="text-zinc-400 dark:text-zinc-500 text-xs font-black uppercase tracking-widest">Table {tableDisplay} • {getTotalItems()} Items</p>
                 </div>
                 <button
                   onClick={() => setIsBagOpen(false)}

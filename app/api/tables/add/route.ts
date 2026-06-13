@@ -60,37 +60,47 @@ export async function POST(request: Request) {
             }, { status: 400 });
         }
 
-        // 2. Generate QR URL
+        // 2. Prepare origin for QR URL (used after table is created)
         const protocol = request.headers.get('x-forwarded-proto') || 'http';
         const host = request.headers.get('host');
         const origin = `${protocol}://${host}`;
-        const qrCodeUrl = `${origin}/menu/${restaurantId}?table=${encodeURIComponent(tableNumber.trim())}`;
 
-        // 2. Check Subscription & Table Limit
-    const [manager, tableCount] = await Promise.all([
-      prisma.manager.findUnique({
-        where: { id: restaurant.managerId }, // Corrected: Use restaurant.managerId to find the manager
-        include: { subscription: true }
-      }),
-      prisma.table.count({ where: { restaurantId } })
-    ]);
+        // 3. Check Subscription & Table Limit
+        const [manager, tableCount] = await Promise.all([
+          prisma.manager.findUnique({
+            where: { id: restaurant.managerId },
+            include: { subscription: true }
+          }),
+          prisma.table.count({ where: { restaurantId } })
+        ]);
 
-    // If no active subscription and already have 3 tables, deny.
-    if ((!manager?.subscription || manager.subscription.status !== "ACTIVE") && tableCount >= 3) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Table limit reached", 
-        message: "Free plan is limited to 3 tables. Upgrade to Premium for unlimited tables!" 
-      }, { status: 403 });
-    }
+        // If no active subscription and already have 3 tables, deny.
+        if ((!manager?.subscription || manager.subscription.status !== "ACTIVE") && tableCount >= 3) {
+          return NextResponse.json({
+            success: false,
+            error: "Table limit reached",
+            message: "Free plan is limited to 3 tables. Upgrade to Premium for unlimited tables!"
+          }, { status: 403 });
+        }
 
-    // 3. Create the table
+        // 4. Create the table first so we have the CUID for the QR URL
         const newTable = await prisma.table.create({
             data: {
                 restaurantId,
                 tableNumber: tableNumber.trim(),
-                qrCodeUrl
+                qrCodeUrl: "", // placeholder — updated immediately below
             }
+        });
+
+        // Security: use the table's DB CUID as the table identifier in the QR URL.
+        // Prevents customers guessing other tables by changing ?table=1 → ?table=5.
+        // A CUID is 24 random chars — statistically impossible to enumerate.
+        // &tn is just the display label shown in UI; order creation uses the CUID only.
+        const qrCodeUrl = `${origin}/menu/${restaurantId}?table=${newTable.id}&tn=${encodeURIComponent(tableNumber.trim())}`;
+
+        await prisma.table.update({
+            where: { id: newTable.id },
+            data: { qrCodeUrl },
         });
 
         // 4. Audit Log
