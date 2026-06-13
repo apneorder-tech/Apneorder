@@ -616,7 +616,8 @@ export default function CustomerMenuPage() {
       setIsBagOpen(false); // close bag so customer isn't stuck looking at it
     } catch (err) {
       console.error("Cash Order Error:", err);
-      alert("Something went wrong. Please check your connection and try again.");
+      // Surface the real message (e.g. rate-limit notice) instead of a generic one
+      alert(err instanceof Error && err.message ? err.message : "Something went wrong. Please check your connection and try again.");
     } finally {
       setIsOrdering(false);
     }
@@ -649,7 +650,8 @@ export default function CustomerMenuPage() {
       setPlacedOrderId(orderId);
     } catch (err) {
       console.error("Online Order Error:", err);
-      alert("Something went wrong. Please check your connection and try again.");
+      // Surface the real message (e.g. rate-limit notice) instead of a generic one
+      alert(err instanceof Error && err.message ? err.message : "Something went wrong. Please check your connection and try again.");
     } finally {
       setIsOrdering(false);
     }

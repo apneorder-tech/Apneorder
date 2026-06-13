@@ -1,20 +1,52 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
 import { OrderCreateSchema } from "@/lib/schemas";
+import { ratelimit } from "@/lib/ratelimit";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const result = OrderCreateSchema.safeParse(body);
-    
+
     if (!result.success) {
-        return NextResponse.json({ 
-            error: "Invalid order data", 
-            details: result.error.format() 
+        return NextResponse.json({
+            error: "Invalid order data",
+            details: result.error.format()
         }, { status: 400 });
     }
 
     const { restaurantId, tableNumber, items, transactionId, paymentMethod, customerPhone } = result.data;
+
+    // ─── Rate limiting (anti-spam) ───────────────────────────────────────────
+    // Two layers of defense:
+    //  1. Per phone number — stops one customer (or a script reusing a phone)
+    //     from hammering orders. 6 orders / 10 min is generous for a real meal
+    //     (initial order + a few add-ons).
+    //  2. Per IP — catches a script that cycles phone numbers. The ceiling is
+    //     kept high (40 / 5 min) because many tables in a restaurant share one
+    //     WiFi/NAT IP, so we must not block a genuinely busy restaurant.
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+
+    if (customerPhone) {
+      const phoneRl = await ratelimit(`order:${restaurantId}:${customerPhone}`, 6, 600);
+      if (!phoneRl.success) {
+        return NextResponse.json(
+          { success: false, error: "Too many orders. Please wait a few minutes before ordering again." },
+          { status: 429 }
+        );
+      }
+    }
+
+    const ipRl = await ratelimit(`order-ip:${restaurantId}:${ip}`, 40, 300);
+    if (!ipRl.success) {
+      return NextResponse.json(
+        { success: false, error: "Too many orders from this network. Please try again shortly." },
+        { status: 429 }
+      );
+    }
 
     // 1. Find the table record.
     // New QR codes use the table's DB ID (CUID) as the table param — look up by ID first.
