@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone, Download, XCircle, Pencil, Bell, RotateCcw, History, ChefHat, CheckCircle2, UtensilsCrossed, Moon, Sun, Search
+  Info, Loader2, ShoppingBag, ChevronRight, Star, Clock, MapPin, X, Plus, Minus, Check, Copy, Smartphone, Download, XCircle, Pencil, Bell, RotateCcw, History, ChefHat, CheckCircle2, UtensilsCrossed, Moon, Sun, Search, Image as ImageIcon, ImageOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -325,6 +325,32 @@ export default function CustomerMenuPage() {
   // ─── Search ───
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Dish Image View Toggle ───
+  const [showImages, setShowImages] = useState<boolean>(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("menu_show_images");
+      if (saved !== null) {
+        setShowImages(saved === "true");
+      }
+    } catch {
+      // Ignore localStorage errors in private mode
+    }
+  }, []);
+
+  const toggleShowImages = () => {
+    setShowImages((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("menu_show_images", String(next));
+      } catch {
+        // Ignore
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const ua = navigator.userAgent || "";
@@ -855,8 +881,22 @@ export default function CustomerMenuPage() {
 
         <div className="relative z-10 px-5 pt-4 pb-5 sm:px-8 sm:pt-6 sm:pb-6">
 
-          {/* Top row: dark mode + table */}
+          {/* Top row: image toggle + dark mode + table */}
           <div className="flex items-center justify-end gap-2 mb-5 sm:mb-6">
+            <button
+              onClick={toggleShowImages}
+              className={cn(
+                "h-9 px-3 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 border",
+                showImages
+                  ? "bg-white/90 dark:bg-zinc-800/90 text-emerald-600 dark:text-emerald-400 border-zinc-200/80 dark:border-zinc-700 shadow-sm"
+                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200/50 dark:border-zinc-700"
+              )}
+              aria-label="Toggle dish photos"
+              title={showImages ? "Hide food photos" : "Show food photos"}
+            >
+              {showImages ? <ImageIcon size={14} className="text-emerald-600 dark:text-emerald-400" /> : <ImageOff size={14} className="text-zinc-400" />}
+              <span>{showImages ? "Photos" : "Text Only"}</span>
+            </button>
             <button
               onClick={() => setIsDark((d) => !d)}
               className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition-all"
@@ -922,7 +962,7 @@ export default function CustomerMenuPage() {
             </div>
 
             {/* Search (desktop sidebar) */}
-            <div className="px-4 py-3 border-b border-emerald-100/40 dark:border-zinc-800">
+            <div className="px-4 py-3 border-b border-emerald-100/40 dark:border-zinc-800 space-y-2">
               <div className="relative flex items-center">
                 <Search size={14} className="absolute left-3 text-zinc-400 pointer-events-none shrink-0" />
                 <input
@@ -939,6 +979,23 @@ export default function CustomerMenuPage() {
                   </button>
                 )}
               </div>
+              <button
+                onClick={toggleShowImages}
+                className={cn(
+                  "w-full h-8 px-2.5 rounded-lg border flex items-center justify-between text-[10px] font-black uppercase tracking-wider transition-all",
+                  showImages
+                    ? "bg-emerald-50/80 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50"
+                    : "bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  {showImages ? <ImageIcon size={13} /> : <ImageOff size={13} />}
+                  Dish Photos
+                </span>
+                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", showImages ? "bg-emerald-600 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300")}>
+                  {showImages ? "ON" : "OFF"}
+                </span>
+              </button>
             </div>
 
             {/* Category list */}
@@ -991,9 +1048,9 @@ export default function CustomerMenuPage() {
 
           {/* Mobile-only sticky header (search + pills) */}
           <div className="lg:hidden sticky top-0 z-40 bg-[#F1F5F1]/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-emerald-100/60 dark:border-zinc-800">
-            {/* Search input */}
-            <div className="max-w-2xl mx-auto px-4 pt-3 pb-2">
-              <div className="relative flex items-center">
+            {/* Search input + Image toggle */}
+            <div className="max-w-2xl mx-auto px-4 pt-3 pb-2 flex items-center gap-2">
+              <div className="relative flex-1 flex items-center">
                 <Search
                   size={15}
                   className="absolute left-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none shrink-0"
@@ -1014,6 +1071,20 @@ export default function CustomerMenuPage() {
                   </button>
                 )}
               </div>
+              <button
+                onClick={toggleShowImages}
+                className={cn(
+                  "h-10 px-2.5 rounded-xl border flex items-center gap-1 text-[10px] font-black uppercase tracking-wider shrink-0 transition-all active:scale-95 shadow-sm",
+                  showImages
+                    ? "bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 border-zinc-200 dark:border-zinc-700"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200/60 dark:border-zinc-700"
+                )}
+                aria-label="Toggle dish photos"
+                title={showImages ? "Hide food photos" : "Show food photos"}
+              >
+                {showImages ? <ImageIcon size={14} /> : <ImageOff size={14} />}
+                <span>{showImages ? "Photos" : "Text"}</span>
+              </button>
             </div>
 
             {/* Category pills — hidden when searching */}
@@ -1283,8 +1354,13 @@ export default function CustomerMenuPage() {
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest shrink-0">{cat.menuItems.length} dishes</span>
                   </div>
 
-                  {/* Items grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 lg:gap-4">
+                    {/* Items grid */}
+                  <div className={cn(
+                    "grid gap-3 lg:gap-4",
+                    showImages
+                      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  )}>
                     {cat.menuItems.map((item) => (
                       <div
                         key={item.id}
@@ -1293,12 +1369,14 @@ export default function CustomerMenuPage() {
                           !item.isAvailable && "opacity-70"
                         )}
                       >
-                        {/* Mobile: horizontal layout — content left, image right */}
-                        {/* sm+: vertical layout — image top, content below */}
-                        <div className="flex sm:flex-col">
+                        {/* Mobile & sm+: horizontal/vertical depending on showImages */}
+                        <div className={cn("flex", showImages ? "sm:flex-col" : "flex-col")}>
 
-                          {/* Card body — left on mobile, bottom on sm+ */}
-                          <div className="flex-1 min-w-0 p-3 sm:p-3.5 order-first sm:order-last flex flex-col justify-between gap-2">
+                          {/* Card body */}
+                          <div className={cn(
+                            "flex-1 min-w-0 p-3.5 flex flex-col justify-between gap-2.5",
+                            showImages ? "order-first sm:order-last" : ""
+                          )}>
                             <div>
                               {/* Veg/non-veg + name */}
                               <div className="flex items-start gap-1.5 mb-1">
@@ -1311,16 +1389,21 @@ export default function CustomerMenuPage() {
                                     item.type === "veg" ? "bg-green-600" : "bg-red-600"
                                   )} />
                                 </div>
-                                <h3 className="font-black text-sm text-zinc-900 dark:text-white uppercase tracking-tight leading-tight">
+                                <h3 className="font-black text-sm text-zinc-900 dark:text-white uppercase tracking-tight leading-tight flex-1">
                                   <HighlightText text={item.name} query={searchQuery} />
                                 </h3>
+                                {!showImages && !item.isAvailable && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-red-500 bg-red-50 dark:bg-red-950/50 px-1.5 py-0.5 rounded shrink-0">
+                                    Sold Out
+                                  </span>
+                                )}
                               </div>
-                              <p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium line-clamp-2 sm:line-clamp-2 leading-relaxed">
+                              <p className="text-zinc-400 dark:text-zinc-500 text-xs font-medium line-clamp-2 leading-relaxed">
                                 {item.description || "Crafted with the finest ingredients and authentic family recipes."}
                               </p>
-                              {/* Prep time on mobile */}
+                              {/* Prep time */}
                               {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
-                                <div className="flex items-center gap-1 mt-1 sm:hidden">
+                                <div className={cn("flex items-center gap-1 mt-1", showImages ? "sm:hidden" : "")}>
                                   <Clock size={9} className="text-zinc-400" />
                                   <span className="text-[9px] font-bold text-zinc-400">~{item.prepTimeMinutes}m</span>
                                 </div>
@@ -1356,32 +1439,34 @@ export default function CustomerMenuPage() {
                           </div>
 
                           {/* Image — right on mobile (fixed width), top on sm+ (square-ish aspect ratio) */}
-                          <div className="relative w-36 shrink-0 sm:w-full sm:aspect-[4/3] lg:aspect-square min-h-[120px] sm:min-h-0 order-last sm:order-first overflow-hidden bg-emerald-50 dark:bg-zinc-800">
-                            {item.imageUrl ? (
-                              <img
-                                src={item.imageUrl}
-                                alt={item.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <UtensilsCrossed className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-100 dark:text-zinc-700" />
-                              </div>
-                            )}
-                            {/* Sold out overlay */}
-                            {!item.isAvailable && (
-                              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                                <span className="bg-black/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full">Sold Out</span>
-                              </div>
-                            )}
-                            {/* Prep time badge — only on sm+ (mobile shows inline) */}
-                            {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
-                              <div className="hidden sm:flex absolute bottom-2 right-2 items-center gap-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-black px-2 py-1 rounded-full">
-                                <Clock size={9} />
-                                ~{item.prepTimeMinutes}m
-                              </div>
-                            )}
-                          </div>
+                          {showImages && (
+                            <div className="relative w-36 shrink-0 sm:w-full sm:aspect-[4/3] lg:aspect-square min-h-[120px] sm:min-h-0 order-last sm:order-first overflow-hidden bg-emerald-50 dark:bg-zinc-800">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <UtensilsCrossed className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-100 dark:text-zinc-700" />
+                                </div>
+                              )}
+                              {/* Sold out overlay */}
+                              {!item.isAvailable && (
+                                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
+                                  <span className="bg-black/70 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full">Sold Out</span>
+                                </div>
+                              )}
+                              {/* Prep time badge — only on sm+ */}
+                              {item.prepTimeMinutes && item.prepTimeMinutes > 0 && (
+                                <div className="hidden sm:flex absolute bottom-2 right-2 items-center gap-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-black px-2 py-1 rounded-full">
+                                  <Clock size={9} />
+                                  ~{item.prepTimeMinutes}m
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                         </div>
                       </div>
