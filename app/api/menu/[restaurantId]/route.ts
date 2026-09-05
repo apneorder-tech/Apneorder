@@ -32,45 +32,53 @@ export async function GET(
     }
 
     // 2. Fetch from database with explicit selection (Data Minimization)
-    const restaurant = await prisma.restaurant.findUnique({
-      where: { id: restaurantId },
-      select: {
-          id: true,
-          name: true,
-          ownerName: true,
-          city: true,
-          address: true,
-          upiId: true,
-          themeColor: true,
-          categories: {
-              select: {
-                  id: true,
-                  name: true,
-                  menuItems: {
-                      where: { isDeleted: false } as any,
-                      select: {
-                          id: true,
-                          name: true,
-                          price: true,
-                          type: true,
-                          isAvailable: true,
-                          prepTimeMinutes: true,
-                          imageUrl: true,
-                      }
-                  }
-              }
-          }
-      }
-    });
+    const [restaurant, settings] = await Promise.all([
+      prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: {
+            id: true,
+            name: true,
+            ownerName: true,
+            city: true,
+            address: true,
+            upiId: true,
+            themeColor: true,
+            categories: {
+                select: {
+                    id: true,
+                    name: true,
+                    menuItems: {
+                        where: { isDeleted: false } as any,
+                        select: {
+                            id: true,
+                            name: true,
+                            price: true,
+                            type: true,
+                            isAvailable: true,
+                            prepTimeMinutes: true,
+                            imageUrl: true,
+                        }
+                    }
+                }
+            }
+        }
+      }),
+      redis.get<{ showImages?: boolean }>(CACHE_KEYS.settings(restaurantId)).catch(() => null)
+    ]);
 
     if (!restaurant) {
       return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
     }
 
-    // 3. Store in Redis for future requests (1 hour TTL)
-    await redis.set(cacheKey, restaurant, { ex: CACHE_TTL.ONE_HOUR });
+    const payload = {
+      ...restaurant,
+      showImages: settings?.showImages ?? true,
+    };
 
-    return NextResponse.json({ success: true, restaurant });
+    // 3. Store in Redis for future requests (1 hour TTL)
+    await redis.set(cacheKey, payload, { ex: CACHE_TTL.ONE_HOUR });
+
+    return NextResponse.json({ success: true, restaurant: payload });
 
   } catch (error: unknown) {
     console.error("Menu Fetch Error:", error);

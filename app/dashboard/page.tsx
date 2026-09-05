@@ -91,6 +91,8 @@ export default function DashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [realtimeStatus, setRealtimeStatus] = useState<string>("DISCONNECTED");
   const [subscription, setSubscription] = useState<{ status: string; currentPeriodEnd: string } | null>(null);
+  const [showMenuImages, setShowMenuImages] = useState<boolean>(true);
+  const [isUpdatingShowMenuImages, setIsUpdatingShowMenuImages] = useState<boolean>(false);
 
   // Dialog states
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -169,6 +171,7 @@ export default function DashboardPage() {
         setRestaurantId(data.restaurantId);
         setUpiId(data.upiId || "");
         setTempUpiId(data.upiId || "");
+        if (data.showImages !== undefined) setShowMenuImages(data.showImages);
         if (data.subscription) setSubscription(data.subscription);
       }
 
@@ -632,6 +635,35 @@ export default function DashboardPage() {
     } catch { toast.error("Failed to update UPI"); } finally { setIsUpdatingUpi(false); }
   };
 
+  const handleToggleShowMenuImages = async (newVal: boolean) => {
+    if (!restaurantId || isUpdatingShowMenuImages) return;
+    setShowMenuImages(newVal);
+    setIsUpdatingShowMenuImages(true);
+    try {
+      const idToken = await getToken();
+      const res = await fetch("/api/restaurant/settings", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ restaurantId, showImages: newVal }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(newVal ? "Customer menu photos enabled!" : "Customer menu photos hidden (text mode active)!");
+      } else {
+        setShowMenuImages(!newVal);
+        toast.error(data.error || "Failed to update menu settings");
+      }
+    } catch {
+      setShowMenuImages(!newVal);
+      toast.error("Failed to update menu settings");
+    } finally {
+      setIsUpdatingShowMenuImages(false);
+    }
+  };
+
   const handleAddTable = async (num: string) => {
     const tableNum = parseInt(num);
     if (!restaurantId || isAddingTable || isNaN(tableNum) || tableNum <= 0) return;
@@ -1046,6 +1078,9 @@ export default function DashboardPage() {
                     } catch { toast.error("Failed to delete item"); }
                   }} 
                   loading={loading || isLoadingMenu}
+                  showMenuImages={showMenuImages}
+                  onToggleShowImages={handleToggleShowMenuImages}
+                  isUpdatingShowImages={isUpdatingShowMenuImages}
                 />
               ) : <SubscriptionLock onGoToSettings={() => setActiveView("plans")} />
             )}
@@ -1090,7 +1125,10 @@ export default function DashboardPage() {
                 isUpdatingUpi={isUpdatingUpi} 
                 onUpdateUpi={handleUpdateUpi} 
                 menuCategories={menuCategories} 
-                tables={tables} 
+                tables={tables}
+                showMenuImages={showMenuImages}
+                onToggleShowImages={handleToggleShowMenuImages}
+                isUpdatingShowImages={isUpdatingShowMenuImages}
               />
             )}
           </div>

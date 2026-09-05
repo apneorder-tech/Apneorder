@@ -1,9 +1,10 @@
 import React from "react";
-import { Plus, Pencil, Trash2, UtensilsCrossed } from "lucide-react";
+import { Plus, Pencil, Trash2, UtensilsCrossed, Image as ImageIcon, ImageOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ManageCategory } from "./types";
 import { MenuItemRow } from "./MenuItemRow";
 import { Skeleton } from "./DashboardSkeleton";
+import { cn } from "@/lib/utils";
 
 export function MenuView({
   menuCategories,
@@ -19,6 +20,9 @@ export function MenuView({
   onToggleAvailability,
   onDeleteItem,
   loading = false,
+  showMenuImages = true,
+  onToggleShowImages,
+  isUpdatingShowImages = false,
 }: {
   menuCategories: ManageCategory[];
   isUpdating: string | null;
@@ -33,6 +37,9 @@ export function MenuView({
   onToggleAvailability: (id: string, current: boolean) => void;
   onDeleteItem: (id: string) => void;
   loading?: boolean;
+  showMenuImages?: boolean;
+  onToggleShowImages?: (val: boolean) => void;
+  isUpdatingShowImages?: boolean;
 }) {
   if (loading) {
     return (
@@ -85,6 +92,63 @@ export function MenuView({
 
   return (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8 pb-10">
+      {/* Menu Image Display Setting Card */}
+      {onToggleShowImages && (
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-zinc-200/60 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={cn(
+              "w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+              showMenuImages ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-500"
+            )}>
+              {showMenuImages ? <ImageIcon size={20} /> : <ImageOff size={20} />}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black tracking-tight text-zinc-900">
+                  Customer Menu Photos
+                </h3>
+                <span className={cn(
+                  "text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full",
+                  showMenuImages ? "bg-emerald-100 text-emerald-800" : "bg-zinc-100 text-zinc-600"
+                )}>
+                  {showMenuImages ? "ON" : "OFF"}
+                </span>
+              </div>
+              <p className="text-[11px] sm:text-xs text-zinc-500 font-medium mt-0.5">
+                {showMenuImages
+                  ? "Dish photos are visible on your customer menu."
+                  : "Photos are hidden. Customers see a compact text menu."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onToggleShowImages(!showMenuImages)}
+            disabled={isUpdatingShowImages}
+            className={cn(
+              "h-10 px-4 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 border shrink-0",
+              showMenuImages
+                ? "bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900 shadow-sm"
+                : "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600 shadow-sm shadow-emerald-100"
+            )}
+          >
+            {isUpdatingShowImages ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : showMenuImages ? (
+              <>
+                <ImageOff size={14} />
+                Hide Photos
+              </>
+            ) : (
+              <>
+                <ImageIcon size={14} />
+                Show Photos
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {menuCategories.map((cat) => (
         <div
           key={cat.id}

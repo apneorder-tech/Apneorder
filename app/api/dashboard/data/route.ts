@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { verifyManagerSession, unauthorizedResponse, forbiddenResponse } from "@/lib/auth";
+import { redis, CACHE_KEYS } from "@/lib/redis-new";
 import { z } from "zod";
 
 const QuerySchema = z.object({
@@ -173,6 +174,10 @@ export async function GET(request: Request) {
 
       const completedToday = allOrders.filter((o: any) => o.status === "completed");
 
+      const settings = (restaurant as any)?.id
+        ? await redis.get<{ showImages?: boolean }>(CACHE_KEYS.settings((restaurant as any).id)).catch(() => null)
+        : null;
+
       return NextResponse.json({
         success: true,
         orders: allOrders.filter((o: any) => o.status !== "completed"),
@@ -182,6 +187,7 @@ export async function GET(request: Request) {
         restaurantId: (restaurant as any).id,
         restaurantName: (restaurant as any).name,
         upiId: (restaurant as any).upiId,
+        showImages: settings?.showImages ?? true,
         menuCategories: (restaurant as any).categories.map((cat: any) => ({
           ...cat,
           menuItems: (cat.menuItems || []).filter((item: any) => !item.isDeleted)
@@ -426,6 +432,10 @@ export async function GET(request: Request) {
     const todayCompleted = restaurant.tables.flatMap(t => t.orders).filter(o => o.status === "completed").map((o: any) => ({ ...o, items: o.orderItems.map(mapItems), tableNumber: o.table.tableNumber }));
     const historyOrders = completedOrders.map((o: any) => ({ ...o, items: o.orderItems.map(mapItems), tableNumber: o.table.tableNumber }));
 
+    const settings = restaurant?.id
+      ? await redis.get<{ showImages?: boolean }>(CACHE_KEYS.settings(restaurant.id)).catch(() => null)
+      : null;
+
     return NextResponse.json({ 
       success: true, 
       orders: activeOrders,
@@ -435,6 +445,7 @@ export async function GET(request: Request) {
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
       upiId: restaurant.upiId,
+      showImages: settings?.showImages ?? true,
       menuCategories: restaurant.categories,
       stats: {
         totalSaleToday: salesDaily,

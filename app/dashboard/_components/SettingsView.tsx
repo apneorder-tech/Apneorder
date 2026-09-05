@@ -1,5 +1,5 @@
 import React from "react";
-import { QrCode, Loader2, Info, UtensilsCrossed } from "lucide-react";
+import { QrCode, Loader2, Info, UtensilsCrossed, Image as ImageIcon, ImageOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ManageCategory, ManageTable } from "./types";
 import { SubscriptionCard } from "./SubscriptionCard";
+import { cn } from "@/lib/utils";
 
 export function SettingsView({
   restaurantName,
@@ -17,6 +18,9 @@ export function SettingsView({
   onUpdateUpi,
   menuCategories,
   tables,
+  showMenuImages = true,
+  onToggleShowImages,
+  isUpdatingShowImages = false,
 }: {
   restaurantName: string;
   upiId: string;
@@ -26,6 +30,9 @@ export function SettingsView({
   onUpdateUpi: () => void;
   menuCategories: ManageCategory[];
   tables: ManageTable[];
+  showMenuImages?: boolean;
+  onToggleShowImages?: (v: boolean) => void;
+  isUpdatingShowImages?: boolean;
 }) {
   return (
     <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 lg:space-y-8 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -140,6 +147,63 @@ export function SettingsView({
             </Button>
           </div>
         </Card>
+
+        {/* Menu Appearance Card */}
+        {onToggleShowImages && (
+          <Card className="border-zinc-100 shadow-sm rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-8 flex flex-col justify-between md:col-span-2">
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className={cn(
+                    "w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 transition-colors",
+                    showMenuImages ? "bg-emerald-50 text-emerald-600" : "bg-zinc-100 text-zinc-400"
+                  )}>
+                    {showMenuImages ? <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6" /> : <ImageOff className="w-5 h-5 sm:w-6 sm:h-6" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                      Menu Display
+                    </p>
+                    <h3 className="text-base sm:text-lg lg:text-xl font-black uppercase italic tracking-tight">
+                      Customer Dish Photos
+                    </h3>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => onToggleShowImages(!showMenuImages)}
+                  disabled={isUpdatingShowImages}
+                  size="sm"
+                  className={cn(
+                    "h-10 px-4 rounded-xl font-black text-xs uppercase tracking-wider transition-all",
+                    showMenuImages
+                      ? "bg-zinc-900 text-white hover:bg-zinc-800"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-100"
+                  )}
+                >
+                  {isUpdatingShowImages ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : showMenuImages ? (
+                    "Hide Photos"
+                  ) : (
+                    "Show Photos"
+                  )}
+                </Button>
+              </div>
+
+              <Separator className="bg-zinc-100" />
+
+              <div className="flex items-start gap-3 text-xs text-zinc-500 font-medium leading-relaxed">
+                <Info className="w-4 h-4 text-zinc-400 mt-0.5 shrink-0" />
+                <p>
+                  {showMenuImages
+                    ? "Dish photos are currently enabled and visible on the digital menu when customers scan table QR codes."
+                    : "Dish photos are currently hidden. Customers will see a compact text-only digital menu for faster browsing."}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

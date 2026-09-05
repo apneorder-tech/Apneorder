@@ -39,6 +39,7 @@ interface Restaurant {
   address: string;
   upiId: string;
   themeColor: string;
+  showImages?: boolean;
   categories: Category[];
 }
 
@@ -326,31 +327,8 @@ export default function CustomerMenuPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Dish Image View Toggle ───
-  const [showImages, setShowImages] = useState<boolean>(true);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("menu_show_images");
-      if (saved !== null) {
-        setShowImages(saved === "true");
-      }
-    } catch {
-      // Ignore localStorage errors in private mode
-    }
-  }, []);
-
-  const toggleShowImages = () => {
-    setShowImages((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("menu_show_images", String(next));
-      } catch {
-        // Ignore
-      }
-      return next;
-    });
-  };
+  // ─── Dish Image View (Governed by Admin Panel Setting) ───
+  const showImages = restaurant?.showImages !== false;
 
   useEffect(() => {
     const ua = navigator.userAgent || "";
@@ -881,22 +859,8 @@ export default function CustomerMenuPage() {
 
         <div className="relative z-10 px-5 pt-4 pb-5 sm:px-8 sm:pt-6 sm:pb-6">
 
-          {/* Top row: image toggle + dark mode + table */}
+          {/* Top row: dark mode + table */}
           <div className="flex items-center justify-end gap-2 mb-5 sm:mb-6">
-            <button
-              onClick={toggleShowImages}
-              className={cn(
-                "h-9 px-3 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider transition-all active:scale-95 border",
-                showImages
-                  ? "bg-white/90 dark:bg-zinc-800/90 text-emerald-600 dark:text-emerald-400 border-zinc-200/80 dark:border-zinc-700 shadow-sm"
-                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200/50 dark:border-zinc-700"
-              )}
-              aria-label="Toggle dish photos"
-              title={showImages ? "Hide food photos" : "Show food photos"}
-            >
-              {showImages ? <ImageIcon size={14} className="text-emerald-600 dark:text-emerald-400" /> : <ImageOff size={14} className="text-zinc-400" />}
-              <span>{showImages ? "Photos" : "Text Only"}</span>
-            </button>
             <button
               onClick={() => setIsDark((d) => !d)}
               className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-90 transition-all"
@@ -962,7 +926,7 @@ export default function CustomerMenuPage() {
             </div>
 
             {/* Search (desktop sidebar) */}
-            <div className="px-4 py-3 border-b border-emerald-100/40 dark:border-zinc-800 space-y-2">
+            <div className="px-4 py-3 border-b border-emerald-100/40 dark:border-zinc-800">
               <div className="relative flex items-center">
                 <Search size={14} className="absolute left-3 text-zinc-400 pointer-events-none shrink-0" />
                 <input
@@ -979,23 +943,6 @@ export default function CustomerMenuPage() {
                   </button>
                 )}
               </div>
-              <button
-                onClick={toggleShowImages}
-                className={cn(
-                  "w-full h-8 px-2.5 rounded-lg border flex items-center justify-between text-[10px] font-black uppercase tracking-wider transition-all",
-                  showImages
-                    ? "bg-emerald-50/80 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50"
-                    : "bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"
-                )}
-              >
-                <span className="flex items-center gap-1.5">
-                  {showImages ? <ImageIcon size={13} /> : <ImageOff size={13} />}
-                  Dish Photos
-                </span>
-                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded", showImages ? "bg-emerald-600 text-white" : "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300")}>
-                  {showImages ? "ON" : "OFF"}
-                </span>
-              </button>
             </div>
 
             {/* Category list */}
@@ -1048,9 +995,9 @@ export default function CustomerMenuPage() {
 
           {/* Mobile-only sticky header (search + pills) */}
           <div className="lg:hidden sticky top-0 z-40 bg-[#F1F5F1]/90 dark:bg-zinc-950/90 backdrop-blur-xl border-b border-emerald-100/60 dark:border-zinc-800">
-            {/* Search input + Image toggle */}
-            <div className="max-w-2xl mx-auto px-4 pt-3 pb-2 flex items-center gap-2">
-              <div className="relative flex-1 flex items-center">
+            {/* Search input */}
+            <div className="max-w-2xl mx-auto px-4 pt-3 pb-2">
+              <div className="relative flex items-center">
                 <Search
                   size={15}
                   className="absolute left-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none shrink-0"
@@ -1071,20 +1018,6 @@ export default function CustomerMenuPage() {
                   </button>
                 )}
               </div>
-              <button
-                onClick={toggleShowImages}
-                className={cn(
-                  "h-10 px-2.5 rounded-xl border flex items-center gap-1 text-[10px] font-black uppercase tracking-wider shrink-0 transition-all active:scale-95 shadow-sm",
-                  showImages
-                    ? "bg-white dark:bg-zinc-800 text-emerald-600 dark:text-emerald-400 border-zinc-200 dark:border-zinc-700"
-                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200/60 dark:border-zinc-700"
-                )}
-                aria-label="Toggle dish photos"
-                title={showImages ? "Hide food photos" : "Show food photos"}
-              >
-                {showImages ? <ImageIcon size={14} /> : <ImageOff size={14} />}
-                <span>{showImages ? "Photos" : "Text"}</span>
-              </button>
             </div>
 
             {/* Category pills — hidden when searching */}

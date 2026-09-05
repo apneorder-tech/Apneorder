@@ -20,6 +20,11 @@ export const CACHE_KEYS = {
    * v2 — added prepTimeMinutes to cached payload (bump version on any schema change)
    */
   menu: (restaurantId: string) => `menu_v2:${restaurantId}`,
+
+  /**
+   * Restaurant display settings (showImages, theme, etc.)
+   */
+  settings: (restaurantId: string) => `restaurant_settings:${restaurantId}`,
   
   /**
    * Dashboard statistics cache (optional future use).
