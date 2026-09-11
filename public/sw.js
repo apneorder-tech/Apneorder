@@ -26,14 +26,16 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  const baseUrl = self.location.origin;
   const options = {
     body: data.body,
-    icon: data.icon || "/icon.png",
-    badge: data.badge || "/icon.png",
-    vibrate: [200, 100, 200, 100, 200, 100, 400],
+    icon: data.icon ? (data.icon.startsWith("http") ? data.icon : `${baseUrl}${data.icon}`) : `${baseUrl}/icon.png`,
+    badge: data.badge ? (data.badge.startsWith("http") ? data.badge : `${baseUrl}${data.badge}`) : `${baseUrl}/icon.png`,
+    vibrate: [300, 150, 300, 150, 300, 150, 500],
     tag: data.tag || `order-${Date.now()}`,
     renotify: true,
     requireInteraction: true,
+    silent: false,
     data: {
       url: data.url || "/dashboard",
       dateOfArrival: Date.now(),
@@ -46,6 +48,7 @@ self.addEventListener("push", (event) => {
       },
     ],
   };
+
 
   event.waitUntil(
     self.registration.showNotification(data.title, options)

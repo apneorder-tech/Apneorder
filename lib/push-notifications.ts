@@ -58,7 +58,10 @@ export async function sendPushToManager(managerId: string, payload: PushPayload)
       };
 
       try {
-        await webpush.sendNotification(pushSubscription, notificationPayload);
+        await webpush.sendNotification(pushSubscription, notificationPayload, {
+          TTL: 86400, // 24 hours
+          urgency: "high", // ⚡ High urgency wakes Android from Doze mode / screen off
+        });
       } catch (err: any) {
         // HTTP 404 Not Found or 410 Gone means the subscription is expired / revoked
         if (err?.statusCode === 404 || err?.statusCode === 410) {
@@ -72,6 +75,7 @@ export async function sendPushToManager(managerId: string, payload: PushPayload)
 
     await Promise.allSettled(sendPromises);
     return { success: true, count: subscriptions.length };
+
   } catch (error) {
     console.error("sendPushToManager error:", error);
     return { success: false, error };
