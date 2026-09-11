@@ -31,7 +31,8 @@ export async function GET(request: Request) {
     }
 
     // 2. Critical: Use the authenticated UID as the primary managerId for security and to resolve legacy CUID mismatches.
-    const effectiveManagerId = auth.uid === "ADMIN_UID" ? managerId : auth.uid;
+    const effectiveManagerId: string = auth.uid === "ADMIN_UID" ? managerId : (auth.uid || managerId);
+
 
     // 1. Define Time Ranges
     const now = new Date();

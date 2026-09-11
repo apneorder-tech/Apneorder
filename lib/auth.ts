@@ -36,7 +36,11 @@ export async function getCachedUser(token: string) {
   return { user, error };
 }
 
-export async function verifyManagerSession(request: Request) {
+export type AuthResult =
+  | { authenticated: true; uid: string; email?: string; error?: undefined }
+  | { authenticated: false; error: string; uid?: undefined; email?: undefined };
+
+export async function verifyManagerSession(request: Request): Promise<AuthResult> {
   try {
     const authHeader = request.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -60,6 +64,7 @@ export async function verifyManagerSession(request: Request) {
     return { authenticated: false, error: "Unauthorized" };
   }
 }
+
 
 export function unauthorizedResponse(message = "Unauthorized") {
   return NextResponse.json({ success: false, error: message }, { status: 401 });

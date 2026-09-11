@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     const auth = await verifyManagerSession(request);
     if (!auth.authenticated) return unauthorizedResponse(auth.error);
 
-    const effectiveManagerId = auth.uid === "ADMIN_UID" ? managerId : auth.uid;
+    const effectiveManagerId: string = auth.uid === "ADMIN_UID" ? managerId : (auth.uid || managerId);
 
     const now = new Date();
     const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 7);
