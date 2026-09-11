@@ -1,5 +1,6 @@
 import webpush from "web-push";
-import prisma from "@/lib/prisma-new";
+import prisma from "./prisma-new";
+
 
 const VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
