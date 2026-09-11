@@ -960,7 +960,10 @@ export default function DashboardPage() {
               activeOrdersCount={activeOrders.length}
               setMobileMenuOpen={setMobileMenuOpen}
               subscriptionStatus={subscription?.status}
+              managerId={managerId}
+              getToken={getToken}
             />
+
 
             {/* Waiter Call Alerts — shown above all content, non-dismissable */}
             <WaiterCallAlert

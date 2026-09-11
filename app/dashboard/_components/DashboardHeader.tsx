@@ -1,8 +1,9 @@
 import React from "react";
-import { Menu, RefreshCw, QrCode, Eye, Plus, Bell } from "lucide-react";
+import { Menu, RefreshCw, QrCode, Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NotificationPrompt } from "./NotificationPrompt";
 
 export function DashboardHeader({
   activeView,
@@ -15,6 +16,8 @@ export function DashboardHeader({
   activeOrdersCount,
   setMobileMenuOpen,
   subscriptionStatus,
+  managerId,
+  getToken,
 }: {
   activeView: string;
   realtimeStatus: string;
@@ -26,7 +29,10 @@ export function DashboardHeader({
   activeOrdersCount: number;
   setMobileMenuOpen: (open: boolean) => void;
   subscriptionStatus?: string;
+  managerId?: string | null;
+  getToken?: () => Promise<string | null>;
 }) {
+
   return (
     <header className="sticky top-0 z-30 bg-[#f8f9fa]/80 backdrop-blur-xl border-b border-zinc-100 lg:border-none">
       <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-3 sm:py-4 lg:py-6 xl:py-8">
@@ -74,8 +80,12 @@ export function DashboardHeader({
 
           {/* Right actions */}
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
+            {/* Push Notifications Toggle */}
+            <NotificationPrompt managerId={managerId || null} getToken={getToken || (async () => null)} />
+
             {/* Realtime Status Indicator (Premium Only) */}
             {subscriptionStatus === "ACTIVE" && (
+
               <div
                 className={cn(
                   "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border opacity-80",

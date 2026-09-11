@@ -123,9 +123,24 @@ export async function POST(request: Request) {
     if (order?.restaurant?.managerId) {
       const { redis, CACHE_KEYS } = await import("@/lib/redis-new");
       redis.del(CACHE_KEYS.dashboard(order.restaurant.managerId)).catch(() => {});
+
+      // Dispatch Web Push notification to all manager's devices
+      const { sendPushToManager } = await import("@/lib/push-notifications");
+      const itemCount = order.orderItems?.reduce((acc: number, item: any) => acc + item.quantity, 0) || order.orderItems?.length || 1;
+      const formattedAmount = `₹${Number(order.totalAmount).toLocaleString("en-IN")}`;
+      const tableName = order.table?.tableNumber || table.tableNumber || "Table";
+
+      sendPushToManager(order.restaurant.managerId, {
+        title: `🔔 New Order Received!`,
+        body: `Table #${tableName} — ${formattedAmount} (${itemCount} ${itemCount === 1 ? 'item' : 'items'})`,
+        url: `/dashboard`,
+        tag: `order-${order.id}`,
+        data: { orderId: order.id, tableNumber: tableName },
+      }).catch((e) => console.error("Push dispatch error:", e));
     }
 
     return NextResponse.json({ success: true, orderId: order.id });
+
 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
