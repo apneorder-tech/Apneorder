@@ -149,7 +149,7 @@ export function MenuView({
         </div>
       )}
 
-      {menuCategories.map((cat) => (
+      {(Array.isArray(menuCategories) ? menuCategories : []).map((cat) => (
         <div
           key={cat.id}
           className="rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 lg:p-8 border border-zinc-200/50 shadow-sm"

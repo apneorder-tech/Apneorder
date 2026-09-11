@@ -144,6 +144,31 @@ export default function DashboardPage() {
   }, []);
 
   // ─── Data Fetching ───
+  const applyDashboardData = useCallback((data: any, essentialsOnly = true) => {
+    if (data.tables) setTables(data.tables);
+    if (data.orders) setOrders(data.orders);
+    if (data.completedOrders) setCompletedOrders(data.completedOrders);
+    if (data.hasMoreCompleted !== undefined) setHasMoreCompleted(data.hasMoreCompleted);
+    if (data.totalCompleted !== undefined) setTotalCompleted(data.totalCompleted);
+    if (data.restaurantName) setRestaurantName(data.restaurantName);
+    if (data.stats) setDashboardStats((prev) => ({ ...prev, ...data.stats }));
+    
+    if (data.restaurantId) {
+      setRestaurantId(data.restaurantId);
+      setUpiId(data.upiId || "");
+      setTempUpiId(data.upiId || "");
+      if (data.showImages !== undefined) setShowMenuImages(data.showImages);
+      if (data.subscription) setSubscription(data.subscription);
+    }
+
+    if (Array.isArray(data.menuCategories)) setMenuCategories(data.menuCategories);
+
+    if (essentialsOnly) {
+      setIsEssentialsLoaded(true);
+      setLoading(false);
+    }
+  }, []);
+
   const fetchDashboardData = useCallback(async (uid: string, essentialsOnly = true) => {
     try {
       const idToken = await getToken();
@@ -153,37 +178,24 @@ export default function DashboardPage() {
       const data = await res.json();
       
       if (!data.success) { 
-        // If essential fetch fails, we just wait for sync.
-        // Only redirect to onboarding if FULL fetch fails AND we are reasonably sure sync is done.
-        // We'll handle the redirect in the onAuthStateChanged sync callback instead.
+        setLoading(false);
         return; 
       }
       
-      if (data.tables) setTables(data.tables);
-      if (data.orders) setOrders(data.orders);
-      if (data.completedOrders) setCompletedOrders(data.completedOrders);
-      if (data.hasMoreCompleted !== undefined) setHasMoreCompleted(data.hasMoreCompleted);
-      if (data.totalCompleted !== undefined) setTotalCompleted(data.totalCompleted);
-      if (data.restaurantName) setRestaurantName(data.restaurantName);
-      if (data.stats) setDashboardStats((prev) => ({ ...prev, ...data.stats }));
-      
-      if (data.restaurantId) {
-        setRestaurantId(data.restaurantId);
-        setUpiId(data.upiId || "");
-        setTempUpiId(data.upiId || "");
-        if (data.showImages !== undefined) setShowMenuImages(data.showImages);
-        if (data.subscription) setSubscription(data.subscription);
-      }
+      applyDashboardData(data, essentialsOnly);
 
-      if (essentialsOnly) {
-        setIsEssentialsLoaded(true);
-        setLoading(false);
+      // Persist to local cache for instant sub-second render on subsequent loads
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`apne_dash_cache_${uid}`, JSON.stringify(data));
+        } catch {}
       }
     } catch (err) {
       console.error("Fetch Error:", err);
+    } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, applyDashboardData]);
 
   // Keep ordersRef in sync so updateOrderStatus can read current orders synchronously
   useEffect(() => { ordersRef.current = orders; }, [orders]);
@@ -197,7 +209,7 @@ export default function DashboardPage() {
         headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && Array.isArray(data.menuCategories)) {
         setMenuCategories(data.menuCategories);
         setIsMenuLoaded(true);
       }
@@ -208,6 +220,7 @@ export default function DashboardPage() {
       setIsLoadingMenu(false);
     }
   }, [isMenuLoaded, isLoadingMenu, getToken]);
+
 
   useEffect(() => {
     if (activeView === "menu" && restaurantId) fetchMenuData(restaurantId);
@@ -261,7 +274,7 @@ export default function DashboardPage() {
     setHasMounted(true);
   }, []);
 
-  // Use the new progressive fetch on mount
+  // Use the progressive fetch on mount with instant local cache hydration
   useEffect(() => {
     const initDashboard = async (supabaseUser: SupabaseUser, token: string) => {
       setUser(supabaseUser);
@@ -271,9 +284,23 @@ export default function DashboardPage() {
       if (typeof window !== "undefined") {
         const cachedId = localStorage.getItem(`managerId_${uid}`);
         if (cachedId) idToUse = cachedId;
+        
+        // ⚡ INSTANT HYDRATION: Load cached dashboard state immediately (0ms wait)
+        try {
+          const cachedJson = localStorage.getItem(`apne_dash_cache_${idToUse}`) || localStorage.getItem(`apne_dash_cache_${uid}`);
+          if (cachedJson) {
+            const cachedData = JSON.parse(cachedJson);
+            if (cachedData && cachedData.success) {
+              applyDashboardData(cachedData, true);
+            }
+          }
+        } catch (e) {
+          console.warn("Local cache parse skipped:", e);
+        }
       }
 
       setManagerId(idToUse);
+      // Fetch fresh data in background without blocking UI
       fetchDashboardData(idToUse);
 
       // Background sync
@@ -314,7 +341,8 @@ export default function DashboardPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, applyDashboardData]);
+
 
   useEffect(() => {
     const channel = supabase.channel(`dashboard-${restaurantId}`)
@@ -533,10 +561,32 @@ export default function DashboardPage() {
     const prevOrder = ordersRef.current.find((o) => o.id === orderId);
 
     setOrders((p) => {
-      if (status === "completed" || status === "cancelled") {
-        return p.filter((o) => o.id !== orderId);
+      const nextOrders = (status === "completed" || status === "cancelled")
+        ? p.filter((o) => o.id !== orderId)
+        : p.map((o) => (o.id === orderId ? { ...o, status } : o));
+
+      // Update local storage cache immediately with the new order state
+      if (typeof window !== "undefined") {
+        const uid = managerId || user?.id;
+        if (uid) {
+          try {
+            const cachedJson = localStorage.getItem(`apne_dash_cache_${uid}`);
+            if (cachedJson) {
+              const cached = JSON.parse(cachedJson);
+              cached.orders = nextOrders;
+              if (status === "completed" && prevOrder) {
+                const existingCompleted = cached.completedOrders || [];
+                if (!existingCompleted.some((c: any) => c.id === orderId)) {
+                  cached.completedOrders = [{ ...prevOrder, status: "completed" }, ...existingCompleted];
+                }
+              }
+              localStorage.setItem(`apne_dash_cache_${uid}`, JSON.stringify(cached));
+            }
+          } catch {}
+        }
       }
-      return p.map((o) => (o.id === orderId ? { ...o, status } : o));
+
+      return nextOrders;
     });
 
     // ── Stat deltas ──────────────────────────────────────────────────────────
@@ -615,7 +665,8 @@ export default function DashboardPage() {
         rollbackStats();
       }
     }
-  }, [getToken]);
+  }, [getToken, managerId, user]);
+
 
   const handleUpdateUpi = async () => {
     if (!restaurantId || !tempUpiId.trim() || !tempUpiId.includes("@")) return;

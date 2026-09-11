@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma-new";
+import { redis, CACHE_KEYS } from "@/lib/redis-new";
 
 export async function GET(
   request: Request,
@@ -34,8 +35,21 @@ export async function PATCH(
 
     const order = await prisma.order.update({
       where: { id: orderId },
-      data: { status },
+      data: {
+        status,
+        ...(status !== "payment_pending" && status !== "cancelled" ? { paymentStatus: "paid" } : {}),
+      },
+      include: {
+        restaurant: {
+          select: { managerId: true, id: true }
+        }
+      }
     });
+
+    // Invalidate Redis dashboard cache so refreshed pages immediately see updated orders
+    if (order?.restaurant?.managerId) {
+      redis.del(CACHE_KEYS.dashboard(order.restaurant.managerId)).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, order });
 
@@ -44,3 +58,4 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });
   }
 }
+

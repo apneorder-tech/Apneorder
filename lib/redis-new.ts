@@ -27,16 +27,24 @@ export const CACHE_KEYS = {
   settings: (restaurantId: string) => `restaurant_settings:${restaurantId}`,
   
   /**
+   * Dashboard essentials cache (quick initial load)
+   */
+  dashboard: (managerId: string) => `dashboard_essentials:${managerId}`,
+
+  /**
    * Dashboard statistics cache (optional future use).
    */
   stats: (restaurantId: string) => `stats:${restaurantId}`,
 };
 
 /**
- * Standard TTS (Time To Live) constants.
+ * Standard TTL (Time To Live) constants in seconds.
  */
 export const CACHE_TTL = {
+  SHORT_DASHBOARD: 15, // 15 seconds for dashboard freshness while making repeat loads instant
+  ONE_MINUTE: 60,
   ONE_HOUR: 3600,
   ONE_DAY: 86400,
   ONE_WEEK: 604800,
 };
+

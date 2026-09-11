@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getCachedUser } from "@/lib/auth";
 import prisma from "@/lib/prisma-new";
 
 export async function POST(request: Request) {
@@ -10,11 +10,12 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.split("Bearer ")[1];
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    const { user, error } = await getCachedUser(token);
 
     if (error || !user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
+
 
     const { id: uid, email } = user;
 

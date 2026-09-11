@@ -112,9 +112,18 @@ export async function POST(request: Request) {
                   menuItem: true
               }
           },
-          table: true
+          table: true,
+          restaurant: {
+            select: { managerId: true }
+          }
       }
     });
+
+    // Invalidate Redis dashboard cache so manager sees new orders immediately
+    if (order?.restaurant?.managerId) {
+      const { redis, CACHE_KEYS } = await import("@/lib/redis-new");
+      redis.del(CACHE_KEYS.dashboard(order.restaurant.managerId)).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, orderId: order.id });
 
@@ -123,4 +132,5 @@ export async function POST(request: Request) {
     console.error("Order Creation Error:", message, error);
     return NextResponse.json({ success: false, error: "Internal server error", _detail: message }, { status: 500 });
   }
+
 }

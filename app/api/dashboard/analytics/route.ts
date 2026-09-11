@@ -55,48 +55,92 @@ export async function GET(request: Request) {
       return { start, end, label: start.toLocaleDateString("en-IN", { month: "short" }) };
     });
 
-    const whereBase = { table: { restaurant: { managerId: effectiveManagerId } }, status: "completed" as const };
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { managerId: effectiveManagerId },
+      select: { id: true },
+    });
 
-    const [
-      salesAggWeek,
-      salesAggMonth,
-      salesAggYear,
-      topItemsAgg,
-      allItemsSoldWeek,
-      weekChartResults,
-      monthChartResults,
-      yearChartResults,
-      menuItems,
-    ] = await Promise.all([
-      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: sevenDaysAgo } } }),
-      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: thirtyDaysAgo } } }),
-      prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: oneYearAgo } } }),
+    if (!restaurant) {
+      return NextResponse.json({ success: false, error: "Restaurant not found" }, { status: 404 });
+    }
+
+    const restaurantId = restaurant.id;
+
+    // Fetch orders, top items, and menu items in parallel (3 efficient queries total)
+    const [orders, topItemsAgg, allItemsSoldWeek, menuItems] = await Promise.all([
+      prisma.order.findMany({
+        where: {
+          restaurantId,
+          status: "completed",
+          createdAt: { gte: oneYearAgo },
+        },
+        select: {
+          totalAmount: true,
+          createdAt: true,
+        },
+      }),
       prisma.orderItem.groupBy({
         by: ["menuItemId"],
         _sum: { quantity: true },
-        where: { order: { ...whereBase, createdAt: { gte: sevenDaysAgo } } },
+        where: { order: { restaurantId, status: "completed", createdAt: { gte: sevenDaysAgo } } },
         orderBy: { _sum: { quantity: "desc" } },
         take: 5,
       }),
       prisma.orderItem.groupBy({
         by: ["menuItemId"],
         _sum: { quantity: true },
-        where: { order: { ...whereBase, createdAt: { gte: sevenDaysAgo } } },
+        where: { order: { restaurantId, status: "completed", createdAt: { gte: sevenDaysAgo } } },
       }),
-      Promise.all(weekBuckets.map(({ start, end }) =>
-        prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: start, lt: end } } })
-      )),
-      Promise.all(monthBuckets.map(({ start, end }) =>
-        prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: start, lt: end } } })
-      )),
-      Promise.all(yearBuckets.map(({ start, end }) =>
-        prisma.order.aggregate({ _sum: { totalAmount: true }, where: { ...whereBase, createdAt: { gte: start, lt: end } } })
-      )),
       prisma.menuItem.findMany({
-        where: { category: { restaurant: { managerId: effectiveManagerId } }, isDeleted: false } as any,
+        where: { category: { restaurantId }, isDeleted: false } as any,
         select: { id: true, name: true, type: true, price: true, costPrice: true },
       }),
     ]);
+
+    // Fast in-memory aggregation of sales and chart buckets
+    let salesWeekly = 0;
+    let salesMonthly = 0;
+    let salesYearly = 0;
+
+    const weekSums = new Array(weekBuckets.length).fill(0);
+    const monthSums = new Array(monthBuckets.length).fill(0);
+    const yearSums = new Array(yearBuckets.length).fill(0);
+
+    const sevenDaysTime = sevenDaysAgo.getTime();
+    const thirtyDaysTime = thirtyDaysAgo.getTime();
+
+    for (const order of orders) {
+      const amt = Number(order.totalAmount || 0);
+      const time = new Date(order.createdAt).getTime();
+
+      salesYearly += amt;
+      if (time >= sevenDaysTime) salesWeekly += amt;
+      if (time >= thirtyDaysTime) salesMonthly += amt;
+
+      // Week buckets
+      for (let i = 0; i < weekBuckets.length; i++) {
+        if (time >= weekBuckets[i].start.getTime() && time < weekBuckets[i].end.getTime()) {
+          weekSums[i] += amt;
+          break;
+        }
+      }
+
+      // Month buckets
+      for (let i = 0; i < monthBuckets.length; i++) {
+        if (time >= monthBuckets[i].start.getTime() && time < monthBuckets[i].end.getTime()) {
+          monthSums[i] += amt;
+          break;
+        }
+      }
+
+      // Year buckets
+      for (let i = 0; i < yearBuckets.length; i++) {
+        if (time >= yearBuckets[i].start.getTime() && time < yearBuckets[i].end.getTime()) {
+          yearSums[i] += amt;
+          break;
+        }
+      }
+    }
 
     const topItemIds = topItemsAgg.map((i) => i.menuItemId);
     const topItemsMeta = menuItems.filter((m) => topItemIds.includes(m.id));
@@ -126,16 +170,16 @@ export async function GET(request: Request) {
       ? { items: profitItems, totalProfitWeek, topProfitItem: profitItems[0] ?? null, lossLeaders, itemsWithoutCost }
       : null;
 
-    const chartWeek = weekBuckets.map(({ label }, i) => ({ date: label, sales: Number(weekChartResults[i]._sum.totalAmount ?? 0) }));
-    const chartMonth = monthBuckets.map(({ label }, i) => ({ date: label, sales: Number(monthChartResults[i]._sum.totalAmount ?? 0) }));
-    const chartYear = yearBuckets.map(({ label }, i) => ({ date: label, sales: Number(yearChartResults[i]._sum.totalAmount ?? 0) }));
+    const chartWeek = weekBuckets.map(({ label }, i) => ({ date: label, sales: weekSums[i] }));
+    const chartMonth = monthBuckets.map(({ label }, i) => ({ date: label, sales: monthSums[i] }));
+    const chartYear = yearBuckets.map(({ label }, i) => ({ date: label, sales: yearSums[i] }));
 
     return NextResponse.json({
       success: true,
       stats: {
-        salesWeekly: Number(salesAggWeek._sum.totalAmount ?? 0),
-        salesMonthly: Number(salesAggMonth._sum.totalAmount ?? 0),
-        salesYearly: Number(salesAggYear._sum.totalAmount ?? 0),
+        salesWeekly,
+        salesMonthly,
+        salesYearly,
         timeframes: {
           week: { chartData: chartWeek, topItems },
           month: { chartData: chartMonth, topItems },
@@ -144,6 +188,7 @@ export async function GET(request: Request) {
         profitData,
       },
     });
+
   } catch (error) {
     console.error("Analytics Error:", error);
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 });

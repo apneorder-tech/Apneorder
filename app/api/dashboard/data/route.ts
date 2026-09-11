@@ -55,11 +55,31 @@ export async function GET(request: Request) {
     const isEssentials = searchParams.get("essentials") === "true";
     const isSubscriptionOnly = searchParams.get("subscriptionOnly") === "true";
 
-    // 2.5 Fetch Subscription Status First (Pre-flight Security)
-    let subscription = await (prisma as any).subscription.findUnique({
-      where: { managerId: effectiveManagerId },
-      select: { status: true, currentPeriodEnd: true }
-    });
+    // 2.7 Quick Redis Cache Check for Essentials Mode
+    if (isEssentials && !searchParams.get("bypassCache")) {
+      try {
+        const cached = await redis.get(CACHE_KEYS.dashboard(effectiveManagerId));
+        if (cached) {
+          return NextResponse.json(cached);
+        }
+      } catch (cacheErr) {
+        console.warn("Redis dashboard cache read error:", cacheErr);
+      }
+    }
+
+    // 2.8 Fetch Subscription and Restaurant in parallel
+    const [subscriptionRaw, restaurantBrief] = await Promise.all([
+      (prisma as any).subscription.findUnique({
+        where: { managerId: effectiveManagerId },
+        select: { status: true, currentPeriodEnd: true }
+      }),
+      (isSubscriptionOnly || (!isEssentials)) ? null : prisma.restaurant.findUnique({
+        where: { managerId: effectiveManagerId },
+        select: { id: true, name: true }
+      })
+    ]);
+
+    let subscription = subscriptionRaw;
 
     // Auto-expire: if DB says ACTIVE but currentPeriodEnd has passed, mark it EXPIRED
     if (
@@ -67,14 +87,14 @@ export async function GET(request: Request) {
       subscription?.currentPeriodEnd &&
       new Date(subscription.currentPeriodEnd) < new Date()
     ) {
-      await (prisma as any).subscription.update({
+      (prisma as any).subscription.update({
         where: { managerId: effectiveManagerId },
         data: { status: "EXPIRED" }
-      });
+      }).catch(console.error);
       subscription = { ...subscription, status: "EXPIRED" };
     }
 
-    // 2.6 Quick Subscription Check mode
+    // 2.9 Quick Subscription Check mode
     if (isSubscriptionOnly) {
       const restaurant = await prisma.restaurant.findUnique({
         where: { managerId: effectiveManagerId },
@@ -91,20 +111,19 @@ export async function GET(request: Request) {
       });
     }
 
-    // 2.7 Security Enforcement: Ensure ACTIVE subscription for any operational data
+    // 2.10 Security Enforcement: Ensure ACTIVE subscription for any operational data
     if (!subscription || subscription.status !== "ACTIVE") {
-      // We still need to return basic restaurant info so the dashboard can show the UI/Plans state
-      const restaurant = await prisma.restaurant.findUnique({
+      const rest = restaurantBrief || await prisma.restaurant.findUnique({
         where: { managerId: effectiveManagerId },
         select: { id: true, name: true }
       });
       
       return NextResponse.json({
-        success: true, // success = true but content is restricted
+        success: true,
         restricted: true,
         message: "Active subscription required for this data",
-        restaurantId: restaurant?.id,
-        restaurantName: restaurant?.name,
+        restaurantId: rest?.id,
+        restaurantName: rest?.name,
         subscription: subscription || null
       });
     }
@@ -178,7 +197,7 @@ export async function GET(request: Request) {
         ? await redis.get<{ showImages?: boolean }>(CACHE_KEYS.settings((restaurant as any).id)).catch(() => null)
         : null;
 
-      return NextResponse.json({
+      const responsePayload = {
         success: true,
         orders: allOrders.filter((o: any) => o.status !== "completed"),
         completedOrders: completedToday.slice(0, 10),
@@ -198,8 +217,14 @@ export async function GET(request: Request) {
           preparedTodayCount,
         },
         subscription: subscription || null,
-      });
+      };
+
+      // Cache essentials in Redis for fast warm reload (15s TTL)
+      redis.set(CACHE_KEYS.dashboard(effectiveManagerId), responsePayload, { ex: 15 }).catch(() => {});
+
+      return NextResponse.json(responsePayload);
     }
+
 
     // Full fetch (for backwards compatibility or specific needs)
     if (!(prisma as any).subscription) {
