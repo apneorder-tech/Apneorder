@@ -1,13 +1,21 @@
 import webpush from "web-push";
 import prisma from "@/lib/prisma-new";
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@apneorder.com";
+const VAPID_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+  "BEBwTl7Lt6mGO9AoEqXtYWdcXXZHGL68yz6XBqdZ0Kp7VUn0e_jLF_fEz0a1VkTJFFtr6-iPfx2vgNaEUj0Fs_g";
+const VAPID_PRIVATE_KEY =
+  process.env.VAPID_PRIVATE_KEY ||
+  "1xZhPBeQ5H_V2L86RtdM8dG39d-UtAWEnC1bqZNyw3Y";
+const VAPID_SUBJECT =
+  process.env.VAPID_SUBJECT || "mailto:support@apneorder.com";
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+try {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} catch (e) {
+  console.warn("VAPID setup warning:", e);
 }
+
 
 export interface PushPayload {
   title: string;
